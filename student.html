@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>채움수학 오답노트</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0F6E56">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="오답노트">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; overflow-x: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 1rem; }
+  .wrap { max-width: 480px; margin: 0 auto; }
+
+  .board { background: white; border-radius: 16px; padding: 1.4rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  h1 { font-size: 19px; font-weight: 600; text-align: center; margin-bottom: 4px; color: #1a1a1a; }
+  .sub { font-size: 12.5px; color: #888; text-align: center; margin-bottom: 1.2rem; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; display: block; }
+  .form-group select, .form-group input { width: 100%; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid #ddd; outline: none; background: white; color: #1a1a1a; }
+  .form-group select:focus, .form-group input:focus { border-color: #0F6E56; }
+
+  .tab-bar { display: flex; gap: 6px; margin-bottom: 1.2rem; background: #f0f0eb; padding: 4px; border-radius: 12px; }
+  .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: #888; cursor: pointer; }
+  .tab-btn.active { background: white; color: #0F6E56; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .upload-mini-label { font-size: 12px; color: #888; margin-bottom: 5px; text-align: center; }
+  .upload-zone { border: 2px dashed #ccc; border-radius: 14px; padding: 1.4rem 0.6rem; text-align: center; cursor: pointer; background: #fafafa; transition: border-color 0.15s; }
+  .upload-zone:active { border-color: #0F6E56; }
+  .upload-zone.has-image { padding: 0; border-style: solid; overflow: hidden; }
+  .upload-zone img { width: 100%; height: 140px; object-fit: cover; display: block; background: #f0f0f0; }
+  .upload-text { color: #999; font-size: 12px; }
+  .upload-icon { font-size: 26px; margin-bottom: 4px; }
+  .file-input-hidden { display: none; }
+
+  .btn-submit { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #0F6E56; color: white; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .btn-submit:active { background: #0c5945; }
+  .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+
+  .status-msg { text-align: center; padding: 13px; border-radius: 10px; font-size: 13.5px; margin-top: 12px; display: none; }
+  .status-msg.show { display: block; }
+  .status-msg.success { background: #E1F5EE; color: #0F6E56; }
+  .status-msg.error { background: #FAECE7; color: #993C1D; }
+  .status-msg.loading { background: #f0f0f0; color: #666; }
+
+  .note-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+  .note-stat { flex: 1; background: #f8f8f5; border-radius: 10px; padding: 10px; text-align: center; border: 1px solid #e8e8e0; }
+  .note-stat-num { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+  .note-stat-num.green { color: #0F6E56; }
+  .note-stat-num.orange { color: #BA7517; }
+  .note-stat-label { font-size: 10.5px; color: #888; }
+
+  .filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 12px; border-radius: 18px; border: 1px solid #ddd; background: white; font-size: 12px; cursor: pointer; color: #666; }
+  .filter-btn.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
+  .note-list { display: flex; flex-direction: column; gap: 10px; }
+  .note-card { background: #fafafa; border-radius: 14px; padding: 12px; border: 1px solid #eee; }
+  .note-card.solved { opacity: 0.6; }
+  .note-card.has-solution { border-color: #BFE0D2; background: #F5FBF8; }
+
+  .note-thumbs-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .note-thumb { width: 100%; height: 80px; border-radius: 10px; object-fit: cover; cursor: pointer; background: #eee; display: block; }
+  .note-thumb-label { font-size: 9.5px; color: #999; text-align: center; margin-top: 3px; }
+  .note-thumb-col { flex: 1; min-width: 0; }
+
+  .note-meta-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .note-unit-tag { font-size: 10.5px; padding: 3px 8px; border-radius: 6px; background: #E1F5EE; color: #0F6E56; font-weight: 600; }
+  .note-unsorted-tag { font-size: 10.5px; padding: 3px 8px; border-radius: 6px; background: #FFE9DC; color: #B5421F; font-weight: 600; }
+  .note-solution-tag { font-size: 10.5px; padding: 3px 8px; border-radius: 6px; background: #FFF3CC; color: #854F0B; font-weight: 700; }
+  .note-memo { font-size: 12.5px; color: #444; margin-bottom: 4px; word-break: break-word; }
+  .note-date { font-size: 10.5px; color: #aaa; }
+
+  .note-bottom-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .student-status-badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; font-weight: 700; }
+  .student-status-badge.pending { background: #FFF3CC; color: #854F0B; }
+  .student-status-badge.approved { background: #E1F5EE; color: #0F6E56; }
+  .student-status-badge.rejected { background: #FFE0DC; color: #B5421F; }
+  .note-retry-badge-s { font-size: 10.5px; padding: 3px 8px; border-radius: 6px; background: #FFE0DC; color: #B5421F; font-weight: 600; }
+  .btn-add-mine { padding: 7px 12px; border-radius: 8px; border: 1px solid #0F6E56; background: white; color: #0F6E56; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-add-mine:active { background: #E1F5EE; }
+  .uploading-mine { font-size: 11px; color: #888; padding: 6px 0; }
+  .check-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+  .check-label input { width: 17px; height: 17px; accent-color: #0F6E56; }
+
+  .empty { text-align: center; padding: 2.5rem 1rem; color: #aaa; font-size: 13.5px; }
+  .no-student { text-align: center; padding: 2.5rem 1rem; color: #999; font-size: 13.5px; }
+
+  /* 비밀번호 입력 영역 */
+  .pw-area { margin-top: 4px; }
+  .pw-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .pw-row input { flex: 1; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid #ddd; outline: none; }
+  .pw-row input:focus { border-color: #0F6E56; }
+  .btn-pw-confirm { padding: 12px 18px; border-radius: 10px; border: none; background: #0F6E56; color: white; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .btn-pw-confirm:active { background: #0c5945; }
+  .pw-error { font-size: 12px; color: #993C1D; display: none; margin-top: 2px; }
+  .pw-error.show { display: block; }
+  .btn-logout-small { font-size: 12px; color: #aaa; background: none; border: none; cursor: pointer; margin-top: 8px; text-decoration: underline; display: block; }
+  .logged-in-label { font-size: 12px; color: #0F6E56; font-weight: 600; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+
+  /* 페이지네이션 */
+  .pagination { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 14px; flex-wrap: wrap; }
+  .page-btn { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; }
+  .page-btn:active { background: #f0f0eb; }
+  .page-btn.active { background: #0F6E56; color: white; border-color: #0F6E56; }
+  .page-btn.disabled { color: #ccc; cursor: default; pointer-events: none; }
+  .page-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 6px; }
+
+  .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.85); z-index: 999; align-items: center; justify-content: center; padding: 1.2rem; }
+  .modal-overlay.show { display: flex; }
+  .modal-content { max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; }
+  .modal-overlay img { max-width: 100%; max-height: 80vh; border-radius: 10px; object-fit: contain; }
+  .modal-label { color: white; font-size: 13px; margin-top: 10px; background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board">
+    <h1>📐 수학 오답노트</h1>
+    <p class="sub">사진을 올리고, 선생님이 정리해주신 풀이를 확인해보세요</p>
+
+    <!-- 로그인 영역 -->
+    <div id="login-area">
+      <input type="hidden" id="student-select" value="" />
+      <div id="logged-in-label" class="logged-in-label" style="display:none;">
+        <span id="logged-in-name"></span>
+        <button class="btn-logout-small" onclick="logout()">다른 계정으로 전환</button>
+      </div>
+      <div id="login-form">
+        <div class="form-group">
+          <label class="form-label">이름</label>
+          <input type="text" id="name-input" placeholder="이름을 입력하세요" maxlength="20" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">비밀번호</label>
+          <div class="pw-row">
+            <input type="password" id="pw-input" placeholder="비밀번호 입력" maxlength="20" onkeydown="if(event.key==='Enter') confirmPassword()" />
+            <button class="btn-pw-confirm" onclick="confirmPassword()">로그인</button>
+          </div>
+          <div class="pw-error" id="pw-error">이름 또는 비밀번호가 틀렸어요. 선생님께 문의하세요.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="content-area" style="display:none;">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📷 오답 올리기</button>
+        <button class="tab-btn" data-tab="view" onclick="switchTab('view')">📖 내 오답노트</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-upload">
+        <div class="upload-grid">
+          <div>
+            <p class="upload-mini-label">문제 사진 (필수)</p>
+            <div class="upload-zone" id="upload-zone-problem" onclick="document.getElementById('file-input-problem').click()">
+              <div class="upload-text"><div class="upload-icon">📷</div>탭해서 촬영</div>
+            </div>
+            <input type="file" id="file-input-problem" class="file-input-hidden" accept="image/*" onchange="onFileSelect(event,'problem')" />
+          </div>
+          <div>
+            <p class="upload-mini-label">내 풀이 (선택)</p>
+            <div class="upload-zone" id="upload-zone-mine" onclick="document.getElementById('file-input-mine').click()">
+              <div class="upload-text"><div class="upload-icon">✏️</div>탭해서 촬영</div>
+            </div>
+            <input type="file" id="file-input-mine" class="file-input-hidden" accept="image/*" onchange="onFileSelect(event,'mine')" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">메모 (선택)</label>
+          <input type="text" id="memo-input" placeholder="예: 3번 문제, 시간이 부족했어요" maxlength="60" />
+        </div>
+
+        <button class="btn-submit" id="submit-btn" onclick="submitEntry()" disabled>오답 올리기</button>
+        <div class="status-msg" id="status-msg"></div>
+      </div>
+
+      <div class="tab-panel" id="tab-view">
+        <div class="note-stats">
+          <div class="note-stat">
+            <div class="note-stat-num" id="stat-total">0</div>
+            <div class="note-stat-label">전체</div>
+          </div>
+          <div class="note-stat">
+            <div class="note-stat-num green" id="stat-solved">0</div>
+            <div class="note-stat-label">완료</div>
+          </div>
+          <div class="note-stat">
+            <div class="note-stat-num orange" id="stat-pending">0</div>
+            <div class="note-stat-label">검수대기</div>
+          </div>
+        </div>
+
+        <div class="filter-row">
+          <button class="filter-btn active" data-vfilter="all" onclick="setViewFilter('all')">전체</button>
+          <button class="filter-btn" data-vfilter="reviewing" onclick="setViewFilter('reviewing')">⏳ 검수중</button>
+          <button class="filter-btn" data-vfilter="redo" onclick="setViewFilter('redo')">🔄 다시풀기</button>
+          <button class="filter-btn" data-vfilter="solved" onclick="setViewFilter('solved')">✅ 완료</button>
+          <button class="filter-btn" data-vfilter="hasSolution" onclick="setViewFilter('hasSolution')">📖 풀이있음</button>
+        </div>
+
+        <div class="note-list" id="note-list">
+          <div class="empty">불러오는 중...</div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+        <div class="page-info" id="page-info"></div>
+      </div>
+    </div>
+
+    <div class="no-student" id="no-student-msg">👆 이름과 비밀번호를 입력하고 로그인해주세요</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+  <button class="modal-close" onclick="closeModal()">✕</button>
+  <div class="modal-content">
+    <img id="modal-img" src="" alt="확대 이미지" />
+    <div class="modal-label" id="modal-label"></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://pfaovietojozlrfztwom.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmYW92aWV0b2pvemxyZnp0d29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NzcxMDMsImV4cCI6MjA5NzU1MzEwM30.pO2NzKjwZzQJFmOYloiCHNBg9PdNSQlkiWuMyYicamQ';
+  const BUCKET = 'wrong-note-images';
+
+  function sbHeaders(extra) {
+    return Object.assign({
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    }, extra || {});
+  }
+
+  let pendingFiles = { problem: null, mine: null };
+  let currentEntries = [];
+  let viewFilter = 'all';
+  const PAGE_SIZE = 20;
+  let currentPage = 1;
+  let totalCount = 0;
+
+  // ===== 초기화: 자동 로그인 시도 =====
+  async function initLogin() {
+    const savedId = sessionStorage.getItem('my_student_id');
+    const savedName = sessionStorage.getItem('my_student_name');
+    if (savedId && savedName) {
+      // 세션에 저장된 로그인 정보로 자동 복원
+      document.getElementById('student-select').value = savedId;
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('logged-in-label').style.display = 'flex';
+      document.getElementById('logged-in-name').textContent = `✅ ${savedName}`;
+      showMainContent();
+    }
+  }
+
+  async function confirmPassword() {
+    const nameInput = document.getElementById('name-input');
+    const pwInput = document.getElementById('pw-input');
+    const pwError = document.getElementById('pw-error');
+    const enteredName = nameInput.value.trim();
+    const enteredPw = pwInput.value;
+
+    if (!enteredName) {
+      pwError.textContent = '이름을 입력해주세요.';
+      pwError.classList.add('show');
+      return;
+    }
+
+    try {
+      // DB에서 이름으로 학생 검색
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/students?name=eq.${encodeURIComponent(enteredName)}&select=id,name,password`, {
+        headers: sbHeaders()
+      });
+      const data = await res.json();
+      const stu = data[0];
+
+      if (!stu) {
+        pwError.textContent = '등록되지 않은 이름이에요. 선생님께 문의하세요.';
+        pwError.classList.add('show');
+        return;
+      }
+
+      // 비밀번호 확인 (비어있으면 아무 값이나 통과)
+      const correctPw = stu.password || '';
+      if (correctPw !== '' && enteredPw !== correctPw) {
+        pwError.textContent = '비밀번호가 틀렸어요. 선생님께 문의하세요.';
+        pwError.classList.add('show');
+        pwInput.value = '';
+        pwInput.focus();
+        return;
+      }
+
+      // 로그인 성공
+      pwError.classList.remove('show');
+      sessionStorage.setItem('my_student_id', stu.id);
+      sessionStorage.setItem('my_student_name', stu.name);
+      document.getElementById('student-select').value = stu.id;
+
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('logged-in-label').style.display = 'flex';
+      document.getElementById('logged-in-name').textContent = `✅ ${stu.name}`;
+
+      showMainContent();
+    } catch (err) {
+      console.error(err);
+      pwError.textContent = '오류가 발생했어요. 다시 시도해주세요.';
+      pwError.classList.add('show');
+    }
+  }
+
+  function showMainContent() {
+    document.getElementById('content-area').style.display = 'block';
+    document.getElementById('no-student-msg').style.display = 'none';
+    checkSubmitButton();
+    loadMyEntries();
+  }
+
+  function logout() {
+    sessionStorage.removeItem('my_student_id');
+    sessionStorage.removeItem('my_student_name');
+    document.getElementById('student-select').value = '';
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('logged-in-label').style.display = 'none';
+    document.getElementById('content-area').style.display = 'none';
+    document.getElementById('no-student-msg').style.display = 'block';
+    document.getElementById('name-input').value = '';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-error').classList.remove('show');
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (tab === 'view') loadMyEntries();
+  }
+
+  function onFileSelect(e, kind) {
+    const file = e.target.files[0];
+    if (!file) return;
+    pendingFiles[kind] = file;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const zone = document.getElementById('upload-zone-' + kind);
+      zone.classList.add('has-image');
+      zone.innerHTML = `<img src="${ev.target.result}" alt="미리보기" />`;
+      checkSubmitButton();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function checkSubmitButton() {
+    const studentId = document.getElementById('student-select').value;
+    document.getElementById('submit-btn').disabled = !(pendingFiles.problem && studentId);
+  }
+
+  function compressImage(file, maxSize = 900, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('이미지 압축 실패'));
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadOne(file, studentId, tag) {
+    const compressedBlob = await compressImage(file);
+    const fileName = `${studentId}_${tag}_${Date.now()}.jpg`;
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+      method: 'POST',
+      headers: sbHeaders({ 'Content-Type': 'image/jpeg' }),
+      body: compressedBlob
+    });
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error('이미지 업로드 실패: ' + errText);
+    }
+    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status-msg');
+    el.textContent = msg;
+    el.className = 'status-msg show ' + type;
+  }
+
+  async function submitEntry() {
+    const studentId = document.getElementById('student-select').value;
+    const memo = document.getElementById('memo-input').value.trim();
+    if (!pendingFiles.problem || !studentId) return;
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    showStatus('업로드 중이에요...', 'loading');
+
+    try {
+      const imageUrl = await uploadOne(pendingFiles.problem, studentId, 'problem');
+      let imageMineUrl = '';
+      if (pendingFiles.mine) {
+        imageMineUrl = await uploadOne(pendingFiles.mine, studentId, 'mine');
+      }
+
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+      const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify({
+          student_id: studentId,
+          image_url: imageUrl,
+          image_mine_url: imageMineUrl,
+          memo: memo,
+          entry_date: dateStr,
+          solved: false,
+          retry_count: 0
+        })
+      });
+
+      if (!dbRes.ok) {
+        const errText = await dbRes.text();
+        throw new Error('저장 실패: ' + errText);
+      }
+
+      showStatus('✅ 오답이 올라갔어요! 선생님이 풀이를 정리해주실 거예요', 'success');
+
+      pendingFiles = { problem: null, mine: null };
+      document.getElementById('file-input-problem').value = '';
+      document.getElementById('file-input-mine').value = '';
+      resetUploadZone('problem', '탭해서 촬영', '📷');
+      resetUploadZone('mine', '탭해서 촬영', '✏️');
+      document.getElementById('memo-input').value = '';
+      checkSubmitButton();
+
+      currentPage = 1;
+      loadMyEntries();
+
+    } catch (err) {
+      console.error(err);
+      showStatus('❌ 업로드에 실패했어요. 다시 시도해주세요', 'error');
+    } finally {
+      checkSubmitButton();
+    }
+  }
+
+  function resetUploadZone(kind, label, icon) {
+    const zone = document.getElementById('upload-zone-' + kind);
+    zone.classList.remove('has-image');
+    zone.innerHTML = `<div class="upload-text"><div class="upload-icon">${icon}</div>${label}</div>`;
+  }
+
+  async function loadMyEntries() {
+    const studentId = document.getElementById('student-select').value;
+    if (!studentId) return;
+
+    const container = document.getElementById('note-list');
+    container.innerHTML = '<div class="empty">불러오는 중...</div>';
+    document.getElementById('pagination').innerHTML = '';
+    document.getElementById('page-info').textContent = '';
+
+    try {
+      // 필터 조건 쿼리 문자열
+      let filterQ = `student_id=eq.${studentId}`;
+      if (viewFilter === 'reviewing') filterQ += `&review_status=eq.pending`;
+      if (viewFilter === 'redo')      filterQ += `&review_status=eq.rejected`;
+      if (viewFilter === 'solved')    filterQ += `&solved=eq.true`;
+      if (viewFilter === 'hasSolution') filterQ += `&image_solution_url=not.is.null`;
+
+      const offset = (currentPage - 1) * PAGE_SIZE;
+
+      // 전체 카운트 (통계용 — 필터 없이 전체)
+      const countRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${studentId}&select=id,solved,review_status`,
+        { headers: sbHeaders() }
+      );
+      const allRows = await countRes.json();
+      const total = allRows.length;
+      const solvedCount = allRows.filter(e => e.solved).length;
+      const reviewingCount = allRows.filter(e => {
+        const rs = e.review_status || (e.solved ? 'approved' : 'pending');
+        return rs === 'pending' || rs === 'rejected';
+      }).length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-solved').textContent = solvedCount;
+      document.getElementById('stat-pending').textContent = reviewingCount;
+
+      // 현재 필터 + 페이지 데이터
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
+        { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
+      );
+      // Content-Range 헤더에서 필터된 총 개수 파싱
+      const contentRange = res.headers.get('content-range'); // e.g. "0-19/87"
+      totalCount = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
+      currentEntries = await res.json();
+
+      renderMyEntries();
+    } catch (err) {
+      console.error('오답 불러오기 실패', err);
+      container.innerHTML = '<div class="empty">불러오기에 실패했어요</div>';
+    }
+  }
+
+  function setViewFilter(f) {
+    viewFilter = f;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.vfilter === f));
+    loadMyEntries();
+  }
+
+  function formatDate(dStr) {
+    if (!dStr) return '';
+    const [y,m,d] = dStr.split('-');
+    return `${y}.${m}.${d}`;
+  }
+
+  function openModal(src, label) {
+    document.getElementById('modal-img').src = src;
+    document.getElementById('modal-label').textContent = label || '';
+    document.getElementById('modal-overlay').classList.add('show');
+  }
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('show');
+  }
+
+  async function uploadMinePhoto(e, entryId) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById(`mine-status-${entryId}`);
+    if (statusEl) statusEl.textContent = '업로드 중...';
+
+    try {
+      const studentId = document.getElementById('student-select').value;
+      const compressedBlob = await compressImage(file);
+      const fileName = `${studentId}_mine_${Date.now()}.jpg`;
+
+      const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'image/jpeg' }),
+        body: compressedBlob
+      });
+      if (!uploadRes.ok) throw new Error(await uploadRes.text());
+
+      const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+
+      // 풀이를 새로 올리면 다시 '검수 대기' 상태로 (선생님이 재검수하도록)
+      const dbRes = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ image_mine_url: imageUrl, review_status: 'pending', solved: false })
+      });
+      if (!dbRes.ok) throw new Error(await dbRes.text());
+
+      if (statusEl) statusEl.textContent = '✅ 올라갔어요! 선생님이 다시 확인해주실 거예요';
+      setTimeout(() => loadMyEntries(), 1000);
+    } catch (err) {
+      console.error(err);
+      if (statusEl) statusEl.textContent = '❌ 실패했어요. 다시 시도해주세요';
+    }
+  }
+
+  function noteCardHtml(e) {
+    const hasSolution = !!e.image_solution_url;
+    const hasMine = !!e.image_mine_url;
+    const unitLabel = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' · ');
+
+    let thumbs = [{ src: e.image_url, label: '문제' }];
+    if (e.image_mine_url) thumbs.push({ src: e.image_mine_url, label: '내 풀이' });
+    if (e.image_solution_url) thumbs.push({ src: e.image_solution_url, label: '모범 풀이' });
+
+    const thumbsHtml = thumbs.map(t => `
+      <div class="note-thumb-col">
+        <img class="note-thumb" src="${t.src}" onclick="openModal('${t.src}', '${t.label}')" alt="${t.label}" />
+        <div class="note-thumb-label">${t.label}</div>
+      </div>
+    `).join('');
+
+    // 내 풀이가 없거나, 선생님이 NO(rejected)한 경우 풀이 올리기 버튼 표시
+    const reviewStatusForBtn = e.review_status || (e.solved ? 'approved' : 'pending');
+    const showMineBtn = !hasMine || reviewStatusForBtn === 'rejected';
+    const addMineBtn = showMineBtn ? `
+      <div style="margin-top:8px;">
+        <button class="btn-add-mine" onclick="document.getElementById('mine-file-${e.id}').click()">${reviewStatusForBtn === 'rejected' ? '🔄 다시 푼 풀이 올리기' : '✏️ 내 풀이 올리기'}</button>
+        <input type="file" id="mine-file-${e.id}" class="file-input-hidden" accept="image/*" onchange="uploadMinePhoto(event, '${e.id}')" />
+        <div class="uploading-mine" id="mine-status-${e.id}"></div>
+      </div>
+    ` : '';
+
+    const reviewStatus = e.review_status || (e.solved ? 'approved' : 'pending');
+    const statusInfo =
+      reviewStatus === 'approved' ? { cls: 'approved', text: '✅ 완료! 잘했어요' }
+      : reviewStatus === 'rejected' ? { cls: 'rejected', text: '🔄 다시 풀어야 해요' }
+      : { cls: 'pending', text: '⏳ 선생님 검수 대기중' };
+
+    return `
+      <div class="note-card ${e.solved ? 'solved' : ''} ${hasSolution ? 'has-solution' : ''}">
+        <div class="note-thumbs-row">${thumbsHtml}</div>
+        <div class="note-meta-row">
+          <span class="student-status-badge ${statusInfo.cls}">${statusInfo.text}</span>
+          ${unitLabel ? `<span class="note-unit-tag">${unitLabel}</span>` : `<span class="note-unsorted-tag">분류 대기중</span>`}
+          ${hasSolution ? `<span class="note-solution-tag">✅ 모범풀이 도착</span>` : ''}
+          ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge-s">틀린 횟수 ${e.retry_count}회</span>` : ''}
+        </div>
+        ${e.memo ? `<p class="note-memo">📝 ${e.memo}</p>` : ''}
+        <p class="note-date">${formatDate(e.entry_date)}</p>
+        ${addMineBtn}
+      </div>
+    `;
+  }
+
+  function renderMyEntries() {
+    const container = document.getElementById('note-list');
+    if (currentEntries.length === 0) {
+      container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
+      document.getElementById('pagination').innerHTML = '';
+      document.getElementById('page-info').textContent = '';
+      return;
+    }
+    container.innerHTML = currentEntries.map(noteCardHtml).join('');
+
+    // 페이지네이션 버튼 렌더
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('page-info');
+
+    if (totalPages <= 1) { pag.innerHTML = ''; info.textContent = ''; return; }
+
+    info.textContent = `전체 ${totalCount}개 중 ${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE, totalCount)}번째`;
+
+    let btns = '';
+    // 이전
+    btns += `<button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" onclick="goPage(${currentPage-1})">‹</button>`;
+
+    // 페이지 번호 (최대 5개 노출)
+    const start = Math.max(1, currentPage - 2);
+    const end   = Math.min(totalPages, start + 4);
+    if (start > 1) btns += `<button class="page-btn" onclick="goPage(1)">1</button>${start > 2 ? '<span style="padding:0 2px;color:#ccc">…</span>' : ''}`;
+    for (let p = start; p <= end; p++) {
+      btns += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    if (end < totalPages) btns += `${end < totalPages - 1 ? '<span style="padding:0 2px;color:#ccc">…</span>' : ''}<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+
+    // 다음
+    btns += `<button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" onclick="goPage(${currentPage+1})">›</button>`;
+    pag.innerHTML = btns;
+  }
+
+  function goPage(p) {
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    loadMyEntries();
+    // 목록 상단으로 스크롤
+    document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  initLogin();
+
+  // PWA 서비스워커 등록
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

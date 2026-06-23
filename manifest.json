@@ -1,0 +1,24 @@
+{
+  "name": "채움수학 오답노트",
+  "short_name": "오답노트",
+  "description": "채움수학학원 오답노트 앱",
+  "start_url": "/student.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0F6E56",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

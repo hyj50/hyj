@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수학 오답노트 - 선생님</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; overflow-x: hidden; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 2rem; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  @media (max-width: 600px) {
+    body { padding: 0.8rem; }
+    .board { padding: 1.1rem !important; }
+    .stats-row { grid-template-columns: 1fr 1fr 1fr; gap: 6px !important; }
+    .student-select-row { flex-wrap: wrap; }
+    .student-select-row select { width: 100%; }
+    .note-top-row { flex-direction: column; }
+    .note-thumbs { width: 100%; }
+    .note-thumb { width: 80px; height: 80px; }
+  }
+
+  /* 로그인 화면 */
+  .login-wrap { max-width: 360px; margin: 8rem auto; }
+  .login-card { background: white; border-radius: 16px; padding: 2rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); text-align: center; }
+  .login-card h1 { font-size: 18px; margin-bottom: 1.2rem; color: #1a1a1a; }
+  .login-card input { width: 100%; padding: 12px 14px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; outline: none; margin-bottom: 10px; text-align: center; }
+  .login-card input:focus { border-color: #0F6E56; }
+  .login-card button { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #0F6E56; color: white; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .login-card button:hover { background: #0c5945; }
+  .login-error { color: #993C1D; font-size: 12px; margin-top: 8px; display: none; }
+  .login-error.show { display: block; }
+
+  /* 학생 선택 바 */
+  .student-bar { background: white; border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .student-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .student-select-row select { flex: 1; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; }
+  .btn-small { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: white; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+  .btn-small:hover { background: #f5f5f0; }
+  .btn-add-student { border-color: #0F6E56; color: #0F6E56; }
+  .btn-add-student:hover { background: #E1F5EE; }
+  .btn-del-student { border-color: #993C1D; color: #993C1D; }
+  .btn-del-student:hover { background: #FAECE7; }
+  .btn-logout { border-color: #999; color: #777; }
+
+  .add-form { display: none; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .add-form.show { display: flex; }
+  .add-form input { flex: 1; min-width: 90px; padding: 9px 12px; font-size: 13px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
+  .add-form input:focus { border-color: #0F6E56; }
+  .add-form button { padding: 9px 16px; border-radius: 8px; border: 1px solid #0F6E56; background: #0F6E56; color: white; font-size: 13px; cursor: pointer; font-weight: 600; }
+
+  .student-link-box { background: #F0F7F4; border: 1px solid #CCE7DD; border-radius: 10px; padding: 10px 14px; margin-bottom: 1rem; font-size: 12px; color: #0F6E56; }
+  .student-link-box code { background: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+
+  /* 월별 순위표 */
+  .leaderboard { background: white; border-radius: 16px; padding: 1.4rem; margin-bottom: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .lb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .lb-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .lb-month-nav { display: flex; align-items: center; gap: 8px; }
+  .lb-month-nav button { background: none; border: 1px solid #ddd; border-radius: 8px; width: 30px; height: 30px; font-size: 14px; cursor: pointer; color: #666; }
+  .lb-month-nav button:hover { background: #f5f5f0; }
+  .lb-month-label { font-size: 14px; font-weight: 600; color: #333; min-width: 100px; text-align: center; }
+  .lb-table { width: 100%; border-collapse: collapse; }
+  .lb-table th { font-size: 11px; color: #888; text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-weight: 500; }
+  .lb-table td { font-size: 13px; padding: 8px; border-bottom: 1px solid #f5f5f0; }
+  .lb-rank { font-weight: 700; width: 36px; }
+  .lb-name { font-weight: 600; color: #1a1a1a; }
+  .lb-score { font-weight: 700; color: #0F6E56; text-align: right; }
+  .lb-detail { font-size: 11px; color: #999; text-align: right; }
+  .lb-medal { font-size: 16px; }
+  .lb-empty { text-align: center; padding: 1.5rem; color: #aaa; font-size: 13px; }
+
+  .bonus-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; }
+  .bonus-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .bonus-row select, .bonus-row input { padding: 8px 10px; font-size: 13px; border-radius: 8px; border: 1px solid #ddd; outline: none; }
+  .bonus-row select { flex: 1; min-width: 80px; }
+  .bonus-row input[type="number"] { width: 70px; }
+  .bonus-row input[type="text"] { flex: 2; min-width: 100px; }
+  .btn-bonus { padding: 8px 14px; border-radius: 8px; border: none; background: #854F0B; color: white; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-bonus:hover { background: #6B3E0B; }
+
+  .board { background: white; border-radius: 16px; padding: 1.8rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .profile-head { text-align: center; margin-bottom: 1.5rem; }
+  h1 { font-size: 20px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .profile-sub { font-size: 13px; color: #888; }
+
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+  .stat-card { background: #f8f8f5; border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #e8e8e0; }
+  .stat-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .stat-value { font-size: 26px; font-weight: 600; color: #1a1a1a; }
+  .stat-value.green { color: #0F6E56; }
+  .stat-value.orange { color: #BA7517; }
+
+  /* 미분류 알림 */
+  .unsorted-alert { background: linear-gradient(135deg, #FFF3F0, #FFE8E0); border: 1px solid #FFD4C2; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; display: none; }
+  .unsorted-alert.show { display: block; }
+  .unsorted-title { font-size: 13px; font-weight: 700; color: #B5421F; margin-bottom: 4px; }
+  .unsorted-sub { font-size: 12px; color: #8a3115; }
+
+  /* 약점 TOP3 */
+  .weakness-card { background: linear-gradient(135deg, #FFF3F0, #FFE8E0); border: 1px solid #FFD4C2; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  .weakness-title { font-size: 13px; font-weight: 700; color: #B5421F; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .weakness-list { display: flex; flex-direction: column; gap: 6px; }
+  .weakness-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #6B2E16; background: white; padding: 7px 12px; border-radius: 8px; }
+  .weakness-rank { font-weight: 700; margin-right: 6px; }
+  .weakness-count { font-size: 12px; font-weight: 600; color: #B5421F; }
+  .weakness-empty { font-size: 12px; color: #999; padding: 4px 0; }
+
+  .review-alert { background: linear-gradient(135deg, #FFF8E7, #FFEFC9); border: 1px solid #FAC775; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; display: none; }
+  .review-alert.show { display: block; }
+  .review-alert-title { font-size: 13px; font-weight: 700; color: #854F0B; margin-bottom: 8px; }
+  .review-alert-list { display: flex; flex-direction: column; gap: 6px; }
+  .review-alert-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: #6B3E0B; background: white; padding: 7px 12px; border-radius: 8px; }
+  .review-tag { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .review-tag.d1 { background: #FFE0DC; color: #B5421F; }
+  .review-tag.d3 { background: #FFF0CC; color: #854F0B; }
+  .review-tag.d7 { background: #DCEEE8; color: #0F6E56; }
+
+  .random-review-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; background: linear-gradient(135deg, #0F6E56, #14906F); color: white; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 1rem; }
+  .random-review-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+  .heatmap-card { background: #f8f8f5; border-radius: 14px; padding: 1.2rem; margin-bottom: 1.2rem; border: 1px solid #e8e8e0; }
+  .heatmap-title { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 10px; }
+  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .heatmap-cell { aspect-ratio: 1; border-radius: 4px; background: #ebebe5; }
+  .heatmap-cell.l1 { background: #C8E6D9; }
+  .heatmap-cell.l2 { background: #8FCDB0; }
+  .heatmap-cell.l3 { background: #4FA984; }
+  .heatmap-cell.l4 { background: #0F6E56; }
+  .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; justify-content: flex-end; font-size: 10px; color: #999; }
+  .heatmap-legend-cell { width: 10px; height: 10px; border-radius: 2px; }
+
+  .filter-row { display: flex; gap: 8px; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .filter-btn { padding: 7px 14px; border-radius: 20px; border: 1px solid #ddd; background: white; font-size: 13px; cursor: pointer; color: #666; }
+  .filter-btn.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
+  .note-list { display: flex; flex-direction: column; gap: 10px; }
+  .note-card { background: #fafafa; border-radius: 14px; padding: 1rem; border: 1px solid #eee; }
+  .note-card.solved { opacity: 0.55; }
+  .note-card.struggling { border-color: #FFC4B0; background: #FFFAF8; }
+  .note-card.unsorted { border-color: #F6B8A0; background: #FFF6F2; }
+
+  .note-top-row { display: flex; gap: 12px; margin-bottom: 10px; }
+  .note-thumbs { display: flex; gap: 4px; flex-shrink: 0; }
+  .note-thumb { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; cursor: pointer; background: #eee; }
+  .note-thumb.mini { width: 32px; height: 70px; }
+  .note-body { flex: 1; min-width: 0; }
+  .note-memo { font-size: 13px; color: #444; margin-bottom: 4px; word-break: break-word; }
+  .note-date { font-size: 11px; color: #aaa; }
+  .note-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .note-reason-tag { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #EEEEE8; color: #666; }
+  .note-retry-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #FFE0DC; color: #B5421F; font-weight: 600; }
+  .status-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
+  .status-badge.pending { background: #FFF3CC; color: #854F0B; }
+  .status-badge.approved { background: #E1F5EE; color: #0F6E56; }
+  .status-badge.rejected { background: #FFE0DC; color: #B5421F; }
+  .review-btns { display: flex; gap: 6px; }
+  .btn-ok { padding: 7px 14px; border-radius: 8px; border: 1px solid #0F6E56; background: #0F6E56; color: white; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .btn-ok:hover { background: #0c5945; }
+  .btn-no { padding: 7px 14px; border-radius: 8px; border: 1px solid #993C1D; background: white; color: #993C1D; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .btn-no:hover { background: #FAECE7; }
+  .btn-reopen { padding: 7px 12px; border-radius: 8px; border: 1px solid #999; background: white; color: #777; font-size: 12px; cursor: pointer; }
+  .btn-reopen:hover { background: #f5f5f5; }
+  .note-unsorted-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #FFD9C2; color: #B5421F; font-weight: 700; }
+
+  .note-actions-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .check-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; cursor: pointer; white-space: nowrap; }
+  .check-label input { width: 16px; height: 16px; cursor: pointer; accent-color: #0F6E56; }
+  .btn-delete { background: none; border: none; color: #ccc; font-size: 16px; cursor: pointer; padding: 2px 4px; }
+  .btn-delete:hover { color: #993C1D; }
+
+  /* 분류 폼 (선생님 전용) */
+  .classify-form { background: white; border-radius: 10px; padding: 10px; margin-top: 8px; border: 1px dashed #ddd; }
+  .solution-upload-zone { width: 100%; border: 2px dashed #ccc; border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; background: #fafafa; }
+  .solution-upload-zone:hover { border-color: #0F6E56; }
+  .solution-upload-placeholder { font-size: 12px; color: #999; }
+  .solution-preview-thumb { max-width: 100%; max-height: 120px; border-radius: 8px; object-fit: contain; }
+  .classify-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .classify-row select, .classify-row input { flex: 1; padding: 7px 9px; font-size: 12px; border-radius: 7px; border: 1px solid #ddd; outline: none; }
+  .classify-row select:disabled { background: #f0f0f0; color: #aaa; }
+  .reason-tags-mini { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+  .reason-tag-btn-mini { padding: 4px 10px; border-radius: 14px; border: 1px solid #ddd; background: white; font-size: 11px; cursor: pointer; color: #666; }
+  .reason-tag-btn-mini.selected { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+  .btn-save-classify { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #0F6E56; background: #0F6E56; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  /* 페이지네이션 */
+  .pagination { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 14px; flex-wrap: wrap; }
+  .page-btn { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; }
+  .page-btn:hover { background: #f5f5f0; }
+  .page-btn.active { background: #0F6E56; color: white; border-color: #0F6E56; }
+  .page-btn.disabled { color: #ccc; cursor: default; pointer-events: none; }
+  .page-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 6px; }
+
+  .empty { text-align: center; padding: 3rem 1rem; color: #aaa; font-size: 14px; }
+  .no-student { text-align: center; padding: 3rem 1rem; color: #999; }
+  .loading-msg { text-align: center; padding: 3rem 1rem; color: #999; font-size: 14px; }
+
+  /* 폴더 그룹 */
+  .subject-group { margin-bottom: 10px; border: 1px solid #eee; border-radius: 12px; overflow: hidden; }
+  .subject-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #f0f4f3; cursor: pointer; user-select: none; }
+  .subject-header:hover { background: #e8eeec; }
+  .subject-arrow { font-size: 11px; color: #999; transition: transform 0.2s; flex-shrink: 0; }
+  .subject-arrow.open { transform: rotate(90deg); }
+  .subject-folder-icon { font-size: 16px; flex-shrink: 0; }
+  .subject-name { font-size: 14px; font-weight: 700; color: #1a1a1a; flex: 1; }
+  .subject-count { font-size: 12px; color: #888; background: white; padding: 2px 9px; border-radius: 10px; border: 1px solid #e5e5e0; }
+  .subject-count.has-pending { color: #BA7517; border-color: #FAC775; background: #FFF8E7; }
+  .subject-body { display: none; }
+  .subject-body.open { display: block; }
+
+  .major-group { border-top: 1px solid #f0f0f0; }
+  .major-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px 10px 26px; background: #f8f8f5; cursor: pointer; user-select: none; }
+  .major-header:hover { background: #f2f2ee; }
+  .major-arrow { font-size: 10px; color: #aaa; transition: transform 0.2s; flex-shrink: 0; }
+  .major-arrow.open { transform: rotate(90deg); }
+  .major-name { font-size: 13px; font-weight: 600; color: #333; flex: 1; }
+  .major-count { font-size: 11px; color: #999; }
+  .major-count.has-pending { color: #BA7517; }
+  .major-body { display: none; }
+  .major-body.open { display: block; }
+
+  .minor-group { border-top: 1px solid #f3f3f0; }
+  .minor-header { display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 42px; background: white; cursor: pointer; user-select: none; }
+  .minor-header:hover { background: #fafafa; }
+  .minor-arrow { font-size: 9px; color: #ccc; transition: transform 0.2s; flex-shrink: 0; }
+  .minor-arrow.open { transform: rotate(90deg); }
+  .minor-name { font-size: 12.5px; color: #555; flex: 1; }
+  .minor-count { font-size: 11px; color: #aaa; }
+  .minor-count.has-pending { color: #BA7517; }
+  .minor-body { display: none; padding: 10px 14px 14px; background: #fcfcfa; flex-direction: column; gap: 10px; }
+  .minor-body.open { display: flex; }
+
+  .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.75); z-index: 999; align-items: center; justify-content: center; padding: 2rem; }
+  .modal-overlay.show { display: flex; }
+  .modal-overlay img { max-width: 100%; max-height: 90vh; border-radius: 10px; }
+
+  .review-modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem; }
+  .review-modal-overlay.show { display: flex; }
+  .review-modal { background: white; border-radius: 18px; max-width: 480px; width: 100%; max-height: 88vh; overflow-y: auto; padding: 1.5rem; }
+  .review-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .review-modal-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+  .review-modal-close { background: none; border: none; font-size: 20px; color: #999; cursor: pointer; }
+  .review-modal-img { width: 100%; border-radius: 12px; margin-bottom: 12px; background: #f5f5f5; }
+  .review-modal-meta { font-size: 12px; color: #888; margin-bottom: 16px; }
+  .review-modal-actions { display: flex; gap: 8px; }
+  .review-modal-btn { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #ddd; background: white; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .review-modal-btn.solved { border-color: #0F6E56; color: #0F6E56; }
+  .review-modal-btn.skip { color: #999; }
+  .review-modal-empty { text-align: center; padding: 2rem 1rem; color: #999; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="login-wrap" id="login-wrap">
+  <div class="login-card">
+    <h1>🔒 선생님 페이지</h1>
+    <input type="password" id="password-input" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter') tryLogin()" />
+    <button onclick="tryLogin()">입장하기</button>
+    <p class="login-error" id="login-error">비밀번호가 틀렸어요</p>
+  </div>
+</div>
+
+<div class="wrap" id="main-wrap" style="display:none;">
+
+  <div class="student-bar">
+    <div class="student-select-row">
+      <select id="student-select" onchange="onSelectStudent()"></select>
+      <button class="btn-small btn-add-student" onclick="toggleAddForm()">+ 학생 추가</button>
+      <button class="btn-small" onclick="changePassword()">🔑 비번 변경</button>
+      <button class="btn-small btn-del-student" onclick="deleteCurrentStudent()">학생 삭제</button>
+      <button class="btn-small btn-logout" onclick="logout()">로그아웃</button>
+    </div>
+    <div class="add-form" id="add-form">
+      <input type="text" id="new-name" placeholder="이름" maxlength="20" />
+      <input type="text" id="new-school" placeholder="학교" maxlength="20" />
+      <input type="text" id="new-grade" placeholder="학년" maxlength="10" />
+      <input type="text" id="new-password" placeholder="비밀번호" maxlength="20" />
+      <button onclick="addStudent()">추가하기</button>
+    </div>
+    <div class="student-link-box">
+      📱 학생 페이지 링크:
+      <code>https://hyj.vercel.app/student.html</code>
+      <button class="btn-small" style="margin-left:6px;" onclick="navigator.clipboard.writeText('https://hyj.vercel.app/student.html').then(()=>alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋'))">복사</button>
+    </div>
+  </div>
+
+  <!-- 월별 순위표 -->
+  <div class="leaderboard" id="leaderboard">
+    <div class="lb-header">
+      <span class="lb-title">🏆 월별 오답노트 순위</span>
+      <div class="lb-month-nav">
+        <button onclick="changeMonth(-1)">◀</button>
+        <span class="lb-month-label" id="lb-month-label"></span>
+        <button onclick="changeMonth(1)">▶</button>
+      </div>
+    </div>
+    <table class="lb-table">
+      <thead>
+        <tr><th>순위</th><th>이름</th><th>업로드</th><th>합격</th><th>보너스</th><th>총점</th></tr>
+      </thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+    <div class="bonus-section">
+      <p style="font-size:12px;color:#888;margin-bottom:8px;">🎁 보너스 점수 주기</p>
+      <div class="bonus-row">
+        <select id="bonus-student-select"></select>
+        <input type="number" id="bonus-points" placeholder="점수" min="1" max="100" />
+        <input type="text" id="bonus-memo" placeholder="사유 (선택)" maxlength="30" />
+        <button class="btn-bonus" onclick="giveBonus()">지급</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="board-area"></div>
+
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+  <img id="modal-img" src="" alt="확대 이미지" />
+</div>
+
+<div class="review-modal-overlay" id="review-modal-overlay">
+  <div class="review-modal">
+    <div class="review-modal-head">
+      <span class="review-modal-title">🎲 오늘의 랜덤 복습</span>
+      <button class="review-modal-close" onclick="closeRandomReview()">✕</button>
+    </div>
+    <div id="review-modal-body"></div>
+  </div>
+</div>
+
+<script>
+  // ===== Supabase 연결 정보 =====
+  const SUPABASE_URL = 'https://pfaovietojozlrfztwom.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmYW92aWV0b2pvemxyZnp0d29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NzcxMDMsImV4cCI6MjA5NzU1MzEwM30.pO2NzKjwZzQJFmOYloiCHNBg9PdNSQlkiWuMyYicamQ';
+  const BUCKET = 'wrong-note-images';
+
+  // ⚠️ 비밀번호는 여기서 바꿀 수 있어요 (기본값: 1234)
+  const TEACHER_PASSWORD = '1234';
+
+  function sbHeaders(extra) {
+    return Object.assign({
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    }, extra || {});
+  }
+
+  // ===== 과목 > 대단원 > 중단원 구조 =====
+  const CURRICULUM = {
+    '중1 수학': {
+      '소인수분해': ['소인수분해', '최대공약수와 최소공배수'],
+      '정수와 유리수': ['정수와 유리수의 뜻', '정수와 유리수의 계산'],
+      '문자의 사용과 식': ['문자의 사용과 식의 값', '일차식의 덧셈과 뺄셈'],
+      '일차방정식': ['방정식과 그 해', '일차방정식의 풀이와 활용'],
+      '좌표평면과 그래프': ['순서쌍과 좌표', '그래프와 정비례·반비례'],
+      '기본 도형': ['점·선·면·각', '평행선의 성질'],
+      '작도와 합동': ['삼각형의 작도', '삼각형의 합동조건'],
+      '평면도형의 성질': ['다각형의 성질', '부채꼴의 호의 길이와 넓이'],
+      '입체도형의 성질': ['다면체와 회전체', '입체도형의 겉넓이와 부피'],
+      '대푯값': ['중앙값과 최빈값'],
+      '도수분포표와 상대도수': ['줄기와 잎 그림, 도수분포표', '상대도수와 통계적 탐구']
+    },
+    '중2 수학': {
+      '유리수와 순환소수': ['순환소수와 유리수의 관계'],
+      '식의 계산': ['지수법칙', '다항식의 덧셈과 뺄셈', '단항식과 다항식의 곱셈·나눗셈'],
+      '일차부등식': ['부등식의 성질', '일차부등식의 풀이와 활용'],
+      '연립일차방정식': ['연립일차방정식의 풀이와 활용'],
+      '일차함수와 그 그래프': ['함수와 함숫값', '일차함수와 그래프', '일차함수의 그래프의 성질'],
+      '일차함수와 일차방정식의 관계': ['일차함수와 일차방정식', '연립방정식과 그래프'],
+      '삼각형과 사각형의 성질': ['이등변삼각형의 성질', '삼각형의 외심과 내심', '사각형의 성질'],
+      '도형의 닮음': ['닮은 도형과 닮음비', '삼각형의 닮음조건', '평행선 사이의 선분의 길이의 비'],
+      '피타고라스 정리': ['피타고라스 정리'],
+      '경우의 수와 확률': ['경우의 수', '확률의 뜻과 성질']
+    },
+    '중3 수학': {
+      '제곱근과 실수': ['제곱근의 뜻과 성질', '무리수와 실수', '근호를 포함한 식의 계산'],
+      '다항식의 곱셈과 인수분해': ['다항식의 곱셈과 인수분해'],
+      '이차방정식': ['이차방정식의 풀이와 활용'],
+      '이차함수와 그 그래프': ['이차함수의 뜻', '이차함수의 그래프와 성질'],
+      '삼각비': ['삼각비의 뜻과 값', '삼각비의 활용'],
+      '원의 성질': ['원과 현·접선의 성질', '원주각의 성질'],
+      '산포도': ['분산과 표준편차'],
+      '상자 그림과 산점도': ['상자 그림', '산점도와 상관관계']
+    },
+    '공통수학1': {
+      '다항식': ['다항식의 사칙연산', '항등식의 성질과 나머지정리', '다항식의 인수분해'],
+      '방정식과 부등식': ['복소수와 이차방정식', '이차방정식과 이차함수', '삼차·사차방정식과 연립이차방정식', '연립부등식과 절댓값 부등식', '이차부등식과 연립이차부등식'],
+      '경우의 수': ['합의 법칙과 곱의 법칙', '순열', '조합'],
+      '행렬': ['행렬의 뜻과 표현', '행렬의 연산']
+    },
+    '공통수학2': {
+      '도형의 방정식': ['선분의 내분', '두 직선의 평행·수직 조건과 점과 직선 사이의 거리', '원의 방정식과 원·직선의 위치 관계', '도형의 평행이동과 대칭이동'],
+      '집합과 명제': ['집합의 뜻과 연산', '명제와 조건', '명제의 증명과 절대부등식'],
+      '함수와 그래프': ['함수의 뜻과 합성함수·역함수', '유리함수와 무리함수']
+    },
+    '대수': {
+      '지수함수와 로그함수': ['거듭제곱과 거듭제곱근', '로그와 상용로그', '지수함수와 로그함수의 그래프와 활용'],
+      '삼각함수': ['일반각과 호도법', '삼각함수의 뜻과 그래프', '사인법칙과 코사인법칙'],
+      '수열': ['등차수열과 등비수열', '수열의 합(시그마)', '수학적 귀납법']
+    },
+    '미적분Ⅰ': {
+      '함수의 극한과 연속': ['함수의 극한', '함수의 연속'],
+      '미분': ['미분계수와 도함수', '접선의 방정식과 평균값 정리', '함수의 증가·감소와 극대·극소', '도함수의 활용(방정식·부등식·속도)'],
+      '적분': ['부정적분', '정적분', '정적분의 활용(넓이·속도와 거리)']
+    },
+    '미적분Ⅱ': {
+      '수열의 극한': ['수열의 극한', '급수'],
+      '미분법': ['여러 가지 함수의 미분', '여러 가지 미분법', '도함수의 활용'],
+      '적분법': ['여러 가지 적분법', '정적분의 활용']
+    },
+    '확률과 통계': {
+      '경우의 수': ['순열과 조합', '이항정리'],
+      '확률': ['확률의 뜻과 활용', '조건부확률'],
+      '통계': ['확률분포', '통계적 추정']
+    },
+    '기하': {
+      '이차곡선': ['이차곡선의 뜻과 방정식', '이차곡선과 직선의 위치 관계'],
+      '평면벡터': ['벡터의 연산', '평면벡터의 성분과 내적'],
+      '공간도형과 공간좌표': ['공간도형', '공간좌표']
+    }
+  };
+
+  const REASON_TAGS = ['계산 실수', '개념 이해 부족', '시간 부족', '문제 잘못 읽음', '풀이 막힘'];
+  const STRUGGLE_THRESHOLD = 2; // 틀린 횟수(NO 받은 횟수) 2 이상이면 별표
+  const SCOREBOARD_POINT_PER_SOLVE = 5;
+
+  // ===== 상태 =====
+  let students = [];
+  let currentId = null;
+  let currentEntries = []; // 현재 페이지 데이터
+  let allEntryStats = [];  // 통계/약점/히트맵용 경량 전체 데이터
+  let currentFilter = 'all';
+  let openGroups = JSON.parse(localStorage.getItem('teacher_open_groups') || '{}');
+  let classifyOpenIds = new Set();
+  let pendingSolutionFiles = {};
+  let reviewQueue = [];
+  let reviewIndex = 0;
+  const PAGE_SIZE = 20;
+  let currentPage = 1;
+  let totalCount = 0;
+
+  function saveOpenGroups() {
+    localStorage.setItem('teacher_open_groups', JSON.stringify(openGroups));
+  }
+
+  // ===== 로그인 =====
+  function tryLogin() {
+    const input = document.getElementById('password-input').value;
+    if (input === TEACHER_PASSWORD) {
+      sessionStorage.setItem('teacher_logged_in', 'true');
+      document.getElementById('login-wrap').style.display = 'none';
+      document.getElementById('main-wrap').style.display = 'block';
+      init();
+    } else {
+      document.getElementById('login-error').classList.add('show');
+    }
+  }
+  function logout() {
+    sessionStorage.removeItem('teacher_logged_in');
+    location.reload();
+  }
+  function checkLoginOnLoad() {
+    if (sessionStorage.getItem('teacher_logged_in') === 'true') {
+      document.getElementById('login-wrap').style.display = 'none';
+      document.getElementById('main-wrap').style.display = 'block';
+      init();
+    }
+  }
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function formatDate(dStr) {
+    if (!dStr) return '';
+    const [y,m,d] = dStr.split('-');
+    return `${y}.${m}.${d}`;
+  }
+  function daysBetween(dateStr1, dateStr2) {
+    const d1 = new Date(dateStr1 + 'T00:00:00');
+    const d2 = new Date(dateStr2 + 'T00:00:00');
+    return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+  }
+
+  function getCurrentStudent() {
+    return students.find(s => s.id === currentId) || null;
+  }
+
+  // ===== 초기화: 학생 목록 로드 =====
+  async function init() {
+    await loadStudentsFromDB();
+    renderSelect();
+    populateBonusSelect();
+    if (!currentId && students.length > 0) currentId = students[0].id;
+    await renderBoard();
+    loadLeaderboard();
+  }
+
+  async function loadStudentsFromDB() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/students?select=*&order=name.asc`, {
+        headers: sbHeaders()
+      });
+      students = await res.json();
+    } catch (err) {
+      console.error('학생 목록 로드 실패', err);
+      students = [];
+    }
+  }
+
+  function toggleAddForm() {
+    document.getElementById('add-form').classList.toggle('show');
+  }
+
+  async function addStudent() {
+    const name = document.getElementById('new-name').value.trim();
+    const school = document.getElementById('new-school').value.trim();
+    const grade = document.getElementById('new-grade').value.trim();
+    const password = document.getElementById('new-password').value.trim();
+    if (!name) { alert('이름을 입력해주세요'); return; }
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/students`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify({ name, school, grade, password })
+      });
+      const created = await res.json();
+      if (!res.ok) throw new Error(JSON.stringify(created));
+
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-school').value = '';
+      document.getElementById('new-grade').value = '';
+      document.getElementById('new-password').value = '';
+      document.getElementById('add-form').classList.remove('show');
+
+      await loadStudentsFromDB();
+      if (created && created[0]) currentId = created[0].id;
+      renderSelect();
+      await renderBoard();
+    } catch (err) {
+      console.error(err);
+      alert('학생 추가에 실패했어요. 콘솔을 확인해주세요.');
+    }
+  }
+
+  async function deleteCurrentStudent() {
+    const stu = getCurrentStudent();
+    if (!stu) return;
+    if (!confirm(`'${stu.name}' 학생의 모든 오답노트를 삭제할까요? (되돌릴 수 없어요)`)) return;
+
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${stu.id}`, {
+        method: 'DELETE',
+        headers: sbHeaders()
+      });
+      await loadStudentsFromDB();
+      currentId = students.length > 0 ? students[0].id : null;
+      renderSelect();
+      await renderBoard();
+    } catch (err) {
+      console.error(err);
+      alert('삭제에 실패했어요.');
+    }
+  }
+
+  async function changePassword() {
+    const stu = getCurrentStudent();
+    if (!stu) { alert('먼저 학생을 선택해주세요.'); return; }
+
+    const newPw = prompt(`'${stu.name}' 학생의 새 비밀번호를 입력하세요.\n(현재 비밀번호: ${stu.password || '없음'})`, stu.password || '');
+    if (newPw === null) return; // 취소
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${stu.id}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ password: newPw.trim() })
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      await loadStudentsFromDB();
+      renderSelect();
+      alert(`✅ '${stu.name}' 학생의 비밀번호가 '${newPw.trim()}'(으)로 변경됐어요.`);
+    } catch (err) {
+      console.error(err);
+      alert('비밀번호 변경에 실패했어요.');
+    }
+  }
+
+  async function onSelectStudent() {
+    currentId = document.getElementById('student-select').value;
+    currentFilter = 'all';
+    currentPage = 1;
+    await renderBoard();
+  }
+
+  function renderSelect() {
+    const sel = document.getElementById('student-select');
+    if (students.length === 0) {
+      sel.innerHTML = '<option value="">학생을 추가해주세요</option>';
+      populateBonusSelect();
+      return;
+    }
+    sel.innerHTML = students.map(s =>
+      `<option value="${s.id}" ${s.id === currentId ? 'selected' : ''}>${s.name}${s.school ? ' · ' + s.school : ''}${s.grade ? ' · ' + s.grade : ''}${s.password ? ' 🔑' + s.password : ' (비번없음)'}</option>`
+    ).join('');
+    populateBonusSelect();
+  }
+
+  // 통계·약점·히트맵용 경량 전체 데이터 (페이지 무관)
+  async function loadAllEntryStats(studentId) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${studentId}&select=id,solved,review_status,subject,major_unit,entry_date,retry_count,last_reviewed_date`,
+        { headers: sbHeaders() }
+      );
+      return (await res.json()) || [];
+    } catch { return []; }
+  }
+
+  // 현재 필터 + 페이지에 해당하는 상세 데이터
+  async function loadEntriesPage(studentId, filter, page) {
+    let filterQ = `student_id=eq.${studentId}`;
+    if (filter === 'pending')    filterQ += `&solved=eq.false`;
+    if (filter === 'solved')     filterQ += `&solved=eq.true`;
+    if (filter === 'struggling') filterQ += `&retry_count=gte.${STRUGGLE_THRESHOLD}`;
+    if (filter === 'unsorted')   filterQ += `&subject=is.null`;
+    if (filter === 'reviewing')  filterQ += `&review_status=in.(pending,rejected)`;
+
+    const offset = (page - 1) * PAGE_SIZE;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
+        { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
+      );
+      const contentRange = res.headers.get('content-range');
+      totalCount = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
+      return (await res.json()) || [];
+    } catch { totalCount = 0; return []; }
+  }
+
+  function subjectOptionsHtml(selected) {
+    selected = selected || '';
+    return '<option value="">과목 선택</option>' +
+      Object.keys(CURRICULUM).map(s => `<option value="${s}" ${s === selected ? 'selected' : ''}>${s}</option>`).join('') +
+      `<option value="기타" ${selected === '기타' ? 'selected' : ''}>기타</option>`;
+  }
+
+  function majorOptionsHtml(subject, selected) {
+    selected = selected || '';
+    const majors = CURRICULUM[subject] ? Object.keys(CURRICULUM[subject]) : [];
+    return '<option value="">대단원 선택</option>' +
+      majors.map(m => `<option value="${m}" ${m === selected ? 'selected' : ''}>${m}</option>`).join('');
+  }
+
+  function minorOptionsHtml(subject, major, selected) {
+    selected = selected || '';
+    const minors = (CURRICULUM[subject] && CURRICULUM[subject][major]) ? CURRICULUM[subject][major] : [];
+    return '<option value="">중단원 선택</option>' +
+      minors.map(m => `<option value="${m}" ${m === selected ? 'selected' : ''}>${m}</option>`).join('');
+  }
+
+  function onClassifySubjectChange(entryId) {
+    const subjSel = document.getElementById(`classify-subject-${entryId}`);
+    const majorSel = document.getElementById(`classify-major-${entryId}`);
+    const minorSel = document.getElementById(`classify-minor-${entryId}`);
+    const subject = subjSel.value;
+    const majors = CURRICULUM[subject] ? Object.keys(CURRICULUM[subject]) : [];
+    majorSel.innerHTML = '<option value="">대단원 선택</option>' + majors.map(m => `<option value="${m}">${m}</option>`).join('');
+    majorSel.disabled = majors.length === 0;
+    minorSel.innerHTML = '<option value="">중단원 선택</option>';
+    minorSel.disabled = true;
+  }
+
+  function onClassifyMajorChange(entryId) {
+    const subjSel = document.getElementById(`classify-subject-${entryId}`);
+    const majorSel = document.getElementById(`classify-major-${entryId}`);
+    const minorSel = document.getElementById(`classify-minor-${entryId}`);
+    const subject = subjSel.value;
+    const major = majorSel.value;
+    const minors = (CURRICULUM[subject] && CURRICULUM[subject][major]) ? CURRICULUM[subject][major] : [];
+    minorSel.innerHTML = '<option value="">중단원 선택</option>' + minors.map(m => `<option value="${m}">${m}</option>`).join('');
+    minorSel.disabled = minors.length === 0;
+  }
+
+  function toggleClassifyReasonTag(entryId, tag) {
+    const wrap = document.getElementById(`classify-reasons-${entryId}`);
+    const btns = wrap.querySelectorAll('.reason-tag-btn-mini');
+    btns.forEach(b => {
+      if (b.dataset.reason === tag) {
+        b.classList.toggle('selected');
+      } else {
+        b.classList.remove('selected');
+      }
+    });
+  }
+
+  function toggleClassifyForm(entryId) {
+    if (classifyOpenIds.has(entryId)) {
+      classifyOpenIds.delete(entryId);
+    } else {
+      classifyOpenIds.add(entryId);
+    }
+    const stu = getCurrentStudent();
+    if (stu) renderStudentDetails();
+  }
+
+  function onSolutionFileSelect(e, entryId) {
+    const file = e.target.files[0];
+    if (!file) return;
+    pendingSolutionFiles[entryId] = file;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const zone = document.getElementById(`solution-upload-zone-${entryId}`);
+      if (zone) zone.innerHTML = `<img src="${ev.target.result}" class="solution-preview-thumb" alt="모범풀이 미리보기" />`;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function compressImage(file, maxSize = 1100, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else if (h > maxSize) { w = Math.round(w * maxSize / h); h = maxSize; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('이미지 압축 실패'));
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function uploadSolutionImage(file, entryId) {
+    const compressedBlob = await compressImage(file);
+    const fileName = `solution_${entryId}_${Date.now()}.jpg`;
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+      method: 'POST',
+      headers: sbHeaders({ 'Content-Type': 'image/jpeg' }),
+      body: compressedBlob
+    });
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error('모범풀이 업로드 실패: ' + errText);
+    }
+    return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+  }
+
+  async function saveClassify(entryId) {
+    const subject = document.getElementById(`classify-subject-${entryId}`).value;
+    const major = document.getElementById(`classify-major-${entryId}`).value;
+    const minor = document.getElementById(`classify-minor-${entryId}`).value;
+    const memo = document.getElementById(`classify-memo-${entryId}`).value.trim();
+    const reasonBtn = document.querySelector(`#classify-reasons-${entryId} .reason-tag-btn-mini.selected`);
+    const reason = reasonBtn ? reasonBtn.dataset.reason : '';
+
+    const saveBtn = document.querySelector(`button[onclick="saveClassify('${entryId}')"]`);
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '저장 중...'; }
+
+    try {
+      const updateBody = {
+        subject: subject || null,
+        major_unit: major || null,
+        minor_unit: minor || null,
+        memo: memo,
+        reason: reason || null
+      };
+
+      // 모범풀이 사진이 새로 선택되어 있으면 업로드 후 URL도 같이 저장
+      if (pendingSolutionFiles[entryId]) {
+        const solutionUrl = await uploadSolutionImage(pendingSolutionFiles[entryId], entryId);
+        updateBody.image_solution_url = solutionUrl;
+        delete pendingSolutionFiles[entryId];
+      }
+
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify(updateBody)
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      classifyOpenIds.delete(entryId);
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('분류 저장에 실패했어요. (모범풀이 사진 업로드 중일 수 있어요, 잠시 후 다시 시도해주세요)');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '저장하기'; }
+    }
+  }
+
+  async function refreshCurrentEntries() {
+    if (!currentId) return;
+    const stu = getCurrentStudent();
+    if (!stu) return;
+    [allEntryStats, currentEntries] = await Promise.all([
+      loadAllEntryStats(currentId),
+      loadEntriesPage(currentId, currentFilter, currentPage)
+    ]);
+    renderStudentDetails();
+    loadLeaderboard();
+  }
+
+  // 다시풀기 체크 토글
+  // ✅ OK: 검수 통과 → 완료 처리
+  async function approveEntry(entryId) {
+    const e = currentEntries.find(x => x.id === entryId);
+    if (!e) return;
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          solved: true,
+          review_status: 'approved',
+          last_reviewed_date: todayStr()
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      const stu = getCurrentStudent();
+      if (stu) grantScoreboardPoint(stu);
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('처리에 실패했어요.');
+    }
+  }
+
+  // ❌ NO: 다시 풀어야 함 → 스택(틀린 횟수) +1, 재제출 대기
+  async function rejectEntry(entryId) {
+    const e = currentEntries.find(x => x.id === entryId);
+    if (!e) return;
+    if (!confirm('다시 풀게 할까요? (틀린 횟수가 1 올라가요)')) return;
+
+    const newRetry = (e.retry_count || 0) + 1;
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          solved: false,
+          review_status: 'rejected',
+          retry_count: newRetry,
+          last_reviewed_date: todayStr()
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('처리에 실패했어요.');
+    }
+  }
+
+  // 완료된 걸 다시 검수 대기로 되돌리기 (실수로 OK 눌렀을 때)
+  async function reopenEntry(entryId) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ solved: false, review_status: 'pending' })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('처리에 실패했어요.');
+    }
+  }
+
+  async function deleteEntry(entryId) {
+    if (!confirm('이 오답을 삭제할까요?')) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'DELETE',
+        headers: sbHeaders()
+      });
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('삭제에 실패했어요.');
+    }
+  }
+
+  // 필터 변경 시 현재 페이지 데이터만 다시 로드
+  async function loadCurrentPage() {
+    if (!currentId) return;
+    currentEntries = await loadEntriesPage(currentId, currentFilter, currentPage);
+    renderNoteList();
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.filter === f);
+    });
+    loadCurrentPage();
+  }
+
+  function openModal(src) {
+    document.getElementById('modal-img').src = src;
+    document.getElementById('modal-overlay').classList.add('show');
+  }
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('show');
+  }
+
+  function toggleGroup(key) {
+    openGroups[key] = !openGroups[key];
+    saveOpenGroups();
+    renderStudentDetails();
+  }
+
+  // ===== 점수판 연동 =====
+  function grantScoreboardPoint(stu) {
+    try {
+      const raw = localStorage.getItem('quest_students');
+      if (!raw) return;
+      let qStudents = JSON.parse(raw);
+      const match = qStudents.find(q => q.name === stu.name);
+      if (!match) return;
+
+      const prevEarned = match.earnedTotal || 0;
+      match.score = (match.score || 0) + SCOREBOARD_POINT_PER_SOLVE;
+      match.earnedTotal = prevEarned + SCOREBOARD_POINT_PER_SOLVE;
+
+      const prevTickets = Math.floor(prevEarned / 20);
+      const newTickets = Math.floor(match.earnedTotal / 20);
+      const gained = newTickets - prevTickets;
+      if (gained > 0) {
+        match.tickets = (match.tickets || 0) + gained;
+      }
+
+      match.logs = match.logs || [];
+      match.logIdCounter = (match.logIdCounter || 0) + 1;
+      match.logs.push({
+        id: match.logIdCounter,
+        label: '오답노트 다시풀기 완료',
+        delta: SCOREBOARD_POINT_PER_SOLVE,
+        date: todayStr(),
+        time: new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }),
+        type: 'add'
+      });
+
+      localStorage.setItem('quest_students', JSON.stringify(qStudents));
+      if (gained > 0) {
+        setTimeout(() => alert(`🎟️ ${stu.name} 학생이 점수판에서 뽑기권 ${gained}장을 획득했어요!`), 100);
+      }
+    } catch (err) {
+      console.log('점수판 연동 스킵:', err);
+    }
+  }
+
+  // ===== 카드 HTML (분류 폼 포함) =====
+  function noteCardHtml(e) {
+    const isStruggling = (e.retry_count || 0) >= STRUGGLE_THRESHOLD;
+    const isUnsorted = !e.subject;
+
+    const thumbs = [{ src: e.image_url, alt: '문제' }];
+    if (e.image_mine_url) thumbs.push({ src: e.image_mine_url, alt: '내풀이', mini: true });
+    if (e.image_solution_url) thumbs.push({ src: e.image_solution_url, alt: '모범풀이', mini: true });
+
+    const thumbsHtml = thumbs.map((t) =>
+      `<img class="note-thumb ${t.mini ? 'mini' : ''}" src="${t.src}" onclick="openModal('${t.src}')" alt="${t.alt}" title="${t.alt}" />`
+    ).join('');
+
+    const unitLabel = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' · ');
+    const isOpen = classifyOpenIds.has(e.id);
+
+    const classifyFormHtml = isOpen ? `
+      <div class="classify-form">
+        <div class="classify-row">
+          <select id="classify-subject-${e.id}" onchange="onClassifySubjectChange('${e.id}')">
+            ${subjectOptionsHtml(e.subject)}
+          </select>
+        </div>
+        <div class="classify-row">
+          <select id="classify-major-${e.id}" onchange="onClassifyMajorChange('${e.id}')" ${e.subject && CURRICULUM[e.subject] ? '' : 'disabled'}>
+            ${majorOptionsHtml(e.subject, e.major_unit)}
+          </select>
+          <select id="classify-minor-${e.id}" ${e.major_unit ? '' : 'disabled'}>
+            ${minorOptionsHtml(e.subject, e.major_unit, e.minor_unit)}
+          </select>
+        </div>
+        <div class="reason-tags-mini" id="classify-reasons-${e.id}">
+          ${REASON_TAGS.map(t => `<button type="button" class="reason-tag-btn-mini ${e.reason === t ? 'selected' : ''}" data-reason="${t}" onclick="toggleClassifyReasonTag('${e.id}', '${t}')">${t}</button>`).join('')}
+        </div>
+        <div class="classify-row">
+          <input type="text" id="classify-memo-${e.id}" placeholder="메모" value="${(e.memo || '').replace(/"/g,'&quot;')}" maxlength="60" />
+        </div>
+        <p style="font-size:11px;color:#888;margin-bottom:5px;">✅ 모범 풀이 사진 ${e.image_solution_url ? '(등록됨, 다시 올리면 교체돼요)' : '(선택)'}</p>
+        <div class="classify-row">
+          <div class="solution-upload-zone" id="solution-upload-zone-${e.id}" onclick="document.getElementById('solution-file-input-${e.id}').click()">
+            ${e.image_solution_url
+              ? `<img src="${e.image_solution_url}" class="solution-preview-thumb" alt="모범풀이 미리보기" />`
+              : `<span class="solution-upload-placeholder">📎 탭해서 모범풀이 사진 선택</span>`}
+          </div>
+          <input type="file" id="solution-file-input-${e.id}" class="file-input-hidden" accept="image/*" onchange="onSolutionFileSelect(event, '${e.id}')" />
+        </div>
+        <button class="btn-save-classify" onclick="saveClassify('${e.id}')">저장하기</button>
+      </div>
+    ` : '';
+
+    const reviewStatus = e.review_status || (e.solved ? 'approved' : 'pending');
+    const statusBadge =
+      reviewStatus === 'approved' ? '<span class="status-badge approved">✅ 완료</span>'
+      : reviewStatus === 'rejected' ? '<span class="status-badge rejected">🔄 다시풀기</span>'
+      : '<span class="status-badge pending">⏳ 검수 대기</span>';
+
+    return `
+      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}">
+        <div class="note-top-row">
+          <div class="note-thumbs">${thumbsHtml}</div>
+          <div class="note-body">
+            <div class="note-meta-row">
+              ${statusBadge}
+              ${isUnsorted ? '<span class="note-unsorted-badge">🆕 미분류</span>' : ''}
+              ${unitLabel ? `<span class="note-reason-tag">${unitLabel}</span>` : ''}
+              ${e.reason ? `<span class="note-reason-tag">${e.reason}</span>` : ''}
+              ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
+            </div>
+            ${e.memo ? `<p class="note-memo">📝 ${e.memo}</p>` : ''}
+            <p class="note-date">${formatDate(e.entry_date)}</p>
+          </div>
+        </div>
+        <div class="note-actions-row">
+          <button class="btn-small" onclick="toggleClassifyForm('${e.id}')">${isOpen ? '닫기' : (isUnsorted ? '✏️ 분류하기' : '✏️ 수정')}</button>
+          <div class="review-btns">
+            ${reviewStatus === 'approved'
+              ? `<button class="btn-reopen" onclick="reopenEntry('${e.id}')">↩️ 검수 취소</button>`
+              : `<button class="btn-ok" onclick="approveEntry('${e.id}')">✅ OK</button>
+                 <button class="btn-no" onclick="rejectEntry('${e.id}')">❌ NO</button>`}
+          </div>
+          <button class="btn-delete" onclick="deleteEntry('${e.id}')" title="삭제">✕</button>
+        </div>
+        ${classifyFormHtml}
+      </div>`;
+  }
+
+  // ===== 약점 TOP3 =====
+  function renderWeakness() {
+    const container = document.getElementById('weakness-list');
+    const pending = allEntryStats.filter(e => !e.solved && e.subject);
+
+    if (pending.length === 0) {
+      container.innerHTML = '<p class="weakness-empty">미해결(분류된) 오답이 없어요. 잘하고 있어요! 🎉</p>';
+      return;
+    }
+
+    const counts = {};
+    pending.forEach(e => {
+      const key = e.subject + (e.major_unit ? ' · ' + e.major_unit : '');
+      counts[key] = (counts[key] || 0) + 1;
+    });
+
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const medals = ['🥇', '🥈', '🥉'];
+
+    container.innerHTML = sorted.map((item, i) =>
+      `<div class="weakness-item">
+        <span><span class="weakness-rank">${medals[i]}</span>${item[0]}</span>
+        <span class="weakness-count">${item[1]}개 미해결</span>
+      </div>`
+    ).join('');
+  }
+
+  // ===== 망각곡선 복습 알림 =====
+  function renderReviewAlert() {
+    const alertBox = document.getElementById('review-alert');
+    const listEl = document.getElementById('review-alert-list');
+    const today = todayStr();
+    const targets = [1, 3, 7];
+
+    const due = [];
+    allEntryStats.forEach(e => {
+      if (e.solved) return;
+      const elapsed = daysBetween(e.entry_date, today);
+      if (targets.includes(elapsed)) due.push({ entry: e, elapsed });
+    });
+
+    if (due.length === 0) {
+      alertBox.classList.remove('show');
+      listEl.innerHTML = '';
+      return;
+    }
+
+    alertBox.classList.add('show');
+    listEl.innerHTML = due.slice(0, 6).map(d => {
+      const tagClass = d.elapsed === 1 ? 'd1' : (d.elapsed === 3 ? 'd3' : 'd7');
+      const label = d.elapsed === 1 ? '1일 전' : (d.elapsed === 3 ? '3일 전' : '7일 전');
+      const unitLabel = [d.entry.subject, d.entry.major_unit].filter(Boolean).join(' · ') || '미분류';
+      return `<div class="review-alert-item">
+        <span>${unitLabel}${d.entry.memo ? ' — ' + d.entry.memo : ''}</span>
+        <span class="review-tag ${tagClass}">${label}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ===== 히트맵 =====
+  function renderHeatmap() {
+    const grid = document.getElementById('heatmap-grid');
+    const counts = {};
+    allEntryStats.forEach(e => {
+      if (!e.entry_date) return;
+      counts[e.entry_date] = (counts[e.entry_date] || 0) + 1;
+    });
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const days = [];
+    for (let i = 48; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      days.push(ds);
+    }
+
+    function levelOf(c) {
+      if (!c) return '';
+      if (c === 1) return 'l1';
+      if (c === 2) return 'l2';
+      if (c <= 4) return 'l3';
+      return 'l4';
+    }
+
+    grid.innerHTML = days.map(ds => {
+      const c = counts[ds] || 0;
+      const lvl = levelOf(c);
+      const [y,m,d] = ds.split('-');
+      return `<div class="heatmap-cell ${lvl}" title="${y}.${m}.${d} — 오답 ${c}개"></div>`;
+    }).join('');
+  }
+
+  // ===== 랜덤 복습 모드 =====
+  function startRandomReview() {
+    const pendingIds = allEntryStats.filter(e => !e.solved).map(e => e.id);
+    if (pendingIds.length === 0) {
+      alert('미해결 오답이 없어요! 모두 복습 완료했네요 🎉');
+      return;
+    }
+    // currentEntries 중 미해결인 것에서 최대 3개 랜덤
+    const pendingFull = currentEntries.filter(e => !e.solved);
+    const shuffled = [...pendingFull].sort(() => Math.random() - 0.5);
+    reviewQueue = shuffled.slice(0, Math.min(3, shuffled.length));
+    reviewIndex = 0;
+    document.getElementById('review-modal-overlay').classList.add('show');
+    renderReviewModal();
+  }
+  function closeRandomReview() {
+    document.getElementById('review-modal-overlay').classList.remove('show');
+  }
+  function renderReviewModal() {
+    const body = document.getElementById('review-modal-body');
+    if (reviewIndex >= reviewQueue.length) {
+      body.innerHTML = `<div class="review-modal-empty">🎉 오늘의 복습 끝!<br>수고했어요.</div>`;
+      return;
+    }
+    const e = reviewQueue[reviewIndex];
+    const unitLabel = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' · ') || '미분류';
+    body.innerHTML = `
+      <div style="font-size:12px;color:#888;margin-bottom:8px;">${reviewIndex + 1} / ${reviewQueue.length}</div>
+      <img class="review-modal-img" src="${e.image_url}" alt="문제" />
+      <p class="review-modal-meta">${unitLabel}${e.memo ? ' — ' + e.memo : ''}</p>
+      <div class="review-modal-actions">
+        <button class="review-modal-btn solved" onclick="markReviewSolved('${e.id}')">✅ 다시 풀었어요</button>
+        <button class="review-modal-btn skip" onclick="skipReview()">다음으로</button>
+      </div>
+    `;
+  }
+  async function markReviewSolved(entryId) {
+    await approveEntry(entryId);
+    reviewIndex++;
+    renderReviewModal();
+  }
+  function skipReview() {
+    reviewIndex++;
+    renderReviewModal();
+  }
+
+  // ===== board 템플릿 =====
+  function BOARD_TEMPLATE(stu) {
+    return `
+      <div class="board">
+        <div class="profile-head">
+          <h1>📐 ${stu.name} 수학 오답노트</h1>
+          <p class="profile-sub">${[stu.school, stu.grade].filter(Boolean).join(' · ') || '학교/학년 미입력'}</p>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <p class="stat-label">전체 오답</p>
+            <p class="stat-value" id="stat-total">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">완료</p>
+            <p class="stat-value green" id="stat-solved">0</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">검수 대기</p>
+            <p class="stat-value orange" id="stat-pending">0</p>
+          </div>
+        </div>
+
+        <div class="unsorted-alert" id="unsorted-alert">
+          <div class="unsorted-title" id="unsorted-title">⚠️ 분류 대기 중인 오답이 있어요</div>
+          <div class="unsorted-sub">학생이 올린 사진에 과목·단원을 지정해주세요 (아래 "🆕 미분류" 필터에서 확인)</div>
+        </div>
+
+        <div class="unsorted-alert" id="reviewing-alert" style="background:linear-gradient(135deg,#FFF8E7,#FFEFC9);border-color:#FAC775;">
+          <div class="unsorted-title" id="reviewing-title" style="color:#854F0B;">⏳ 검수 대기 중인 오답이 있어요</div>
+          <div class="unsorted-sub" style="color:#8a5a15;">학생 풀이를 확인하고 ✅OK 또는 ❌NO로 판정해주세요 (아래 "⏳ 검수대기" 필터에서 확인)</div>
+        </div>
+
+        <div class="weakness-card">
+          <div class="weakness-title">🎯 약점 TOP 3</div>
+          <div class="weakness-list" id="weakness-list"></div>
+        </div>
+
+        <div class="review-alert" id="review-alert">
+          <div class="review-alert-title">⏰ 오늘 복습하면 좋은 오답</div>
+          <div class="review-alert-list" id="review-alert-list"></div>
+        </div>
+
+        <button class="random-review-btn" id="random-review-btn" onclick="startRandomReview()">
+          🎲 오늘의 오답 3문제 랜덤 복습
+        </button>
+
+        <div class="heatmap-card">
+          <p class="heatmap-title">📅 최근 7주 학습 기록</p>
+          <div class="heatmap-grid" id="heatmap-grid"></div>
+          <div class="heatmap-legend">
+            <span>적음</span>
+            <span class="heatmap-legend-cell" style="background:#ebebe5;"></span>
+            <span class="heatmap-legend-cell" style="background:#C8E6D9;"></span>
+            <span class="heatmap-legend-cell" style="background:#8FCDB0;"></span>
+            <span class="heatmap-legend-cell" style="background:#4FA984;"></span>
+            <span class="heatmap-legend-cell" style="background:#0F6E56;"></span>
+            <span>많음</span>
+          </div>
+        </div>
+
+        <div class="filter-row" id="filter-row">
+          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">전체</button>
+          <button class="filter-btn" data-filter="unsorted" onclick="setFilter('unsorted')">🆕 미분류</button>
+          <button class="filter-btn" data-filter="reviewing" onclick="setFilter('reviewing')">⏳ 검수대기</button>
+          <button class="filter-btn" data-filter="pending" onclick="setFilter('pending')">미해결</button>
+          <button class="filter-btn" data-filter="solved" onclick="setFilter('solved')">완료</button>
+          <button class="filter-btn" data-filter="struggling" onclick="setFilter('struggling')">⭐ 자주틀림</button>
+        </div>
+
+        <div class="note-list" id="note-list"></div>
+        <div class="pagination" id="pagination"></div>
+        <div class="page-info" id="page-info"></div>
+      </div>
+    `;
+  }
+
+  async function renderBoard() {
+    const area = document.getElementById('board-area');
+    const stu = getCurrentStudent();
+
+    if (!stu) {
+      area.innerHTML = `<div class="board"><div class="no-student">👈 학생을 추가하면<br>오답노트가 표시됩니다</div></div>`;
+      return;
+    }
+
+    area.innerHTML = `<div class="board"><div class="loading-msg">불러오는 중...</div></div>`;
+
+    // 통계용 전체 경량 데이터 + 첫 페이지 상세 데이터 병렬 로드
+    [allEntryStats, currentEntries] = await Promise.all([
+      loadAllEntryStats(stu.id),
+      loadEntriesPage(stu.id, currentFilter, currentPage)
+    ]);
+
+    area.innerHTML = BOARD_TEMPLATE(stu);
+    renderStudentDetails();
+  }
+
+  function renderStudentDetails() {
+    const total = allEntryStats.length;
+    const solved = allEntryStats.filter(e => e.solved).length;
+    const unsorted = allEntryStats.filter(e => !e.subject).length;
+    const reviewing = allEntryStats.filter(e => {
+      const rs = e.review_status || (e.solved ? 'approved' : 'pending');
+      return rs === 'pending' || rs === 'rejected';
+    }).length;
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-solved').textContent = solved;
+    document.getElementById('stat-pending').textContent = reviewing;
+
+    const unsortedAlert = document.getElementById('unsorted-alert');
+    if (unsorted > 0) {
+      unsortedAlert.classList.add('show');
+      document.getElementById('unsorted-title').textContent = `⚠️ 분류 대기 중인 오답이 ${unsorted}개 있어요`;
+    } else {
+      unsortedAlert.classList.remove('show');
+    }
+
+    const reviewingAlert = document.getElementById('reviewing-alert');
+    if (reviewing > 0) {
+      reviewingAlert.classList.add('show');
+      document.getElementById('reviewing-title').textContent = `⏳ 검수 대기 중인 오답이 ${reviewing}개 있어요`;
+    } else {
+      reviewingAlert.classList.remove('show');
+    }
+
+    renderWeakness();
+    renderReviewAlert();
+    renderHeatmap();
+
+    const pendingCount = allEntryStats.filter(e => !e.solved).length;
+    document.getElementById('random-review-btn').disabled = pendingCount === 0;
+
+    renderNoteList();
+  }
+
+  // 페이지 이동 (teacher)
+  async function goPage(p) {
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    currentEntries = await loadEntriesPage(currentId, currentFilter, currentPage);
+    renderNoteList();
+    document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderPagination() {
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('page-info');
+    if (!pag) return;
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+    if (totalPages <= 1) { pag.innerHTML = ''; if(info) info.textContent = ''; return; }
+
+    if (info) info.textContent = `전체 ${totalCount}개 중 ${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE, totalCount)}번째`;
+
+    const start = Math.max(1, currentPage - 2);
+    const end   = Math.min(totalPages, start + 4);
+    let btns = `<button class="page-btn ${currentPage===1?'disabled':''}" onclick="goPage(${currentPage-1})">‹</button>`;
+    if (start > 1) btns += `<button class="page-btn" onclick="goPage(1)">1</button>${start>2?'<span style="padding:0 2px;color:#ccc">…</span>':''}`;
+    for (let p = start; p <= end; p++) btns += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    if (end < totalPages) btns += `${end<totalPages-1?'<span style="padding:0 2px;color:#ccc">…</span>':''}<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+    btns += `<button class="page-btn ${currentPage===totalPages?'disabled':''}" onclick="goPage(${currentPage+1})">›</button>`;
+    pag.innerHTML = btns;
+  }
+
+  function renderNoteList() {
+    const container = document.getElementById('note-list');
+    const list = currentEntries;
+
+    if (currentFilter === 'unsorted' || currentFilter === 'reviewing') {
+      if (list.length === 0) {
+        container.innerHTML = `<div class="empty">${currentFilter === 'unsorted' ? '미분류 오답이 없어요 🎉' : '검수 대기 중인 오답이 없어요 🎉'}</div>`;
+      } else {
+        container.innerHTML = list.map(noteCardHtml).join('');
+      }
+      renderPagination();
+      return;
+    }
+
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
+      renderPagination();
+      return;
+    }
+
+    // 분류 안 된 항목과 분류된 항목 분리
+    const sortedList = list.filter(e => e.subject);
+    const unsortedList = list.filter(e => !e.subject);
+
+    const bySubject = {};
+    sortedList.forEach(e => {
+      const subj = e.subject || '기타';
+      if (!bySubject[subj]) bySubject[subj] = [];
+      bySubject[subj].push(e);
+    });
+
+    const subjectOrder = Object.keys(CURRICULUM).concat(['기타']);
+    const subjectKeys = Object.keys(bySubject).sort((a, b) => subjectOrder.indexOf(a) - subjectOrder.indexOf(b));
+
+    let html = '';
+
+    // 미분류 항목 우선 표시 (폴더 밖에, 눈에 띄게)
+    if (unsortedList.length > 0) {
+      html += unsortedList.sort((a,b) => (b.entry_date||'').localeCompare(a.entry_date||'')).map(noteCardHtml).join('');
+    }
+
+    html += subjectKeys.map(subj => {
+      const subjEntries = bySubject[subj];
+      const subjPending = subjEntries.filter(e => !e.solved).length;
+      const subjKey = 'subj_' + subj;
+      const subjOpen = !!openGroups[subjKey];
+      const majorMap = CURRICULUM[subj] || {};
+      const majorOrder = Object.keys(majorMap);
+
+      const byMajor = {};
+      const noMajor = [];
+      subjEntries.forEach(e => {
+        if (e.major_unit) {
+          if (!byMajor[e.major_unit]) byMajor[e.major_unit] = [];
+          byMajor[e.major_unit].push(e);
+        } else {
+          noMajor.push(e);
+        }
+      });
+
+      const majorKeys = Object.keys(byMajor).sort((a, b) => majorOrder.indexOf(a) - majorOrder.indexOf(b));
+
+      const majorGroupsHtml = majorKeys.map(major => {
+        const majorEntries = byMajor[major];
+        const majorPending = majorEntries.filter(e => !e.solved).length;
+        const mKey = subjKey + '__major_' + major;
+        const mOpen = !!openGroups[mKey];
+        const minorOrder = majorMap[major] || [];
+
+        const byMinor = {};
+        const noMinor = [];
+        majorEntries.forEach(e => {
+          if (e.minor_unit) {
+            if (!byMinor[e.minor_unit]) byMinor[e.minor_unit] = [];
+            byMinor[e.minor_unit].push(e);
+          } else {
+            noMinor.push(e);
+          }
+        });
+
+        const minorKeys = Object.keys(byMinor).sort((a, b) => minorOrder.indexOf(a) - minorOrder.indexOf(b));
+
+        const minorGroupsHtml = minorKeys.map(minor => {
+          const minorEntries = byMinor[minor];
+          const minorPending = minorEntries.filter(e => !e.solved).length;
+          const miKey = mKey + '__minor_' + minor;
+          const miOpen = !!openGroups[miKey];
+          return `
+            <div class="minor-group">
+              <div class="minor-header" onclick="toggleGroup('${miKey}')">
+                <span class="minor-arrow ${miOpen ? 'open' : ''}">▶</span>
+                <span class="minor-name">${minor}</span>
+                <span class="minor-count ${minorPending > 0 ? 'has-pending' : ''}">${minorEntries.length}개${minorPending > 0 ? ' · 미해결 ' + minorPending : ''}</span>
+              </div>
+              <div class="minor-body ${miOpen ? 'open' : ''}">
+                ${minorEntries.sort((a,b) => (b.entry_date||'').localeCompare(a.entry_date||'')).map(noteCardHtml).join('')}
+              </div>
+            </div>`;
+        }).join('');
+
+        const noMinorHtml = noMinor.length > 0 ? (() => {
+          const miKey = mKey + '__nominor';
+          const miOpen = !!openGroups[miKey];
+          const pc = noMinor.filter(e => !e.solved).length;
+          return `
+            <div class="minor-group">
+              <div class="minor-header" onclick="toggleGroup('${miKey}')">
+                <span class="minor-arrow ${miOpen ? 'open' : ''}">▶</span>
+                <span class="minor-name">중단원 미지정</span>
+                <span class="minor-count ${pc > 0 ? 'has-pending' : ''}">${noMinor.length}개</span>
+              </div>
+              <div class="minor-body ${miOpen ? 'open' : ''}">
+                ${noMinor.sort((a,b) => (b.entry_date||'').localeCompare(a.entry_date||'')).map(noteCardHtml).join('')}
+              </div>
+            </div>`;
+        })() : '';
+
+        return `
+          <div class="major-group">
+            <div class="major-header" onclick="toggleGroup('${mKey}')">
+              <span class="major-arrow ${mOpen ? 'open' : ''}">▶</span>
+              <span class="major-name">${major}</span>
+              <span class="major-count ${majorPending > 0 ? 'has-pending' : ''}">${majorEntries.length}개${majorPending > 0 ? ' · 미해결 ' + majorPending : ''}</span>
+            </div>
+            <div class="major-body ${mOpen ? 'open' : ''}">
+              ${minorGroupsHtml}${noMinorHtml}
+            </div>
+          </div>`;
+      }).join('');
+
+      const noMajorHtml = noMajor.length > 0 ? (() => {
+        const mKey = subjKey + '__nomajor';
+        const mOpen = !!openGroups[mKey];
+        const pc = noMajor.filter(e => !e.solved).length;
+        return `
+          <div class="major-group">
+            <div class="major-header" onclick="toggleGroup('${mKey}')">
+              <span class="major-arrow ${mOpen ? 'open' : ''}">▶</span>
+              <span class="major-name">대단원 미지정</span>
+              <span class="major-count ${pc > 0 ? 'has-pending' : ''}">${noMajor.length}개</span>
+            </div>
+            <div class="major-body ${mOpen ? 'open' : ''}">
+              ${noMajor.sort((a,b) => (b.entry_date||'').localeCompare(a.entry_date||'')).map(noteCardHtml).join('')}
+            </div>
+          </div>`;
+      })() : '';
+
+      return `
+        <div class="subject-group">
+          <div class="subject-header" onclick="toggleGroup('${subjKey}')">
+            <span class="subject-arrow ${subjOpen ? 'open' : ''}">▶</span>
+            <span class="subject-folder-icon">📁</span>
+            <span class="subject-name">${subj}</span>
+            <span class="subject-count ${subjPending > 0 ? 'has-pending' : ''}">${subjEntries.length}개${subjPending > 0 ? ' · 미해결 ' + subjPending : ''}</span>
+          </div>
+          <div class="subject-body ${subjOpen ? 'open' : ''}">
+            ${majorGroupsHtml}${noMajorHtml}
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = html;
+    renderPagination();
+  }
+
+  // ===== 월별 순위표 =====
+  let lbYear, lbMonth;
+  function initLbMonth() {
+    const d = new Date();
+    lbYear = d.getFullYear();
+    lbMonth = d.getMonth() + 1;
+  }
+  initLbMonth();
+
+  function changeMonth(delta) {
+    lbMonth += delta;
+    if (lbMonth > 12) { lbMonth = 1; lbYear++; }
+    if (lbMonth < 1) { lbMonth = 12; lbYear--; }
+    loadLeaderboard();
+  }
+
+  function getMonthStr() {
+    return `${lbYear}-${String(lbMonth).padStart(2, '0')}`;
+  }
+
+  async function loadLeaderboard() {
+    const monthStr = getMonthStr();
+    document.getElementById('lb-month-label').textContent = `${lbYear}년 ${lbMonth}월`;
+
+    try {
+      // 해당 월의 모든 오답 데이터 가져오기
+      const nextMonth = lbMonth === 12 ? 1 : lbMonth + 1;
+      const nextYear = lbMonth === 12 ? lbYear + 1 : lbYear;
+      const notesRes = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved&entry_date=gte.${monthStr}-01&entry_date=lt.${nextYear}-${String(nextMonth).padStart(2, '0')}-01`, {
+        headers: sbHeaders()
+      });
+      const notes = await notesRes.json();
+
+      // 해당 월의 보너스 포인트
+      const bonusRes = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=student_id,points&month=eq.${monthStr}`, {
+        headers: sbHeaders()
+      });
+      let bonuses = [];
+      try { bonuses = await bonusRes.json(); } catch(e) { bonuses = []; }
+
+      // 학생별 점수 계산
+      const scores = {};
+      students.forEach(s => {
+        scores[s.id] = { name: s.name, uploads: 0, approved: 0, bonus: 0, total: 0 };
+      });
+
+      notes.forEach(n => {
+        if (!scores[n.student_id]) return;
+        scores[n.student_id].uploads += 1; // 올리기 1점
+        if (n.review_status === 'approved' || (n.solved && !n.review_status)) {
+          scores[n.student_id].approved += 5; // OK 받으면 5점
+        }
+      });
+
+      if (Array.isArray(bonuses)) {
+        bonuses.forEach(b => {
+          if (!scores[b.student_id]) return;
+          scores[b.student_id].bonus += b.points;
+        });
+      }
+
+      // 총점 계산 & 정렬
+      const ranked = Object.values(scores).map(s => {
+        s.total = s.uploads + s.approved + s.bonus;
+        return s;
+      }).sort((a, b) => b.total - a.total);
+
+      const medals = ['🥇', '🥈', '🥉'];
+      const tbody = document.getElementById('lb-body');
+
+      if (ranked.length === 0 || ranked.every(r => r.total === 0)) {
+        tbody.innerHTML = `<tr><td colspan="6" class="lb-empty">이번 달 데이터가 아직 없어요</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = ranked.map((r, i) => `
+        <tr>
+          <td class="lb-rank">${i < 3 ? `<span class="lb-medal">${medals[i]}</span>` : (i + 1)}</td>
+          <td class="lb-name">${r.name}</td>
+          <td class="lb-detail">${r.uploads}점</td>
+          <td class="lb-detail">${r.approved}점</td>
+          <td class="lb-detail">${r.bonus > 0 ? '+' + r.bonus : '-'}</td>
+          <td class="lb-score">${r.total}점</td>
+        </tr>
+      `).join('');
+
+    } catch (err) {
+      console.error('순위표 로드 실패:', err);
+    }
+  }
+
+  function populateBonusSelect() {
+    const sel = document.getElementById('bonus-student-select');
+    sel.innerHTML = '<option value="">학생 선택</option>' +
+      students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
+
+  async function giveBonus() {
+    const studentId = document.getElementById('bonus-student-select').value;
+    const points = parseInt(document.getElementById('bonus-points').value);
+    const memo = document.getElementById('bonus-memo').value.trim();
+
+    if (!studentId) { alert('학생을 선택해주세요.'); return; }
+    if (!points || points <= 0) { alert('점수를 입력해주세요.'); return; }
+
+    const monthStr = getMonthStr();
+    const studentName = students.find(s => s.id === studentId)?.name || '';
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify({
+          student_id: studentId,
+          points: points,
+          memo: memo || null,
+          month: monthStr
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      alert(`✅ ${studentName}에게 보너스 ${points}점 지급 완료!`);
+      document.getElementById('bonus-points').value = '';
+      document.getElementById('bonus-memo').value = '';
+      loadLeaderboard();
+    } catch (err) {
+      console.error(err);
+      alert('보너스 지급에 실패했어요.');
+    }
+  }
+
+  // ===== 초기 실행 =====
+  checkLoginOnLoad();
+</script>
+</body>
+</html>
