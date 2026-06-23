@@ -184,13 +184,14 @@
   .reason-tag-btn-mini.selected { background: #1a1a1a; color: white; border-color: #1a1a1a; }
   .btn-save-classify { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #0F6E56; background: #0F6E56; color: white; font-size: 12px; font-weight: 600; cursor: pointer; }
 
-  /* 페이지네이션 */
-  .pagination { display: flex; justify-content: center; align-items: center; gap: 4px; margin-top: 14px; flex-wrap: wrap; }
-  .page-btn { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #ddd; background: white; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; }
-  .page-btn:hover { background: #f5f5f0; }
-  .page-btn.active { background: #0F6E56; color: white; border-color: #0F6E56; }
-  .page-btn.disabled { color: #ccc; cursor: default; pointer-events: none; }
-  .page-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 6px; }
+  /* 일괄삭제 */
+  .bulk-bar { display:none; position:sticky; top:8px; z-index:50; background:#1a1a1a; color:white; border-radius:12px; padding:10px 14px; margin-bottom:12px; align-items:center; justify-content:space-between; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,0.2); }
+  .bulk-bar.show { display:flex; }
+  .bulk-bar-left { font-size:13px; font-weight:600; }
+  .bulk-bar-right { display:flex; gap:6px; }
+  .btn-bulk-cancel { padding:7px 14px; border-radius:8px; border:1px solid #555; background:transparent; color:#ccc; font-size:12px; font-weight:600; cursor:pointer; }
+  .btn-bulk-delete { padding:7px 14px; border-radius:8px; border:none; background:#993C1D; color:white; font-size:12px; font-weight:600; cursor:pointer; }
+  .note-card-checkbox { width:18px; height:18px; accent-color:#993C1D; cursor:pointer; flex-shrink:0; }
 
   .empty { text-align: center; padding: 3rem 1rem; color: #aaa; font-size: 14px; }
   .no-student { text-align: center; padding: 3rem 1rem; color: #999; }
@@ -278,9 +279,9 @@
       <button onclick="addStudent()">추가하기</button>
     </div>
     <div class="student-link-box">
-      📱 학생 페이지 링크:
-      <code>https://hyj.vercel.app/student.html</code>
-      <button class="btn-small" style="margin-left:6px;" onclick="navigator.clipboard.writeText('https://hyj.vercel.app/student.html').then(()=>alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋'))">복사</button>
+      📱 학생들에게 이 링크를 공유하세요:<br>
+      <code id="student-link-display">불러오는 중...</code>
+      <button class="btn-small" style="margin-left:6px;" onclick="copyStudentLink()">복사</button>
     </div>
   </div>
 
@@ -427,17 +428,60 @@
   // ===== 상태 =====
   let students = [];
   let currentId = null;
-  let currentEntries = []; // 현재 페이지 데이터
-  let allEntryStats = [];  // 통계/약점/히트맵용 경량 전체 데이터
+  let currentEntries = []; // 현재 선택된 학생의 오답 목록 (DB에서 로드)
   let currentFilter = 'all';
   let openGroups = JSON.parse(localStorage.getItem('teacher_open_groups') || '{}');
-  let classifyOpenIds = new Set();
-  let pendingSolutionFiles = {};
+  let classifyOpenIds = new Set(); // 분류 폼이 펼쳐진 entry id들
+  let pendingSolutionFiles = {}; // entryId -> File 객체 (저장 전 임시 보관)
   let reviewQueue = [];
   let reviewIndex = 0;
-  const PAGE_SIZE = 20;
-  let currentPage = 1;
-  let totalCount = 0;
+
+  let bulkMode = false;
+  let selectedIds = new Set();
+
+  function toggleBulkMode() {
+    bulkMode = !bulkMode;
+    selectedIds.clear();
+    const bar = document.getElementById('bulk-bar');
+    if (bar) bar.classList.toggle('show', bulkMode);
+    updateBulkLabel();
+    renderNoteList();
+  }
+
+  function updateBulkLabel() {
+    const el = document.getElementById('bulk-count-label');
+    if (el) el.textContent = `${selectedIds.size}개 선택됨`;
+  }
+
+  function toggleSelectCard(id) {
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    updateBulkLabel();
+    const cb = document.getElementById(`cb-${id}`);
+    if (cb) cb.checked = selectedIds.has(id);
+  }
+
+  async function bulkDelete() {
+    if (selectedIds.size === 0) { alert('선택된 오답이 없어요.'); return; }
+    if (!confirm(`선택한 ${selectedIds.size}개를 삭제할까요? 되돌릴 수 없어요.`)) return;
+
+    try {
+      const ids = [...selectedIds];
+      await Promise.all(ids.map(id =>
+        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${id}`, {
+          method: 'DELETE', headers: sbHeaders()
+        })
+      ));
+      selectedIds.clear();
+      bulkMode = false;
+      const bar = document.getElementById('bulk-bar');
+      if (bar) bar.classList.remove('show');
+      await refreshCurrentEntries();
+    } catch (err) {
+      console.error(err);
+      alert('삭제에 실패했어요.');
+    }
+  }
 
   function saveOpenGroups() {
     localStorage.setItem('teacher_open_groups', JSON.stringify(openGroups));
@@ -591,7 +635,6 @@
   async function onSelectStudent() {
     currentId = document.getElementById('student-select').value;
     currentFilter = 'all';
-    currentPage = 1;
     await renderBoard();
   }
 
@@ -608,36 +651,18 @@
     populateBonusSelect();
   }
 
-  // 통계·약점·히트맵용 경량 전체 데이터 (페이지 무관)
-  async function loadAllEntryStats(studentId) {
+  // ===== 오답 데이터 로드 =====
+  async function loadEntriesForStudent(studentId) {
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${studentId}&select=id,solved,review_status,subject,major_unit,entry_date,retry_count,last_reviewed_date`,
-        { headers: sbHeaders() }
-      );
-      return (await res.json()) || [];
-    } catch { return []; }
-  }
-
-  // 현재 필터 + 페이지에 해당하는 상세 데이터
-  async function loadEntriesPage(studentId, filter, page) {
-    let filterQ = `student_id=eq.${studentId}`;
-    if (filter === 'pending')    filterQ += `&solved=eq.false`;
-    if (filter === 'solved')     filterQ += `&solved=eq.true`;
-    if (filter === 'struggling') filterQ += `&retry_count=gte.${STRUGGLE_THRESHOLD}`;
-    if (filter === 'unsorted')   filterQ += `&subject=is.null`;
-    if (filter === 'reviewing')  filterQ += `&review_status=in.(pending,rejected)`;
-
-    const offset = (page - 1) * PAGE_SIZE;
-    try {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.desc&limit=${PAGE_SIZE}&offset=${offset}`,
-        { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
-      );
-      const contentRange = res.headers.get('content-range');
-      totalCount = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
-      return (await res.json()) || [];
-    } catch { totalCount = 0; return []; }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${studentId}&select=*&order=created_at.desc`, {
+        headers: sbHeaders()
+      });
+      const data = await res.json();
+      return data || [];
+    } catch (err) {
+      console.error('오답 로드 실패', err);
+      return [];
+    }
   }
 
   function subjectOptionsHtml(selected) {
@@ -718,7 +743,7 @@
     reader.readAsDataURL(file);
   }
 
-  function compressImage(file, maxSize = 1100, quality = 0.75) {
+  function compressImage(file, maxSize = 600, quality = 0.5) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -804,12 +829,7 @@
 
   async function refreshCurrentEntries() {
     if (!currentId) return;
-    const stu = getCurrentStudent();
-    if (!stu) return;
-    [allEntryStats, currentEntries] = await Promise.all([
-      loadAllEntryStats(currentId),
-      loadEntriesPage(currentId, currentFilter, currentPage)
-    ]);
+    currentEntries = await loadEntriesForStudent(currentId);
     renderStudentDetails();
     loadLeaderboard();
   }
@@ -898,20 +918,12 @@
     }
   }
 
-  // 필터 변경 시 현재 페이지 데이터만 다시 로드
-  async function loadCurrentPage() {
-    if (!currentId) return;
-    currentEntries = await loadEntriesPage(currentId, currentFilter, currentPage);
-    renderNoteList();
-  }
-
   function setFilter(f) {
     currentFilter = f;
-    currentPage = 1;
     document.querySelectorAll('.filter-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.filter === f);
     });
-    loadCurrentPage();
+    renderStudentDetails();
   }
 
   function openModal(src) {
@@ -1025,8 +1037,9 @@
       : '<span class="status-badge pending">⏳ 검수 대기</span>';
 
     return `
-      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}">
+      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}" onclick="${bulkMode ? `toggleSelectCard('${e.id}')` : ''}">
         <div class="note-top-row">
+          ${bulkMode ? `<input type="checkbox" id="cb-${e.id}" class="note-card-checkbox" ${selectedIds.has(e.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectCard('${e.id}')" />` : ''}
           <div class="note-thumbs">${thumbsHtml}</div>
           <div class="note-body">
             <div class="note-meta-row">
@@ -1057,7 +1070,7 @@
   // ===== 약점 TOP3 =====
   function renderWeakness() {
     const container = document.getElementById('weakness-list');
-    const pending = allEntryStats.filter(e => !e.solved && e.subject);
+    const pending = currentEntries.filter(e => !e.solved && e.subject);
 
     if (pending.length === 0) {
       container.innerHTML = '<p class="weakness-empty">미해결(분류된) 오답이 없어요. 잘하고 있어요! 🎉</p>';
@@ -1089,7 +1102,7 @@
     const targets = [1, 3, 7];
 
     const due = [];
-    allEntryStats.forEach(e => {
+    currentEntries.forEach(e => {
       if (e.solved) return;
       const elapsed = daysBetween(e.entry_date, today);
       if (targets.includes(elapsed)) due.push({ entry: e, elapsed });
@@ -1117,7 +1130,7 @@
   function renderHeatmap() {
     const grid = document.getElementById('heatmap-grid');
     const counts = {};
-    allEntryStats.forEach(e => {
+    currentEntries.forEach(e => {
       if (!e.entry_date) return;
       counts[e.entry_date] = (counts[e.entry_date] || 0) + 1;
     });
@@ -1150,14 +1163,12 @@
 
   // ===== 랜덤 복습 모드 =====
   function startRandomReview() {
-    const pendingIds = allEntryStats.filter(e => !e.solved).map(e => e.id);
-    if (pendingIds.length === 0) {
+    const pending = currentEntries.filter(e => !e.solved);
+    if (pending.length === 0) {
       alert('미해결 오답이 없어요! 모두 복습 완료했네요 🎉');
       return;
     }
-    // currentEntries 중 미해결인 것에서 최대 3개 랜덤
-    const pendingFull = currentEntries.filter(e => !e.solved);
-    const shuffled = [...pendingFull].sort(() => Math.random() - 0.5);
+    const shuffled = [...pending].sort(() => Math.random() - 0.5);
     reviewQueue = shuffled.slice(0, Math.min(3, shuffled.length));
     reviewIndex = 0;
     document.getElementById('review-modal-overlay').classList.add('show');
@@ -1263,11 +1274,18 @@
           <button class="filter-btn" data-filter="pending" onclick="setFilter('pending')">미해결</button>
           <button class="filter-btn" data-filter="solved" onclick="setFilter('solved')">완료</button>
           <button class="filter-btn" data-filter="struggling" onclick="setFilter('struggling')">⭐ 자주틀림</button>
+          <button class="filter-btn" style="margin-left:auto;border-color:#993C1D;color:#993C1D;" onclick="toggleBulkMode()">🗑️ 선택삭제</button>
+        </div>
+
+        <div class="bulk-bar" id="bulk-bar">
+          <span class="bulk-bar-left" id="bulk-count-label">0개 선택됨</span>
+          <div class="bulk-bar-right">
+            <button class="btn-bulk-cancel" onclick="toggleBulkMode()">취소</button>
+            <button class="btn-bulk-delete" onclick="bulkDelete()">🗑️ 선택 삭제</button>
+          </div>
         </div>
 
         <div class="note-list" id="note-list"></div>
-        <div class="pagination" id="pagination"></div>
-        <div class="page-info" id="page-info"></div>
       </div>
     `;
   }
@@ -1282,22 +1300,17 @@
     }
 
     area.innerHTML = `<div class="board"><div class="loading-msg">불러오는 중...</div></div>`;
-
-    // 통계용 전체 경량 데이터 + 첫 페이지 상세 데이터 병렬 로드
-    [allEntryStats, currentEntries] = await Promise.all([
-      loadAllEntryStats(stu.id),
-      loadEntriesPage(stu.id, currentFilter, currentPage)
-    ]);
+    currentEntries = await loadEntriesForStudent(stu.id);
 
     area.innerHTML = BOARD_TEMPLATE(stu);
     renderStudentDetails();
   }
 
   function renderStudentDetails() {
-    const total = allEntryStats.length;
-    const solved = allEntryStats.filter(e => e.solved).length;
-    const unsorted = allEntryStats.filter(e => !e.subject).length;
-    const reviewing = allEntryStats.filter(e => {
+    const total = currentEntries.length;
+    const solved = currentEntries.filter(e => e.solved).length;
+    const unsorted = currentEntries.filter(e => !e.subject).length;
+    const reviewing = currentEntries.filter(e => {
       const rs = e.review_status || (e.solved ? 'approved' : 'pending');
       return rs === 'pending' || rs === 'rejected';
     }).length;
@@ -1326,58 +1339,33 @@
     renderReviewAlert();
     renderHeatmap();
 
-    const pendingCount = allEntryStats.filter(e => !e.solved).length;
+    const pendingCount = currentEntries.filter(e => !e.solved).length;
     document.getElementById('random-review-btn').disabled = pendingCount === 0;
 
-    renderNoteList();
-  }
+    let list = currentEntries;
+    if (currentFilter === 'pending') list = list.filter(e => !e.solved);
+    if (currentFilter === 'solved') list = list.filter(e => e.solved);
+    if (currentFilter === 'struggling') list = list.filter(e => (e.retry_count || 0) >= STRUGGLE_THRESHOLD);
+    if (currentFilter === 'unsorted') list = list.filter(e => !e.subject);
+    if (currentFilter === 'reviewing') list = list.filter(e => {
+      const rs = e.review_status || (e.solved ? 'approved' : 'pending');
+      return rs === 'pending' || rs === 'rejected';
+    });
 
-  // 페이지 이동 (teacher)
-  async function goPage(p) {
-    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-    if (p < 1 || p > totalPages) return;
-    currentPage = p;
-    currentEntries = await loadEntriesPage(currentId, currentFilter, currentPage);
-    renderNoteList();
-    document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function renderPagination() {
-    const pag = document.getElementById('pagination');
-    const info = document.getElementById('page-info');
-    if (!pag) return;
-    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-    if (totalPages <= 1) { pag.innerHTML = ''; if(info) info.textContent = ''; return; }
-
-    if (info) info.textContent = `전체 ${totalCount}개 중 ${(currentPage-1)*PAGE_SIZE+1}–${Math.min(currentPage*PAGE_SIZE, totalCount)}번째`;
-
-    const start = Math.max(1, currentPage - 2);
-    const end   = Math.min(totalPages, start + 4);
-    let btns = `<button class="page-btn ${currentPage===1?'disabled':''}" onclick="goPage(${currentPage-1})">‹</button>`;
-    if (start > 1) btns += `<button class="page-btn" onclick="goPage(1)">1</button>${start>2?'<span style="padding:0 2px;color:#ccc">…</span>':''}`;
-    for (let p = start; p <= end; p++) btns += `<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
-    if (end < totalPages) btns += `${end<totalPages-1?'<span style="padding:0 2px;color:#ccc">…</span>':''}<button class="page-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
-    btns += `<button class="page-btn ${currentPage===totalPages?'disabled':''}" onclick="goPage(${currentPage+1})">›</button>`;
-    pag.innerHTML = btns;
-  }
-
-  function renderNoteList() {
     const container = document.getElementById('note-list');
-    const list = currentEntries;
 
     if (currentFilter === 'unsorted' || currentFilter === 'reviewing') {
+      // 미분류/검수대기는 폴더 없이 그냥 리스트로
       if (list.length === 0) {
         container.innerHTML = `<div class="empty">${currentFilter === 'unsorted' ? '미분류 오답이 없어요 🎉' : '검수 대기 중인 오답이 없어요 🎉'}</div>`;
       } else {
-        container.innerHTML = list.map(noteCardHtml).join('');
+        container.innerHTML = [...list].sort((a,b) => (b.entry_date||'').localeCompare(a.entry_date||'')).map(noteCardHtml).join('');
       }
-      renderPagination();
       return;
     }
 
     if (list.length === 0) {
       container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
-      renderPagination();
       return;
     }
 
@@ -1523,7 +1511,6 @@
     }).join('');
 
     container.innerHTML = html;
-    renderPagination();
   }
 
   // ===== 월별 순위표 =====
@@ -1657,8 +1644,25 @@
     }
   }
 
+  // ===== 학생 업로드 페이지 링크 표시 =====
+  function setupStudentLink() {
+    // 현재 주소(teacher.html)에서 student.html로 바꿔서 정확한 링크 생성
+    const studentUrl = window.location.href.replace(/teacher(_dashboard)?\.html.*$/, 'student.html');
+    document.getElementById('student-link-display').textContent = studentUrl;
+  }
+
+  function copyStudentLink() {
+    const text = document.getElementById('student-link-display').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋');
+    }).catch(() => {
+      alert('복사에 실패했어요. 주소를 직접 선택해서 복사해주세요.');
+    });
+  }
+
   // ===== 초기 실행 =====
   checkLoginOnLoad();
+  setupStudentLink();
 </script>
 </body>
 </html>

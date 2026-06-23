@@ -1,10 +1,10 @@
 {
-  "name": "채움수학 오답노트",
-  "short_name": "오답노트",
+  "name": "오답 너 뒤졌다",
+  "short_name": "오답뒤졌다",
   "description": "채움수학학원 오답노트 앱",
   "start_url": "/student.html",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#c8b89a",
   "theme_color": "#0F6E56",
   "orientation": "portrait",
   "icons": [
