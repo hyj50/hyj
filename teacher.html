@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>수학 오답노트 - 선생님</title>
+<title>오답 너 뒤졌다 (선생)</title>
+<link rel="manifest" href="/manifest-teacher.json">
+<meta name="theme-color" content="#0F6E56">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="오답뒤졌다(선생)">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { width: 100%; overflow-x: hidden; }
@@ -1662,6 +1669,13 @@
 
   // ===== 초기 실행 =====
   checkLoginOnLoad();
+
+  // PWA 서비스워커 등록
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+    });
+  }
   setupStudentLink();
 </script>
 </body>
