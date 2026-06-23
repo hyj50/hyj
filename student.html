@@ -760,6 +760,13 @@
     document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // 스플래시 음악
+  window.addEventListener('load', () => {
+    const audio = new Audio('/splash.mp3');
+    audio.volume = 0.8;
+    audio.play().catch(() => {});
+  });
+
   // 스플래시 제거
   setTimeout(() => {
     const splash = document.getElementById('splash-screen');
