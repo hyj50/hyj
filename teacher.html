@@ -42,7 +42,7 @@
   /* 학생 선택 바 */
   .student-bar { background: white; border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
   .student-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
-  .student-select-row select { flex: 1; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; }
+  .student-select-row select { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; overflow: hidden; text-overflow: ellipsis; }
   .btn-small { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: white; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
   .btn-small:hover { background: #f5f5f0; }
   .btn-add-student { border-color: #0F6E56; color: #0F6E56; }
@@ -1228,17 +1228,17 @@
   // ===== 약점 TOP3 =====
   function renderWeakness() {
     const container = document.getElementById('weakness-list');
-    const pending = currentEntries.filter(e => !e.solved && e.subject);
+    const withRetry = allEntryStats.filter(e => (e.retry_count || 0) > 0 && e.minor_unit);
 
-    if (pending.length === 0) {
-      container.innerHTML = '<p class="weakness-empty">미해결(분류된) 오답이 없어요. 잘하고 있어요! 🎉</p>';
+    if (withRetry.length === 0) {
+      container.innerHTML = '<p class="weakness-empty">아직 틀린 횟수 데이터가 없어요 🎉</p>';
       return;
     }
 
     const counts = {};
-    pending.forEach(e => {
-      const key = e.subject + (e.major_unit ? ' · ' + e.major_unit : '');
-      counts[key] = (counts[key] || 0) + 1;
+    withRetry.forEach(e => {
+      const key = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' > ');
+      counts[key] = (counts[key] || 0) + (e.retry_count || 0);
     });
 
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -1247,7 +1247,7 @@
     container.innerHTML = sorted.map((item, i) =>
       `<div class="weakness-item">
         <span><span class="weakness-rank">${medals[i]}</span>${item[0]}</span>
-        <span class="weakness-count">${item[1]}개 미해결</span>
+        <span class="weakness-count">총 ${item[1]}회 틀림</span>
       </div>`
     ).join('');
   }
