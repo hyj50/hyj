@@ -760,11 +760,24 @@
     document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // 스플래시 음악
+  // 스플래시 음악 (10초 재생 후 페이드아웃)
   window.addEventListener('load', () => {
     const audio = new Audio('/splash.mp3');
     audio.volume = 0.8;
     audio.play().catch(() => {});
+
+    // 7초 후부터 3초간 페이드아웃
+    setTimeout(() => {
+      const fadeInterval = setInterval(() => {
+        if (audio.volume > 0.05) {
+          audio.volume = Math.max(0, audio.volume - 0.05);
+        } else {
+          audio.volume = 0;
+          audio.pause();
+          clearInterval(fadeInterval);
+        }
+      }, 150);
+    }, 7000);
   });
 
   // 스플래시 제거

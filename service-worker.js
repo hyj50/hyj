@@ -1,9 +1,12 @@
-const CACHE_NAME = 'chaeum-v1';
+const CACHE_NAME = 'chaeum-v2';
 const STATIC_FILES = [
   '/student.html',
   '/icon-192.png',
   '/icon-512.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/manifest.json',
+  '/splash.jpg',
+  '/splash.mp3'
 ];
 
 self.addEventListener('install', e => {
@@ -22,18 +25,38 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Network first — Supabase API는 항상 네트워크 우선, HTML만 캐시 폴백
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Supabase API 요청은 캐시 안 함
+  // Supabase API는 캐시 안 함
   if (url.hostname.includes('supabase.co')) return;
 
+  // Supabase Storage 사진은 캐시 저장 (오프라인 지원)
+  if (url.hostname.includes('supabase.co') === false && url.pathname.includes('/storage/v1/object/public/')) {
+    e.respondWith(
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(e.request).then(cached => {
+          if (cached) return cached;
+          return fetch(e.request).then(res => {
+            cache.put(e.request, res.clone());
+            return res;
+          });
+        })
+      )
+    );
+    return;
+  }
+
+  // 나머지: 네트워크 우선, 실패시 캐시
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        // HTML 파일만 캐시 업데이트
-        if (e.request.destination === 'document') {
+        // HTML, 이미지, 음악 파일 캐시 업데이트
+        if (
+          e.request.destination === 'document' ||
+          e.request.destination === 'image' ||
+          e.request.destination === 'audio'
+        ) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
         }
