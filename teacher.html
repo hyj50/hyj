@@ -25,8 +25,7 @@
     .student-select-row select { width: 100%; }
     .note-top-row { flex-direction: column; }
     .note-thumbs { width: 100%; }
-    .note-thumb { width: calc(50% - 4px); height: 120px; }
-    .note-thumb.mini { width: calc(50% - 4px); height: 120px; }
+    .note-thumb { width: 80px; height: 80px; }
   }
 
   /* 로그인 화면 */
@@ -43,7 +42,7 @@
   /* 학생 선택 바 */
   .student-bar { background: white; border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
   .student-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
-  .student-select-row select { flex: 1; min-width: 120px; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; }
+  .student-select-row select { flex: 1; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; }
   .btn-small { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: white; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
   .btn-small:hover { background: #f5f5f0; }
   .btn-add-student { border-color: #0F6E56; color: #0F6E56; }
@@ -150,9 +149,9 @@
   .note-card.unsorted { border-color: #F6B8A0; background: #FFF6F2; }
 
   .note-top-row { display: flex; gap: 12px; margin-bottom: 10px; }
-  .note-thumbs { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-  .note-thumb { width: 130px; height: 100px; border-radius: 10px; object-fit: cover; cursor: pointer; background: #eee; }
-  .note-thumb.mini { width: 60px; height: 100px; }
+  .note-thumbs { display: flex; gap: 4px; flex-shrink: 0; }
+  .note-thumb { width: 70px; height: 70px; border-radius: 10px; object-fit: cover; cursor: pointer; background: #eee; }
+  .note-thumb.mini { width: 32px; height: 70px; }
   .note-body { flex: 1; min-width: 0; }
   .note-memo { font-size: 13px; color: #444; margin-bottom: 4px; word-break: break-word; }
   .note-date { font-size: 11px; color: #aaa; }
@@ -287,9 +286,9 @@
       <button onclick="addStudent()">추가하기</button>
     </div>
     <div class="student-link-box">
-      📱 학생 페이지 링크:
-      <code>https://hyj.vercel.app/student.html</code>
-      <button class="btn-small" style="margin-left:6px;" onclick="navigator.clipboard.writeText('https://hyj.vercel.app/student.html').then(()=>alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋'))">복사</button>
+      📱 학생들에게 이 링크를 공유하세요:<br>
+      <code id="student-link-display">불러오는 중...</code>
+      <button class="btn-small" style="margin-left:6px;" onclick="copyStudentLink()">복사</button>
     </div>
   </div>
 
@@ -437,7 +436,6 @@
   let students = [];
   let currentId = null;
   let currentEntries = []; // 현재 선택된 학생의 오답 목록 (DB에서 로드)
-  let allEntryStats = []; // 통계용 전체 경량 데이터
   let currentFilter = 'all';
   let openGroups = JSON.parse(localStorage.getItem('teacher_open_groups') || '{}');
   let classifyOpenIds = new Set(); // 분류 폼이 펼쳐진 entry id들
@@ -539,157 +537,6 @@
     return students.find(s => s.id === currentId) || null;
   }
 
-  // ===== PDF 출력 =====
-  async function exportAnswerPDF() {
-    const stu = getCurrentStudent();
-    if (!stu) return;
-
-    // 전체 오답 불러오기
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${stu.id}&select=*&order=created_at.asc`, { headers: sbHeaders() });
-    const entries = await res.json();
-    if (!entries.length) { alert('오답이 없어요!'); return; }
-
-    const win = window.open('', '_blank');
-    const today = new Date().toLocaleDateString('ko-KR');
-
-    let rows = '';
-    entries.forEach((e, i) => {
-      const unit = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' > ') || '미분류';
-      const status = e.review_status === 'approved' ? '✅ 완료' : e.review_status === 'rejected' ? '🔄 다시풀기' : '⏳ 검수대기';
-      rows += `
-        <tr style="page-break-inside:avoid;">
-          <td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;">${i+1}</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:center;">${e.entry_date || ''}</td>
-          <td style="padding:8px;border:1px solid #ddd;"><img src="${e.image_url}" style="width:180px;height:130px;object-fit:contain;display:block;" /></td>
-          <td style="padding:8px;border:1px solid #ddd;">${e.image_mine_url ? `<img src="${e.image_mine_url}" style="width:180px;height:130px;object-fit:contain;display:block;" />` : '-'}</td>
-          <td style="padding:8px;border:1px solid #ddd;">${e.image_solution_url ? `<img src="${e.image_solution_url}" style="width:180px;height:130px;object-fit:contain;display:block;" />` : '-'}</td>
-          <td style="padding:8px;border:1px solid #ddd;font-size:12px;">${unit}</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:12px;">${e.retry_count || 0}회</td>
-          <td style="padding:8px;border:1px solid #ddd;text-align:center;font-size:12px;">${status}</td>
-        </tr>`;
-    });
-
-    win.document.write(`
-      <!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>${stu.name} 오답 모음</title>
-      <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 20px; }
-        h1 { font-size: 20px; margin-bottom: 4px; }
-        .sub { font-size: 13px; color: #888; margin-bottom: 16px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #0F6E56; color: white; padding: 10px 8px; border: 1px solid #ddd; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h1>📄 ${stu.name} 오답 모음집</h1>
-      <p class="sub">${[stu.school, stu.grade].filter(Boolean).join(' · ')} | 출력일: ${today} | 총 ${entries.length}개</p>
-      <button onclick="window.print()" style="margin-bottom:16px;padding:10px 24px;background:#0F6E56;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">🖨️ 인쇄 / PDF 저장</button>
-      <table>
-        <thead><tr>
-          <th>#</th><th>날짜</th><th>문제 사진</th><th>내 풀이</th><th>모범 풀이</th><th>단원</th><th>틀린횟수</th><th>상태</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-      </body></html>
-    `);
-    win.document.close();
-  }
-
-  async function exportReportPDF() {
-    const stu = getCurrentStudent();
-    if (!stu) return;
-
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${stu.id}&select=*&order=created_at.asc`, { headers: sbHeaders() });
-    const entries = await res.json();
-    if (!entries.length) { alert('오답이 없어요!'); return; }
-
-    const today = new Date().toLocaleDateString('ko-KR');
-    const total = entries.length;
-    const solved = entries.filter(e => e.solved).length;
-    const unsolved = total - solved;
-    const rate = Math.round((solved / total) * 100);
-
-    // 약점 단원 TOP5
-    const counts = {};
-    entries.filter(e => e.subject).forEach(e => {
-      const key = [e.subject, e.major_unit].filter(Boolean).join(' > ');
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    const weakTop = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,5);
-
-    // 월별 업로드
-    const monthly = {};
-    entries.forEach(e => {
-      if (!e.entry_date) return;
-      const m = e.entry_date.slice(0,7);
-      monthly[m] = (monthly[m] || 0) + 1;
-    });
-    const monthlyRows = Object.entries(monthly).sort().map(([m, c]) =>
-      `<tr><td style="padding:6px 10px;border:1px solid #eee;">${m}</td><td style="padding:6px 10px;border:1px solid #eee;text-align:center;">${c}개</td></tr>`
-    ).join('');
-
-    // 틀린 횟수 많은 TOP5
-    const hardTop = [...entries].sort((a,b) => (b.retry_count||0)-(a.retry_count||0)).slice(0,5);
-
-    const weakRows = weakTop.map(([unit, cnt], i) => {
-      const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
-      return `<tr><td style="padding:6px 10px;border:1px solid #eee;">${medals[i]} ${unit}</td><td style="padding:6px 10px;border:1px solid #eee;text-align:center;color:#993C1D;font-weight:700;">${cnt}개</td></tr>`;
-    }).join('');
-
-    const hardRows = hardTop.map((e, i) => {
-      const unit = [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
-      return `<tr><td style="padding:6px 10px;border:1px solid #eee;">${i+1}. ${unit}</td><td style="padding:6px 10px;border:1px solid #eee;text-align:center;">${e.entry_date||''}</td><td style="padding:6px 10px;border:1px solid #eee;text-align:center;color:#993C1D;font-weight:700;">${e.retry_count||0}회</td></tr>`;
-    }).join('');
-
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <!DOCTYPE html><html><head><meta charset="UTF-8">
-      <title>${stu.name} 성적 리포트</title>
-      <style>
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 30px; max-width: 800px; margin: 0 auto; color: #1a1a1a; }
-        h1 { font-size: 22px; margin-bottom: 4px; color: #0F6E56; }
-        .sub { font-size: 13px; color: #888; margin-bottom: 24px; }
-        .stats { display: flex; gap: 16px; margin-bottom: 24px; }
-        .stat-box { flex: 1; background: #f8f8f5; border-radius: 12px; padding: 16px; text-align: center; border: 1px solid #e8e8e0; }
-        .stat-num { font-size: 28px; font-weight: 700; }
-        .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
-        .green { color: #0F6E56; }
-        .orange { color: #BA7517; }
-        .red { color: #993C1D; }
-        h2 { font-size: 15px; font-weight: 700; margin: 20px 0 10px; padding-left: 10px; border-left: 4px solid #0F6E56; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
-        th { background: #0F6E56; color: white; padding: 8px 10px; text-align: left; }
-        .progress-bar { width: 100%; height: 20px; background: #eee; border-radius: 10px; overflow: hidden; margin-bottom: 6px; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #0F6E56, #14906F); border-radius: 10px; transition: width 1s ease; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h1>📊 ${stu.name} 성적 리포트</h1>
-      <p class="sub">${[stu.school, stu.grade].filter(Boolean).join(' · ')} | 출력일: ${today}</p>
-      <button onclick="window.print()" style="margin-bottom:20px;padding:10px 24px;background:#0F6E56;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;">🖨️ 인쇄 / PDF 저장</button>
-
-      <div class="stats">
-        <div class="stat-box"><div class="stat-num">${total}</div><div class="stat-label">전체 오답</div></div>
-        <div class="stat-box"><div class="stat-num green">${solved}</div><div class="stat-label">완료</div></div>
-        <div class="stat-box"><div class="stat-num orange">${unsolved}</div><div class="stat-label">미해결</div></div>
-        <div class="stat-box"><div class="stat-num ${rate >= 70 ? 'green' : rate >= 40 ? 'orange' : 'red'}">${rate}%</div><div class="stat-label">완료율</div></div>
-      </div>
-
-      <div class="progress-bar"><div class="progress-fill" style="width:${rate}%"></div></div>
-      <p style="font-size:12px;color:#888;margin-bottom:20px;">완료율 ${rate}% — ${rate >= 70 ? '🎉 매우 잘하고 있어요!' : rate >= 40 ? '💪 조금만 더 힘내요!' : '📚 꾸준히 복습이 필요해요'}</p>
-
-      <h2>🎯 약점 단원 TOP 5</h2>
-      <table><thead><tr><th>단원</th><th>미해결 오답 수</th></tr></thead><tbody>${weakRows || '<tr><td colspan="2" style="padding:8px;text-align:center;color:#aaa;">분류된 오답이 없어요</td></tr>'}</tbody></table>
-
-      <h2>🔥 많이 틀린 문제 TOP 5</h2>
-      <table><thead><tr><th>단원</th><th>날짜</th><th>틀린 횟수</th></tr></thead><tbody>${hardRows}</tbody></table>
-
-      <h2>📅 월별 오답 업로드</h2>
-      <table><thead><tr><th>월</th><th>업로드 수</th></tr></thead><tbody>${monthlyRows}</tbody></table>
-
-      </body></html>
-    `);
-    win.document.close();
-  }
-
   // ===== 초기화: 학생 목록 로드 =====
   async function init() {
     await loadStudentsFromDB();
@@ -697,7 +544,7 @@
     populateBonusSelect();
     if (!currentId && students.length > 0) currentId = students[0].id;
     await renderBoard();
-    await loadLeaderboard();
+    loadLeaderboard();
   }
 
   async function loadStudentsFromDB() {
@@ -903,7 +750,7 @@
     reader.readAsDataURL(file);
   }
 
-  function compressImage(file, maxSize = 1100, quality = 0.75) {
+  function compressImage(file, maxSize = 600, quality = 0.5) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1230,17 +1077,17 @@
   // ===== 약점 TOP3 =====
   function renderWeakness() {
     const container = document.getElementById('weakness-list');
-    const withRetry = allEntryStats.filter(e => (e.retry_count || 0) > 0 && e.minor_unit);
+    const pending = currentEntries.filter(e => !e.solved && e.subject);
 
-    if (withRetry.length === 0) {
-      container.innerHTML = '<p class="weakness-empty">아직 틀린 횟수 데이터가 없어요 🎉</p>';
+    if (pending.length === 0) {
+      container.innerHTML = '<p class="weakness-empty">미해결(분류된) 오답이 없어요. 잘하고 있어요! 🎉</p>';
       return;
     }
 
     const counts = {};
-    withRetry.forEach(e => {
-      const key = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' > ');
-      counts[key] = (counts[key] || 0) + (e.retry_count || 0);
+    pending.forEach(e => {
+      const key = e.subject + (e.major_unit ? ' · ' + e.major_unit : '');
+      counts[key] = (counts[key] || 0) + 1;
     });
 
     const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -1249,7 +1096,7 @@
     container.innerHTML = sorted.map((item, i) =>
       `<div class="weakness-item">
         <span><span class="weakness-rank">${medals[i]}</span>${item[0]}</span>
-        <span class="weakness-count">총 ${item[1]}회 틀림</span>
+        <span class="weakness-count">${item[1]}개 미해결</span>
       </div>`
     ).join('');
   }
@@ -1370,12 +1217,8 @@
     return `
       <div class="board">
         <div class="profile-head">
-          <h1><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />${stu.name} 수학 오답노트</h1>
+          <h1>📐 ${stu.name} 수학 오답노트</h1>
           <p class="profile-sub">${[stu.school, stu.grade].filter(Boolean).join(' · ') || '학교/학년 미입력'}</p>
-          <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap;">
-            <button onclick="exportAnswerPDF()" style="padding:9px 16px;border-radius:10px;border:1px solid #0F6E56;background:white;color:#0F6E56;font-size:13px;font-weight:600;cursor:pointer;">📄 오답 모음 PDF</button>
-            <button onclick="exportReportPDF()" style="padding:9px 16px;border-radius:10px;border:1px solid #854F0B;background:white;color:#854F0B;font-size:13px;font-weight:600;cursor:pointer;">📊 성적 리포트 PDF</button>
-          </div>
         </div>
 
         <div class="stats-row">
@@ -1412,6 +1255,10 @@
           <div class="review-alert-title">⏰ 오늘 복습하면 좋은 오답</div>
           <div class="review-alert-list" id="review-alert-list"></div>
         </div>
+
+        <button class="random-review-btn" id="random-review-btn" onclick="startRandomReview()">
+          🎲 오늘의 오답 3문제 랜덤 복습
+        </button>
 
         <div class="heatmap-card">
           <p class="heatmap-title">📅 최근 7주 학습 기록</p>
@@ -1461,7 +1308,6 @@
 
     area.innerHTML = `<div class="board"><div class="loading-msg">불러오는 중...</div></div>`;
     currentEntries = await loadEntriesForStudent(stu.id);
-    allEntryStats = currentEntries; // 통계용도 동일하게 사용
 
     area.innerHTML = BOARD_TEMPLATE(stu);
     renderStudentDetails();
@@ -1499,6 +1345,9 @@
     renderWeakness();
     renderReviewAlert();
     renderHeatmap();
+
+    const pendingCount = currentEntries.filter(e => !e.solved).length;
+    document.getElementById('random-review-btn').disabled = pendingCount === 0;
 
     let list = currentEntries;
     if (currentFilter === 'pending') list = list.filter(e => !e.solved);
@@ -1677,8 +1526,6 @@
     const d = new Date();
     lbYear = d.getFullYear();
     lbMonth = d.getMonth() + 1;
-    const label = document.getElementById('lb-month-label');
-    if (label) label.textContent = `${lbYear}년 ${lbMonth}월`;
   }
   initLbMonth();
 
@@ -1701,17 +1548,10 @@
       // 해당 월의 모든 오답 데이터 가져오기
       const nextMonth = lbMonth === 12 ? 1 : lbMonth + 1;
       const nextYear = lbMonth === 12 ? lbYear + 1 : lbYear;
-      const dateFrom = `${monthStr}-01`;
-      const dateTo = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
-
-      // entry_date 기준 + created_at 기준 둘 다 가져오기
-      const [notesRes1, notesRes2] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=gte.${dateFrom}&entry_date=lt.${dateTo}`, { headers: sbHeaders() }),
-        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=is.null&created_at=gte.${dateFrom}T00:00:00&created_at=lt.${dateTo}T00:00:00`, { headers: sbHeaders() })
-      ]);
-      const notes1 = await notesRes1.json();
-      const notes2 = await notesRes2.json();
-      const notes = [...(Array.isArray(notes1) ? notes1 : []), ...(Array.isArray(notes2) ? notes2 : [])];
+      const notesRes = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved&entry_date=gte.${monthStr}-01&entry_date=lt.${nextYear}-${String(nextMonth).padStart(2, '0')}-01`, {
+        headers: sbHeaders()
+      });
+      const notes = await notesRes.json();
 
       // 해당 월의 보너스 포인트
       const bonusRes = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=student_id,points&month=eq.${monthStr}`, {
@@ -1812,6 +1652,21 @@
   }
 
   // ===== 학생 업로드 페이지 링크 표시 =====
+  function setupStudentLink() {
+    // 현재 주소(teacher.html)에서 student.html로 바꿔서 정확한 링크 생성
+    const studentUrl = window.location.href.replace(/teacher(_dashboard)?\.html.*$/, 'student.html');
+    document.getElementById('student-link-display').textContent = studentUrl;
+  }
+
+  function copyStudentLink() {
+    const text = document.getElementById('student-link-display').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋');
+    }).catch(() => {
+      alert('복사에 실패했어요. 주소를 직접 선택해서 복사해주세요.');
+    });
+  }
+
   // ===== 초기 실행 =====
   checkLoginOnLoad();
 
@@ -1821,6 +1676,7 @@
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     });
   }
+  setupStudentLink();
 </script>
 </body>
 </html>
