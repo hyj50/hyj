@@ -695,7 +695,7 @@
     populateBonusSelect();
     if (!currentId && students.length > 0) currentId = students[0].id;
     await renderBoard();
-    loadLeaderboard();
+    await loadLeaderboard();
   }
 
   async function loadStudentsFromDB() {
@@ -1677,6 +1677,8 @@
     const d = new Date();
     lbYear = d.getFullYear();
     lbMonth = d.getMonth() + 1;
+    const label = document.getElementById('lb-month-label');
+    if (label) label.textContent = `${lbYear}년 ${lbMonth}월`;
   }
   initLbMonth();
 
