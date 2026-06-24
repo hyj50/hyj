@@ -42,7 +42,7 @@
   /* 학생 선택 바 */
   .student-bar { background: white; border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
   .student-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
-  .student-select-row select { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; overflow: hidden; text-overflow: ellipsis; }
+  .student-select-row select { flex: 1; min-width: 120px; padding: 10px 12px; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: white; color: #1a1a1a; }
   .btn-small { padding: 10px 14px; border-radius: 10px; border: 1px solid #ddd; background: white; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
   .btn-small:hover { background: #f5f5f0; }
   .btn-add-student { border-color: #0F6E56; color: #0F6E56; }
@@ -1699,10 +1699,17 @@
       // 해당 월의 모든 오답 데이터 가져오기
       const nextMonth = lbMonth === 12 ? 1 : lbMonth + 1;
       const nextYear = lbMonth === 12 ? lbYear + 1 : lbYear;
-      const notesRes = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved&entry_date=gte.${monthStr}-01&entry_date=lt.${nextYear}-${String(nextMonth).padStart(2, '0')}-01`, {
-        headers: sbHeaders()
-      });
-      const notes = await notesRes.json();
+      const dateFrom = `${monthStr}-01`;
+      const dateTo = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+      // entry_date 기준 + created_at 기준 둘 다 가져오기
+      const [notesRes1, notesRes2] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=gte.${dateFrom}&entry_date=lt.${dateTo}`, { headers: sbHeaders() }),
+        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=is.null&created_at=gte.${dateFrom}T00:00:00&created_at=lt.${dateTo}T00:00:00`, { headers: sbHeaders() })
+      ]);
+      const notes1 = await notesRes1.json();
+      const notes2 = await notesRes2.json();
+      const notes = [...(Array.isArray(notes1) ? notes1 : []), ...(Array.isArray(notes2) ? notes2 : [])];
 
       // 해당 월의 보너스 포인트
       const bonusRes = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=student_id,points&month=eq.${monthStr}`, {
