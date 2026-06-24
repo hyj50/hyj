@@ -436,6 +436,7 @@
   let students = [];
   let currentId = null;
   let currentEntries = []; // 현재 선택된 학생의 오답 목록 (DB에서 로드)
+  let allEntryStats = []; // 통계용 전체 경량 데이터
   let currentFilter = 'all';
   let openGroups = JSON.parse(localStorage.getItem('teacher_open_groups') || '{}');
   let classifyOpenIds = new Set(); // 분류 폼이 펼쳐진 entry id들
@@ -1459,6 +1460,7 @@
 
     area.innerHTML = `<div class="board"><div class="loading-msg">불러오는 중...</div></div>`;
     currentEntries = await loadEntriesForStudent(stu.id);
+    allEntryStats = currentEntries; // 통계용도 동일하게 사용
 
     area.innerHTML = BOARD_TEMPLATE(stu);
     renderStudentDetails();
@@ -1496,9 +1498,6 @@
     renderWeakness();
     renderReviewAlert();
     renderHeatmap();
-
-    const pendingCount = currentEntries.filter(e => !e.solved).length;
-    document.getElementById('random-review-btn').disabled = pendingCount === 0;
 
     let list = currentEntries;
     if (currentFilter === 'pending') list = list.filter(e => !e.solved);
@@ -1812,21 +1811,6 @@
   }
 
   // ===== 학생 업로드 페이지 링크 표시 =====
-  function setupStudentLink() {
-    // 현재 주소(teacher.html)에서 student.html로 바꿔서 정확한 링크 생성
-    const studentUrl = window.location.href.replace(/teacher(_dashboard)?\.html.*$/, 'student.html');
-    document.getElementById('student-link-display').textContent = studentUrl;
-  }
-
-  function copyStudentLink() {
-    const text = document.getElementById('student-link-display').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋');
-    }).catch(() => {
-      alert('복사에 실패했어요. 주소를 직접 선택해서 복사해주세요.');
-    });
-  }
-
   // ===== 초기 실행 =====
   checkLoginOnLoad();
 
@@ -1836,7 +1820,6 @@
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     });
   }
-  setupStudentLink();
 </script>
 </body>
 </html>
