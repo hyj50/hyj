@@ -358,7 +358,8 @@
   function sbHeaders(extra) {
     return Object.assign({
       'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json'
     }, extra || {});
   }
 
