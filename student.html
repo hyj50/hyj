@@ -76,8 +76,7 @@
   @keyframes splashFill { to { width: 100%; } }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { overscroll-behavior-y: none; }
-  html, body { width: 100%; overflow-x: hidden; }
+  html, body { overscroll-behavior-y: contain; width: 100%; overflow-x: hidden; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 1rem; }
   .wrap { max-width: 480px; margin: 0 auto; }
 
@@ -856,10 +855,11 @@
   async function loadQnA() {
     const container = document.getElementById('qna-list');
     if (!container) return;
+    container.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc`, { headers: sbHeaders() });
       const list = await res.json();
-      if (!list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+      if (!Array.isArray(list) || !list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
       container.innerHTML = list.map(q => {
         const date = new Date(q.created_at).toLocaleDateString('ko-KR');
         return `
@@ -872,10 +872,10 @@
                 <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:4px;">✅ 선생님 답변</div>
                 <div style="font-size:13px;color:#1a1a1a;">${q.answer}</div>
               </div>
-            ` : '<div style="font-size:12px;color:#aaa;">⏳ 답변 대기중</div>'}
+            ` : '<div style="font-size:12px;color:#aaa;margin-top:6px;">⏳ 답변 대기중</div>'}
           </div>`;
       }).join('');
-    } catch { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+    } catch(e) { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
   }
 
   async function submitQuestion() {

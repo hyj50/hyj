@@ -294,6 +294,14 @@
   </div>
 
   <!-- 월별 순위표 -->
+  <!-- 문의 게시판 -->
+  <div style="background:white;border-radius:16px;padding:1.4rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+    <div style="font-size:16px;font-weight:700;margin-bottom:14px;">💬 학생 문의 게시판</div>
+    <div id="teacher-qna-list" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="empty">불러오는 중...</div>
+    </div>
+  </div>
+
   <div class="leaderboard" id="leaderboard">
     <div class="lb-header">
       <span class="lb-title">🏆 월별 오답노트 순위</span>
@@ -321,14 +329,6 @@
   </div>
 
   <div id="board-area"></div>
-
-  <!-- 문의 게시판 -->
-  <div style="background:white;border-radius:16px;padding:1.4rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-    <div style="font-size:16px;font-weight:700;margin-bottom:14px;">💬 학생 문의 게시판</div>
-    <div id="teacher-qna-list" style="display:flex;flex-direction:column;gap:10px;">
-      <div class="empty">불러오는 중...</div>
-    </div>
-  </div>
 
 </div>
 
@@ -702,18 +702,29 @@
   async function loadTeacherQnA() {
     const container = document.getElementById('teacher-qna-list');
     if (!container) return;
+    container.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*,students(name)&order=created_at.desc`, { headers: sbHeaders() });
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc`, { headers: sbHeaders() });
       const list = await res.json();
-      if (!list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+      if (!Array.isArray(list) || !list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+
+      // 학생 이름 별도 조회
+      const studentIds = [...new Set(list.filter(q => q.student_id).map(q => q.student_id))];
+      let studentMap = {};
+      if (studentIds.length) {
+        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/students?id=in.(${studentIds.join(',')})&select=id,name`, { headers: sbHeaders() });
+        const sData = await sRes.json();
+        sData.forEach(s => studentMap[s.id] = s.name);
+      }
+
       container.innerHTML = list.map(q => {
         const date = new Date(q.created_at).toLocaleDateString('ko-KR');
-        const studentName = q.students?.name || '알 수 없음';
+        const studentName = studentMap[q.student_id] || '알 수 없음';
         return `
           <div style="background:#fafafa;border-radius:14px;padding:1.2rem;border:1px solid #eee;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;">
               <span style="font-size:14px;font-weight:700;">${q.title}</span>
-              <span style="font-size:11px;color:#aaa;">${studentName} · ${date}</span>
+              <span style="font-size:11px;color:#aaa;white-space:nowrap;">${studentName} · ${date}</span>
             </div>
             ${q.content ? `<div style="font-size:13px;color:#555;margin-bottom:10px;">${q.content}</div>` : ''}
             ${q.answer ? `
@@ -722,13 +733,13 @@
                 <div style="font-size:13px;">${q.answer}</div>
               </div>
             ` : ''}
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;margin-top:8px;">
               <input type="text" id="answer-input-${q.id}" placeholder="${q.answer ? '답변 수정...' : '답변 입력...'}" value="${q.answer || ''}" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid #ddd;font-size:13px;outline:none;" />
               <button onclick="submitAnswer('${q.id}')" style="padding:9px 16px;border-radius:10px;border:none;background:#0F6E56;color:white;font-size:13px;font-weight:600;cursor:pointer;">등록</button>
             </div>
           </div>`;
       }).join('');
-    } catch { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+    } catch(e) { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
   }
 
   async function submitAnswer(qId) {
