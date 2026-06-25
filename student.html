@@ -76,6 +76,7 @@
   @keyframes splashFill { to { width: 100%; } }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { overscroll-behavior-y: none; }
   html, body { width: 100%; overflow-x: hidden; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; padding: 1rem; }
   .wrap { max-width: 480px; margin: 0 auto; }
@@ -239,6 +240,7 @@
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📷 오답 올리기</button>
         <button class="tab-btn" data-tab="view" onclick="switchTab('view')">📖 내 오답노트</button>
+        <button class="tab-btn" data-tab="qna" onclick="switchTab('qna')">💬 문의</button>
       </div>
 
       <div class="tab-panel active" id="tab-upload">
@@ -284,6 +286,11 @@
           </div>
         </div>
 
+        <div style="position:relative;margin-bottom:10px;">
+          <input type="text" id="unit-search" placeholder="🔍 단원 검색 (예: 이차방정식)" oninput="onUnitSearch()" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;outline:none;background:white;" />
+          <button onclick="clearUnitSearch()" id="unit-search-clear" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;">✕</button>
+        </div>
+
         <div class="filter-row">
           <button class="filter-btn active" data-vfilter="all" onclick="setViewFilter('all')">전체</button>
           <button class="filter-btn" data-vfilter="reviewing" onclick="setViewFilter('reviewing')">⏳ 검수중</button>
@@ -305,6 +312,19 @@
         <div class="pagination" id="pagination"></div>
         <div class="page-info" id="page-info"></div>
       </div>
+
+      <div class="tab-panel" id="tab-qna">
+        <div style="background:white;border-radius:14px;padding:1.2rem;margin-bottom:12px;border:1px solid #eee;">
+          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">✏️ 질문 올리기</div>
+          <input type="text" id="qna-title" placeholder="제목" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #ddd;font-size:14px;margin-bottom:8px;outline:none;" />
+          <textarea id="qna-content" placeholder="내용을 입력하세요" rows="3" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #ddd;font-size:14px;resize:none;outline:none;margin-bottom:8px;"></textarea>
+          <button onclick="submitQuestion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#0F6E56;color:white;font-size:14px;font-weight:700;cursor:pointer;">질문 올리기</button>
+        </div>
+        <div id="qna-list" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="empty">불러오는 중...</div>
+        </div>
+      </div>
+
     </div>
 
     <div class="no-student" id="no-student-msg">👆 이름과 비밀번호를 입력하고 로그인해주세요</div>
@@ -320,7 +340,7 @@
 </div>
 
 <!-- 랜덤 복습 모달 -->
-<div class="modal-overlay" id="review-modal-overlay" style="background:rgba(0,0,0,0.7);">
+<div class="modal-overlay" id="review-modal-overlay" style="background:rgba(0,0,0,0.7);z-index:10000;">
   <div style="background:white;border-radius:18px;max-width:420px;width:90%;max-height:88vh;overflow-y:auto;padding:1.5rem;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <span style="font-size:16px;font-weight:700;color:#1a1a1a;">🎲 오늘의 랜덤 복습</span>
@@ -594,6 +614,7 @@
       if (viewFilter === 'redo')      filterQ += `&review_status=eq.rejected`;
       if (viewFilter === 'solved')    filterQ += `&solved=eq.true`;
       if (viewFilter === 'hasSolution') filterQ += `&image_solution_url=not.is.null`;
+      if (unitSearchKeyword) filterQ += `&or=(subject.ilike.*${unitSearchKeyword}*,major_unit.ilike.*${unitSearchKeyword}*,minor_unit.ilike.*${unitSearchKeyword}*)`;
 
       const offset = (currentPage - 1) * PAGE_SIZE;
 
@@ -811,6 +832,77 @@
     ).join('');
   }
 
+  // 단원 검색
+  let unitSearchKeyword = '';
+
+  function onUnitSearch() {
+    const val = document.getElementById('unit-search').value.trim();
+    unitSearchKeyword = val;
+    document.getElementById('unit-search-clear').style.display = val ? 'block' : 'none';
+    currentPage = 1;
+    loadMyEntries();
+  }
+
+  function clearUnitSearch() {
+    document.getElementById('unit-search').value = '';
+    unitSearchKeyword = '';
+    document.getElementById('unit-search-clear').style.display = 'none';
+    currentPage = 1;
+    loadMyEntries();
+  }
+
+  // ===== 문의 게시판 =====
+  async function loadQnA() {
+    const container = document.getElementById('qna-list');
+    if (!container) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc`, { headers: sbHeaders() });
+      const list = await res.json();
+      if (!list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+      container.innerHTML = list.map(q => {
+        const date = new Date(q.created_at).toLocaleDateString('ko-KR');
+        return `
+          <div style="background:white;border-radius:14px;padding:1.2rem;border:1px solid #eee;">
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px;">${q.title}</div>
+            ${q.content ? `<div style="font-size:13px;color:#555;margin-bottom:8px;">${q.content}</div>` : ''}
+            <div style="font-size:11px;color:#aaa;margin-bottom:${q.answer ? '10px' : '0'};">${date}</div>
+            ${q.answer ? `
+              <div style="background:#F0F8F5;border-radius:10px;padding:10px 12px;border-left:3px solid #0F6E56;">
+                <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:4px;">✅ 선생님 답변</div>
+                <div style="font-size:13px;color:#1a1a1a;">${q.answer}</div>
+              </div>
+            ` : '<div style="font-size:12px;color:#aaa;">⏳ 답변 대기중</div>'}
+          </div>`;
+      }).join('');
+    } catch { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+  }
+
+  async function submitQuestion() {
+    const title = document.getElementById('qna-title').value.trim();
+    const content = document.getElementById('qna-content').value.trim();
+    const studentId = document.getElementById('student-select').value;
+    if (!title) { alert('제목을 입력해주세요!'); return; }
+    if (!studentId) { alert('로그인 후 질문을 올릴 수 있어요!'); return; }
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/questions`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ student_id: studentId, title, content })
+      });
+      document.getElementById('qna-title').value = '';
+      document.getElementById('qna-content').value = '';
+      alert('질문이 올라갔어요! 선생님이 답변해주실 거예요 😊');
+      loadQnA();
+    } catch { alert('올리기 실패했어요 ㅠㅠ'); }
+  }
+
+  // 탭 전환 시 QnA 로드
+  const _origSwitchTab = switchTab;
+  function switchTab(tab) {
+    _origSwitchTab(tab);
+    if (tab === 'qna') loadQnA();
+  }
+
   // 랜덤 복습
   let reviewQueue = [];
   let reviewIndex = 0;
@@ -873,6 +965,12 @@
         }
       }, 150);
     }, 7000);
+  });
+
+  // 뒤로가기 버튼 막기
+  history.pushState(null, '', location.href);
+  window.addEventListener('popstate', () => {
+    history.pushState(null, '', location.href);
   });
 
   // 스플래시 제거
