@@ -14,8 +14,20 @@
 <style>
   /* 스플래시 */
   #splash-screen {
-    display: none !important;
+    position: fixed; top:0; left:0; right:0; bottom:0;
+    background: #c8b89a;
+    z-index: 9999;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: flex-end;
+    overflow: hidden;
+    pointer-events: none !important;
+    animation: splashFadeOut 0.6s ease 3.5s forwards;
   }
+  #splash-screen * { pointer-events: none !important; }
+  @keyframes splashFadeOut {
+    to { opacity:0; visibility:hidden; }
+  }
+  #splash-screen.done { display: none; }
 
   .splash-bg {
     position: absolute; top:0; left:0; right:0; bottom:0;
@@ -312,6 +324,7 @@
         <div id="qna-list" style="display:flex;flex-direction:column;gap:10px;">
           <div class="empty">불러오는 중...</div>
         </div>
+        <div class="pagination" id="qna-pagination" style="margin-top:12px;"></div>
       </div>
 
     </div>
@@ -843,16 +856,30 @@
   }
 
   // ===== 문의 게시판 =====
-  async function loadQnA() {
+  const QNA_PAGE_SIZE = 5;
+  let qnaPage = 1;
+  let qnaTotalCount = 0;
+
+  async function loadQnA(page = 1) {
+    qnaPage = page;
     const container = document.getElementById('qna-list');
+    const pagEl = document.getElementById('qna-pagination');
     if (!container) return;
     container.innerHTML = '<div class="empty">불러오는 중...</div>';
+
     try {
-      // 모든 학생 질문 전체 조회
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc`, { headers: sbHeaders() });
+      const offset = (page - 1) * QNA_PAGE_SIZE;
+
+      // 전체 개수
+      const countRes = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=id`, { headers: sbHeaders({ 'Prefer': 'count=exact' }) });
+      const cr = countRes.headers.get('content-range');
+      qnaTotalCount = cr ? parseInt(cr.split('/')[1]) : 0;
+
+      // 현재 페이지 데이터
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc&limit=${QNA_PAGE_SIZE}&offset=${offset}`, { headers: sbHeaders() });
       const list = await res.json();
 
-      // 학생 이름 별도 조회
+      // 학생 이름 조회
       let studentMap = {};
       if (Array.isArray(list) && list.length) {
         const ids = [...new Set(list.filter(q => q.student_id).map(q => q.student_id))];
@@ -863,7 +890,11 @@
         }
       }
 
-      if (!Array.isArray(list) || !list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+      if (!Array.isArray(list) || !list.length) {
+        container.innerHTML = '<div class="empty">아직 질문이 없어요</div>';
+        if (pagEl) pagEl.innerHTML = '';
+        return;
+      }
 
       container.innerHTML = list.map(q => {
         const date = new Date(q.created_at).toLocaleDateString('ko-KR');
@@ -884,6 +915,18 @@
             ` : '<div style="font-size:12px;color:#aaa;margin-top:6px;">⏳ 답변 대기중</div>'}
           </div>`;
       }).join('');
+
+      // 페이지네이션
+      if (pagEl) {
+        const totalPages = Math.ceil(qnaTotalCount / QNA_PAGE_SIZE);
+        if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+        let btns = `<button class="page-btn ${page===1?'disabled':''}" onclick="loadQnA(${page-1})">‹</button>`;
+        for (let p = 1; p <= totalPages; p++) {
+          btns += `<button class="page-btn ${p===page?'active':''}" onclick="loadQnA(${p})">${p}</button>`;
+        }
+        btns += `<button class="page-btn ${page===totalPages?'disabled':''}" onclick="loadQnA(${page+1})">›</button>`;
+        pagEl.innerHTML = btns;
+      }
     } catch(e) { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
   }
 

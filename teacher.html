@@ -300,6 +300,7 @@
     <div id="teacher-qna-list" style="display:flex;flex-direction:column;gap:10px;">
       <div class="empty">불러오는 중...</div>
     </div>
+    <div class="pagination" id="teacher-qna-pagination" style="margin-top:12px;"></div>
   </div>
 
   <div class="leaderboard" id="leaderboard">
@@ -700,22 +701,43 @@
   }
 
   // ===== 문의 게시판 =====
-  async function loadTeacherQnA() {
+  const QNA_PAGE_SIZE_T = 5;
+  let qnaPageT = 1;
+  let qnaTotalCountT = 0;
+
+  async function loadTeacherQnA(page = 1) {
+    qnaPageT = page;
     const container = document.getElementById('teacher-qna-list');
+    const pagEl = document.getElementById('teacher-qna-pagination');
     if (!container) return;
     container.innerHTML = '<div class="empty">불러오는 중...</div>';
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc`, { headers: sbHeaders() });
-      const list = await res.json();
-      if (!Array.isArray(list) || !list.length) { container.innerHTML = '<div class="empty">아직 질문이 없어요</div>'; return; }
+      const offset = (page - 1) * QNA_PAGE_SIZE_T;
 
-      // 학생 이름 별도 조회
-      const studentIds = [...new Set(list.filter(q => q.student_id).map(q => q.student_id))];
+      // 전체 개수
+      const countRes = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=id`, { headers: sbHeaders({ 'Prefer': 'count=exact' }) });
+      const cr = countRes.headers.get('content-range');
+      qnaTotalCountT = cr ? parseInt(cr.split('/')[1]) : 0;
+
+      // 현재 페이지 데이터
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc&limit=${QNA_PAGE_SIZE_T}&offset=${offset}`, { headers: sbHeaders() });
+      const list = await res.json();
+
+      // 학생 이름 조회
       let studentMap = {};
-      if (studentIds.length) {
-        const sRes = await fetch(`${SUPABASE_URL}/rest/v1/students?id=in.(${studentIds.join(',')})&select=id,name`, { headers: sbHeaders() });
-        const sData = await sRes.json();
-        sData.forEach(s => studentMap[s.id] = s.name);
+      if (Array.isArray(list) && list.length) {
+        const ids = [...new Set(list.filter(q => q.student_id).map(q => q.student_id))];
+        if (ids.length) {
+          const sRes = await fetch(`${SUPABASE_URL}/rest/v1/students?id=in.(${ids.join(',')})&select=id,name`, { headers: sbHeaders() });
+          const sData = await sRes.json();
+          sData.forEach(s => studentMap[s.id] = s.name);
+        }
+      }
+
+      if (!Array.isArray(list) || !list.length) {
+        container.innerHTML = '<div class="empty">아직 질문이 없어요</div>';
+        if (pagEl) pagEl.innerHTML = '';
+        return;
       }
 
       container.innerHTML = list.map(q => {
@@ -740,6 +762,18 @@
             </div>
           </div>`;
       }).join('');
+
+      // 페이지네이션
+      if (pagEl) {
+        const totalPages = Math.ceil(qnaTotalCountT / QNA_PAGE_SIZE_T);
+        if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
+        let btns = `<button class="page-btn ${page===1?'disabled':''}" onclick="loadTeacherQnA(${page-1})">‹</button>`;
+        for (let p = 1; p <= totalPages; p++) {
+          btns += `<button class="page-btn ${p===page?'active':''}" onclick="loadTeacherQnA(${p})">${p}</button>`;
+        }
+        btns += `<button class="page-btn ${page===totalPages?'disabled':''}" onclick="loadTeacherQnA(${page+1})">›</button>`;
+        pagEl.innerHTML = btns;
+      }
     } catch(e) { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
   }
 
