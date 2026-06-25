@@ -463,6 +463,7 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     if (tab === 'view') loadMyEntries();
+    if (tab === 'qna') loadQnA();
   }
 
   function onFileSelect(e, kind) {
@@ -896,14 +897,6 @@
     } catch { alert('올리기 실패했어요 ㅠㅠ'); }
   }
 
-  // 탭 전환 시 QnA 로드
-  const _origSwitchTab = switchTab;
-  function switchTab(tab) {
-    _origSwitchTab(tab);
-    if (tab === 'qna') loadQnA();
-  }
-
-  // 랜덤 복습
   let reviewQueue = [];
   let reviewIndex = 0;
 
