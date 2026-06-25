@@ -209,6 +209,13 @@
   .page-btn.disabled { color: #ccc; cursor: default; pointer-events: none; }
   .page-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 6px; }
 
+  /* 메인 탭 */
+  .main-tab-bar { display: flex; gap: 6px; margin-bottom: 1.2rem; background: #f0f0eb; padding: 4px; border-radius: 12px; }
+  .main-tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 9px; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; }
+  .main-tab-btn.active { background: white; color: #0F6E56; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .main-tab-panel { display: none; }
+  .main-tab-panel.active { display: block; }
+
   .empty { text-align: center; padding: 3rem 1rem; color: #aaa; font-size: 14px; }
   .no-student { text-align: center; padding: 3rem 1rem; color: #999; }
   .loading-msg { text-align: center; padding: 3rem 1rem; color: #999; font-size: 14px; }
@@ -301,43 +308,57 @@
     </div>
   </div>
 
-  <!-- 월별 순위표 -->
-  <!-- 문의 게시판 -->
-  <div style="background:white;border-radius:16px;padding:1.4rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-    <div style="font-size:16px;font-weight:700;margin-bottom:14px;">💬 학생 문의 게시판</div>
-    <div id="teacher-qna-list" style="display:flex;flex-direction:column;gap:10px;">
-      <div class="empty">불러오는 중...</div>
-    </div>
-    <div class="pagination" id="teacher-qna-pagination" style="margin-top:12px;"></div>
+  <!-- 메인 탭 -->
+  <div class="main-tab-bar">
+    <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋 오답노트</button>
+    <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬 문의</button>
+    <button class="main-tab-btn" data-main-tab="rank" onclick="switchMainTab('rank')">🏆 순위</button>
   </div>
 
-  <div class="leaderboard" id="leaderboard">
-    <div class="lb-header">
-      <span class="lb-title">🏆 월별 오답노트 순위</span>
-      <div class="lb-month-nav">
-        <button onclick="changeMonth(-1)">◀</button>
-        <span class="lb-month-label" id="lb-month-label"></span>
-        <button onclick="changeMonth(1)">▶</button>
+  <!-- 오답노트 탭 -->
+  <div class="main-tab-panel active" id="main-tab-notes">
+    <div id="board-area"></div>
+  </div>
+
+  <!-- 문의 게시판 탭 -->
+  <div class="main-tab-panel" id="main-tab-qna">
+    <div style="background:white;border-radius:16px;padding:1.4rem;margin-bottom:1rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+      <div style="font-size:16px;font-weight:700;margin-bottom:14px;">💬 학생 문의 게시판</div>
+      <div id="teacher-qna-list" style="display:flex;flex-direction:column;gap:10px;">
+        <div class="empty">불러오는 중...</div>
       </div>
-    </div>
-    <table class="lb-table">
-      <thead>
-        <tr><th>순위</th><th>이름</th><th>업로드</th><th>합격</th><th>보너스</th><th>총점</th></tr>
-      </thead>
-      <tbody id="lb-body"></tbody>
-    </table>
-    <div class="bonus-section">
-      <p style="font-size:12px;color:#888;margin-bottom:8px;">🎁 보너스 점수 주기</p>
-      <div class="bonus-row">
-        <select id="bonus-student-select"></select>
-        <input type="number" id="bonus-points" placeholder="점수" min="1" max="100" />
-        <input type="text" id="bonus-memo" placeholder="사유 (선택)" maxlength="30" />
-        <button class="btn-bonus" onclick="giveBonus()">지급</button>
-      </div>
+      <div class="pagination" id="teacher-qna-pagination" style="margin-top:12px;"></div>
     </div>
   </div>
 
-  <div id="board-area"></div>
+  <!-- 순위표 탭 -->
+  <div class="main-tab-panel" id="main-tab-rank">
+    <div class="leaderboard" id="leaderboard">
+      <div class="lb-header">
+        <span class="lb-title">🏆 월별 오답노트 순위</span>
+        <div class="lb-month-nav">
+          <button onclick="changeMonth(-1)">◀</button>
+          <span class="lb-month-label" id="lb-month-label"></span>
+          <button onclick="changeMonth(1)">▶</button>
+        </div>
+      </div>
+      <table class="lb-table">
+        <thead>
+          <tr><th>순위</th><th>이름</th><th>업로드</th><th>합격</th><th>보너스</th><th>총점</th></tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+      <div class="bonus-section">
+        <p style="font-size:12px;color:#888;margin-bottom:8px;">🎁 보너스 점수 주기</p>
+        <div class="bonus-row">
+          <select id="bonus-student-select"></select>
+          <input type="number" id="bonus-points" placeholder="점수" min="1" max="100" />
+          <input type="text" id="bonus-memo" placeholder="사유 (선택)" maxlength="30" />
+          <button class="btn-bonus" onclick="giveBonus()">지급</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -807,8 +828,7 @@
     populateBonusSelect();
     if (!currentId && students.length > 0) currentId = students[0].id;
     await renderBoard();
-    await loadLeaderboard();
-    loadTeacherQnA();
+    initLbMonth();
   }
 
   async function loadStudentsFromDB() {
@@ -1926,6 +1946,14 @@
   }
 
   // ===== 학생 업로드 페이지 링크 표시 =====
+  function switchMainTab(tab) {
+    document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.mainTab === tab));
+    document.querySelectorAll('.main-tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('main-tab-' + tab).classList.add('active');
+    if (tab === 'qna') loadTeacherQnA(1);
+    if (tab === 'rank') loadLeaderboard();
+  }
+
   // 뒤로가기 버튼 막기
   history.pushState(null, '', location.href);
   window.addEventListener('popstate', () => {
