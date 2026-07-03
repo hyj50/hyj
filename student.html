@@ -189,20 +189,45 @@
   .status-msg.error { background: #FAECE7; color: #993C1D; }
   .status-msg.loading { background: var(--bg4); color: var(--text3); }
 
-  .note-stats { display: flex; gap: 8px; margin-bottom: 14px; }
+  /* 통계 대시보드 */
+  .dashboard {
+    background: linear-gradient(135deg, #E8639A, #C94080);
+    border-radius: 20px;
+    padding: 1.4rem;
+    margin-bottom: 14px;
+    color: white;
+    box-shadow: 0 6px 24px rgba(232,99,154,0.35);
+  }
+  .dashboard-title {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.8;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+  .note-stats { display: flex; gap: 0; margin-bottom: 16px; }
   .note-stat {
     flex: 1;
-    background: var(--bg2);
-    border-radius: 14px;
-    padding: 12px 8px;
     text-align: center;
-    border: 1px solid var(--border);
-    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    position: relative;
   }
-  .note-stat-num { font-size: 24px; font-weight: 800; color: var(--text1); }
-  .note-stat-num.green { color: var(--green-text); }
-  .note-stat-num.orange { color: #FF9F0A; }
-  .note-stat-label { font-size: 10px; color: var(--text4); margin-top: 2px; font-weight: 600; letter-spacing: 0.3px; }
+  .note-stat + .note-stat::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 1px;
+    background: rgba(255,255,255,0.3);
+  }
+  .note-stat-num { font-size: 30px; font-weight: 800; color: white; }
+  .note-stat-num.green { color: #A8FFD4; }
+  .note-stat-num.orange { color: #FFE0A0; }
+  .note-stat-label { font-size: 10px; color: rgba(255,255,255,0.75); margin-top: 2px; font-weight: 600; letter-spacing: 0.3px; }
+
+  /* 진행률 바 */
+  .progress-wrap { margin-top: 4px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.8); margin-bottom: 6px; }
+  .progress-bar { height: 6px; background: rgba(255,255,255,0.25); border-radius: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; background: white; border-radius: 6px; transition: width 0.8s ease; }
 
   .filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .filter-btn { padding: 6px 12px; border-radius: 18px; border: 1px solid var(--border2); background: var(--bg2); font-size: 12px; cursor: pointer; color: var(--text3); }
@@ -396,18 +421,30 @@
       </div>
 
       <div class="tab-panel" id="tab-view">
-        <div class="note-stats">
-          <div class="note-stat">
-            <div class="note-stat-num" id="stat-total">0</div>
-            <div class="note-stat-label">전체</div>
+        <div class="dashboard">
+          <div class="dashboard-title">📊 나의 오답노트 현황</div>
+          <div class="note-stats">
+            <div class="note-stat">
+              <div class="note-stat-num" id="stat-total">0</div>
+              <div class="note-stat-label">전체</div>
+            </div>
+            <div class="note-stat">
+              <div class="note-stat-num green" id="stat-solved">0</div>
+              <div class="note-stat-label">완료</div>
+            </div>
+            <div class="note-stat">
+              <div class="note-stat-num orange" id="stat-pending">0</div>
+              <div class="note-stat-label">검수대기</div>
+            </div>
           </div>
-          <div class="note-stat">
-            <div class="note-stat-num green" id="stat-solved">0</div>
-            <div class="note-stat-label">완료</div>
-          </div>
-          <div class="note-stat">
-            <div class="note-stat-num orange" id="stat-pending">0</div>
-            <div class="note-stat-label">검수대기</div>
+          <div class="progress-wrap">
+            <div class="progress-label">
+              <span>완료율</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+            </div>
           </div>
         </div>
 
@@ -791,6 +828,11 @@
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-solved').textContent = solvedCount;
       document.getElementById('stat-pending').textContent = reviewingCount;
+
+      // 진행률 바 업데이트
+      const pct = total > 0 ? Math.round((solvedCount / total) * 100) : 0;
+      document.getElementById('progress-pct').textContent = pct + '%';
+      document.getElementById('progress-fill').style.width = pct + '%';
 
       // 약점 TOP3 계산 (전체 데이터 기준)
       renderWeaknessStudent(allRows);
