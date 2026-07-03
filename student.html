@@ -93,8 +93,8 @@
   .form-group select, .form-group input { width: 100%; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid #ddd; outline: none; background: white; color: #1a1a1a; }
   .form-group select:focus, .form-group input:focus { border-color: #0F6E56; }
 
-  .tab-bar { display: flex; gap: 6px; margin-bottom: 1.2rem; background: #f0f0eb; padding: 4px; border-radius: 12px; }
-  .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: #888; cursor: pointer; }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 1.2rem; background: #f0f0eb; padding: 4px; border-radius: 12px; }
+  .tab-btn { flex: 1; padding: 8px 4px; border: none; background: transparent; border-radius: 9px; font-size: 11px; font-weight: 600; color: #888; cursor: pointer; text-align: center; line-height: 1.6; }
   .tab-btn.active { background: white; color: #0F6E56; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 
   .tab-panel { display: none; }
@@ -241,9 +241,9 @@
 
     <div id="content-area" style="display:none;">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📷 오답 올리기</button>
-        <button class="tab-btn" data-tab="view" onclick="switchTab('view')">📖 내 오답노트</button>
-        <button class="tab-btn" data-tab="qna" onclick="switchTab('qna')">💬 문의</button>
+        <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📷<br>오답 올리기</button>
+        <button class="tab-btn" data-tab="view" onclick="switchTab('view')">📖<br>내 오답노트</button>
+        <button class="tab-btn" data-tab="qna" onclick="switchTab('qna')">💬<br>문의</button>
       </div>
 
       <div class="tab-panel active" id="tab-upload">
