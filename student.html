@@ -125,7 +125,13 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 1rem; }
   .wrap { max-width: 480px; margin: 0 auto; }
 
-  .board { background: var(--bg2); border-radius: 16px; padding: 1.4rem; box-shadow: var(--card-shadow); }
+  .board {
+    background: var(--bg2);
+    border-radius: 20px;
+    padding: 1.4rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 12px;
+  }
   h1 { font-size: 19px; font-weight: 600; text-align: center; margin-bottom: 4px; color: var(--text1); }
   .sub { font-size: 12.5px; color: var(--text3); text-align: center; margin-bottom: 1.2rem; }
 
@@ -161,21 +167,46 @@
   .status-msg.error { background: #FAECE7; color: #993C1D; }
   .status-msg.loading { background: var(--bg4); color: var(--text3); }
 
-  .note-stats { display: flex; gap: 8px; margin-bottom: 12px; }
-  .note-stat { flex: 1; background: var(--bg4); border-radius: 10px; padding: 10px; text-align: center; border: 1px solid var(--border); }
-  .note-stat-num { font-size: 20px; font-weight: 700; color: var(--text1); }
+  .note-stats { display: flex; gap: 8px; margin-bottom: 14px; }
+  .note-stat {
+    flex: 1;
+    background: var(--bg2);
+    border-radius: 14px;
+    padding: 12px 8px;
+    text-align: center;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+  .note-stat-num { font-size: 24px; font-weight: 800; color: var(--text1); }
   .note-stat-num.green { color: var(--green-text); }
-  .note-stat-num.orange { color: #BA7517; }
-  .note-stat-label { font-size: 10.5px; color: var(--text3); }
+  .note-stat-num.orange { color: #FF9F0A; }
+  .note-stat-label { font-size: 10px; color: var(--text4); margin-top: 2px; font-weight: 600; letter-spacing: 0.3px; }
 
   .filter-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .filter-btn { padding: 6px 12px; border-radius: 18px; border: 1px solid var(--border2); background: var(--bg2); font-size: 12px; cursor: pointer; color: var(--text3); }
   .filter-btn.active { background: var(--text1); color: var(--bg2); border-color: var(--text1); }
 
-  .note-list { display: flex; flex-direction: column; gap: 10px; }
-  .note-card { background: var(--bg3); border-radius: 14px; padding: 12px; border: 1px solid var(--border); }
-  .note-card.solved { opacity: 0.6; }
-  .note-card.has-solution { border-color: #BFE0D2; background: var(--green-light); }
+  .note-list { display: flex; flex-direction: column; gap: 12px; }
+  .note-card {
+    background: var(--bg2);
+    border-radius: 16px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .note-card:active { transform: scale(0.99); }
+  .note-card.solved {
+    opacity: 0.55;
+    border-left: 4px solid #30d158;
+  }
+  .note-card.has-solution {
+    border-left: 4px solid #0F6E56;
+    background: var(--green-light);
+  }
+  .note-card.rejected-card {
+    border-left: 4px solid #FF453A;
+  }
 
   .note-thumbs-row { display: flex; gap: 6px; margin-bottom: 8px; }
   .note-thumb { width: 100%; height: 80px; border-radius: 10px; object-fit: cover; cursor: pointer; background: var(--border); display: block; }
@@ -808,7 +839,7 @@
       : { cls: 'pending', text: '⏳ 선생님 검수 대기중' };
 
     return `
-      <div class="note-card ${e.solved ? 'solved' : ''} ${hasSolution ? 'has-solution' : ''}">
+      <div class="note-card ${e.solved ? 'solved' : ''} ${hasSolution ? 'has-solution' : ''} ${reviewStatus === 'rejected' ? 'rejected-card' : ''}">
         <div class="note-thumbs-row">${thumbsHtml}</div>
         <div class="note-meta-row">
           <span class="student-status-badge ${statusInfo.cls}">${statusInfo.text}</span>
