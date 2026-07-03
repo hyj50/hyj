@@ -824,8 +824,6 @@
 
     // 페이지네이션 버튼 렌더
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-    const pag = document.getElementById('pagination');
-    const info = document.getElementById('page-info');
 
     if (totalPages <= 1) { pag.innerHTML = ''; info.textContent = ''; return; }
 
