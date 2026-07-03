@@ -187,9 +187,20 @@
   .heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; justify-content: flex-end; font-size: 10px; color: var(--text4); }
   .heatmap-legend-cell { width: 10px; height: 10px; border-radius: 2px; }
 
-  .filter-row { display: flex; gap: 8px; margin-bottom: 1.2rem; flex-wrap: wrap; }
-  .filter-btn { padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg2); font-size: 13px; cursor: pointer; color: var(--text3); }
-  .filter-btn.active { background: var(--text1); color: var(--bg2); border-color: var(--text1); }
+  .filter-row { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-btn {
+    padding: 7px 13px; border-radius: 20px;
+    border: 1.5px solid var(--border2);
+    background: var(--bg2); font-size: 12px;
+    cursor: pointer; color: var(--text3);
+    font-weight: 600; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .filter-btn.active {
+    background: linear-gradient(135deg, #E8639A, #C94080);
+    color: white; border-color: transparent;
+    box-shadow: 0 2px 8px rgba(232,99,154,0.35);
+  }
 
   /* 애니메이션 */
   @keyframes fadeSlideIn {
@@ -277,9 +288,10 @@
   .page-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 6px; }
 
   /* 메인 탭 */
-  .main-tab-bar { display: flex; gap: 6px; margin-bottom: 1.2rem; background: #f0f0eb; padding: 4px; border-radius: 12px; }
-  .main-tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 9px; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; }
-  .main-tab-btn.active { background: white; color: #0F6E56; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .main-tab-bar { display: flex; gap: 4px; margin-bottom: 1.2rem; background: var(--tab-bg); padding: 4px; border-radius: 14px; }
+  .main-tab-btn { flex: 1; padding: 10px 4px; border: none; background: transparent; border-radius: 10px; font-size: 11px; font-weight: 600; color: var(--text3); cursor: pointer; text-align: center; line-height: 1.6; transition: all 0.2s; }
+  .main-tab-btn .nav-icon { font-size: 18px; display: block; }
+  .main-tab-btn.active { background: linear-gradient(135deg, #E8639A, #C94080); color: white; box-shadow: 0 3px 12px rgba(232,99,154,0.35); }
   .main-tab-panel { display: none; }
   .main-tab-panel.active { display: block; }
 
@@ -354,13 +366,20 @@
 <div class="wrap" id="main-wrap" style="display:none;">
 
   <div class="student-bar">
-    <div class="student-select-row">
-      <select id="student-select" onchange="onSelectStudent()"></select>
-      <button class="btn-small btn-add-student" onclick="toggleAddForm()">+ 학생 추가</button>
-      <button class="btn-small" onclick="changePassword()">🔑 비번 변경</button>
-      <button class="btn-small btn-del-student" onclick="deleteCurrentStudent()">학생 삭제</button>
-      <button class="btn-small btn-logout" onclick="logout()">로그아웃</button>
+    <!-- 학생 선택 + 링크 -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+      <select id="student-select" onchange="onSelectStudent()" style="flex:1;min-width:0;padding:11px 12px;font-size:15px;font-weight:600;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text1);outline:none;"></select>
+      <button onclick="toggleAddForm()" style="padding:11px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">+ 추가</button>
     </div>
+
+    <!-- 버튼 행 -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <button onclick="changePassword()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">🔑 비번 변경</button>
+      <button onclick="deleteCurrentStudent()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid #FF453A;background:var(--bg2);color:#FF453A;font-size:12px;font-weight:600;cursor:pointer;">🗑️ 학생 삭제</button>
+      <button onclick="logout()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;">로그아웃</button>
+    </div>
+
+    <!-- 학생 추가 폼 -->
     <div class="add-form" id="add-form">
       <input type="text" id="new-name" placeholder="이름" maxlength="20" />
       <input type="text" id="new-school" placeholder="학교" maxlength="20" />
@@ -377,9 +396,9 @@
 
   <!-- 메인 탭 -->
   <div class="main-tab-bar">
-    <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋 오답노트</button>
-    <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬 문의</button>
-    <button class="main-tab-btn" data-main-tab="rank" onclick="switchMainTab('rank')">🏆 순위</button>
+    <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋<br>오답노트</button>
+    <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬<br>문의</button>
+    <button class="main-tab-btn" data-main-tab="rank" onclick="switchMainTab('rank')">🏆<br>순위</button>
   </div>
 
   <!-- 오답노트 탭 -->
@@ -1712,7 +1731,7 @@
           <button class="filter-btn" data-filter="pending" onclick="setFilter('pending')">미해결</button>
           <button class="filter-btn" data-filter="solved" onclick="setFilter('solved')">완료</button>
           <button class="filter-btn" data-filter="struggling" onclick="setFilter('struggling')">⭐ 자주틀림</button>
-          <button class="filter-btn" style="margin-left:auto;border-color:#993C1D;color:#993C1D;" onclick="toggleBulkMode()">🗑️ 선택삭제</button>
+          <button class="filter-btn" style="margin-left:auto;border-color:#FF453A;color:#FF453A;" onclick="toggleBulkMode()">🗑️ 선택삭제</button>
         </div>
 
         <div class="bulk-bar" id="bulk-bar">
