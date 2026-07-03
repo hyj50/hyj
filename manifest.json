@@ -4,8 +4,8 @@
   "description": "채움수학학원 오답노트 앱",
   "start_url": "/student.html",
   "display": "standalone",
-  "background_color": "#c8b89a",
-  "theme_color": "#0F6E56",
+  "background_color": "#E8639A",
+  "theme_color": "#E8639A",
   "orientation": "portrait",
   "icons": [
     {
