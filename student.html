@@ -296,10 +296,11 @@
 
         <div class="filter-row">
           <button class="filter-btn active" data-vfilter="all" onclick="setViewFilter('all')">전체</button>
+          <button class="filter-btn" data-vfilter="byUnit" onclick="setViewFilter('byUnit')">📚 대단원별</button>
           <button class="filter-btn" data-vfilter="reviewing" onclick="setViewFilter('reviewing')">⏳ 검수중</button>
           <button class="filter-btn" data-vfilter="redo" onclick="setViewFilter('redo')">🔄 다시풀기</button>
           <button class="filter-btn" data-vfilter="solved" onclick="setViewFilter('solved')">✅ 완료</button>
-          <button class="filter-btn" data-vfilter="hasSolution" onclick="setViewFilter('hasSolution')">📖 풀이있음</button>
+          <button class="filter-btn" data-vfilter="hasSolution" onclick="setViewFilter('hasSolution')">📖 모범풀이있음</button>
         </div>
 
         <div class="weakness-card-s" id="weakness-card-s">
@@ -370,7 +371,7 @@
   let pendingFiles = { problem: null, mine: null };
   let currentEntries = [];
   let viewFilter = 'all';
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
   let currentPage = 1;
   let totalCount = 0;
 
@@ -622,6 +623,18 @@
       if (viewFilter === 'hasSolution') filterQ += `&image_solution_url=not.is.null`;
       if (unitSearchKeyword) filterQ += `&or=(subject.ilike.*${unitSearchKeyword}*,major_unit.ilike.*${unitSearchKeyword}*,minor_unit.ilike.*${unitSearchKeyword}*)`;
 
+      // 대단원별 뷰는 전체 데이터 불러오기
+      if (viewFilter === 'byUnit') {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=subject.asc,major_unit.asc,created_at.desc`,
+          { headers: sbHeaders() }
+        );
+        currentEntries = await res.json();
+        totalCount = currentEntries.length;
+        renderMyEntries();
+        return;
+      }
+
       const offset = (currentPage - 1) * PAGE_SIZE;
 
       // 전체 카운트 (통계용 — 필터 없이 전체)
@@ -771,6 +784,36 @@
 
   function renderMyEntries() {
     const container = document.getElementById('note-list');
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('page-info');
+
+    // 대단원별 뷰는 전체 데이터 그룹핑
+    if (viewFilter === 'byUnit') {
+      if (!currentEntries.length) {
+        container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
+        if (pag) pag.innerHTML = '';
+        if (info) info.textContent = '';
+        return;
+      }
+      // 대단원별 그룹핑
+      const groups = {};
+      currentEntries.forEach(e => {
+        const key = [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(e);
+      });
+      container.innerHTML = Object.entries(groups).map(([unit, entries]) => `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;padding:8px 12px;background:#F0F8F5;border-radius:10px;margin-bottom:8px;">
+            📚 ${unit} <span style="font-size:12px;color:#888;font-weight:400;">(${entries.length}개)</span>
+          </div>
+          ${entries.map(noteCardHtml).join('')}
+        </div>
+      `).join('');
+      if (pag) pag.innerHTML = '';
+      if (info) info.textContent = '';
+      return;
+    }
     if (currentEntries.length === 0) {
       container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
       document.getElementById('pagination').innerHTML = '';

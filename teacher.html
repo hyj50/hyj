@@ -486,6 +486,29 @@
 
   let bulkMode = false;
   let selectedIds = new Set();
+  let unitSearchKeywordT = '';
+  const PAGE_SIZE_T = 10;
+  let currentPageT = 1;
+  let totalCountT = 0;
+
+  function onUnitSearchT() {
+    const val = document.getElementById('unit-search-t')?.value.trim() || '';
+    unitSearchKeywordT = val;
+    const clearBtn = document.getElementById('unit-search-clear-t');
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+    currentPageT = 1;
+    loadCurrentPage();
+  }
+
+  function clearUnitSearchT() {
+    const input = document.getElementById('unit-search-t');
+    if (input) input.value = '';
+    unitSearchKeywordT = '';
+    const clearBtn = document.getElementById('unit-search-clear-t');
+    if (clearBtn) clearBtn.style.display = 'none';
+    currentPageT = 1;
+    loadCurrentPage();
+  }
 
   function toggleBulkMode() {
     bulkMode = !bulkMode;
@@ -1211,10 +1234,46 @@
 
   function setFilter(f) {
     currentFilter = f;
+    currentPageT = 1;
     document.querySelectorAll('.filter-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.filter === f);
     });
-    renderStudentDetails();
+    loadCurrentPage();
+  }
+
+  async function loadCurrentPage() {
+    if (!currentId) return;
+
+    let filterQ = `student_id=eq.${currentId}`;
+    if (currentFilter === 'pending')    filterQ += `&solved=eq.false`;
+    if (currentFilter === 'solved')     filterQ += `&solved=eq.true`;
+    if (currentFilter === 'struggling') filterQ += `&retry_count=gte.${STRUGGLE_THRESHOLD}`;
+    if (currentFilter === 'unsorted')   filterQ += `&subject=is.null`;
+    if (currentFilter === 'reviewing')  filterQ += `&review_status=in.(pending,rejected)`;
+    if (unitSearchKeywordT) filterQ += `&or=(subject.ilike.*${unitSearchKeywordT}*,major_unit.ilike.*${unitSearchKeywordT}*,minor_unit.ilike.*${unitSearchKeywordT}*)`;
+
+    if (currentFilter === 'byUnit') {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=subject.asc,major_unit.asc,created_at.desc`,
+        { headers: sbHeaders() }
+      );
+      currentEntries = await res.json();
+      totalCountT = currentEntries.length;
+      renderNoteList();
+      return;
+    }
+
+    const offset = (currentPageT - 1) * PAGE_SIZE_T;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.desc&limit=${PAGE_SIZE_T}&offset=${offset}`,
+        { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
+      );
+      const cr = res.headers.get('content-range');
+      totalCountT = cr ? parseInt(cr.split('/')[1]) : 0;
+      currentEntries = await res.json();
+      renderNoteList();
+    } catch { totalCountT = 0; currentEntries = []; renderNoteList(); }
   }
 
   function openModal(src) {
@@ -1561,8 +1620,14 @@
           </div>
         </div>
 
+        <div style="position:relative;margin-bottom:10px;">
+          <input type="text" id="unit-search-t" placeholder="🔍 단원 검색 (예: 이차방정식)" oninput="onUnitSearchT()" style="width:100%;padding:11px 14px;border-radius:10px;border:1px solid #ddd;font-size:14px;outline:none;background:white;" />
+          <button onclick="clearUnitSearchT()" id="unit-search-clear-t" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;">✕</button>
+        </div>
+
         <div class="filter-row" id="filter-row">
           <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">전체</button>
+          <button class="filter-btn" data-filter="byUnit" onclick="setFilter('byUnit')">📚 대단원별</button>
           <button class="filter-btn" data-filter="unsorted" onclick="setFilter('unsorted')">🆕 미분류</button>
           <button class="filter-btn" data-filter="reviewing" onclick="setFilter('reviewing')">⏳ 검수대기</button>
           <button class="filter-btn" data-filter="pending" onclick="setFilter('pending')">미해결</button>
@@ -1595,17 +1660,18 @@
 
     area.innerHTML = `<div class="board"><div class="loading-msg">불러오는 중...</div></div>`;
     currentEntries = await loadEntriesForStudent(stu.id);
-    allEntryStats = currentEntries; // 통계용도 동일하게 사용
+    allEntryStats = currentEntries;
 
     area.innerHTML = BOARD_TEMPLATE(stu);
+    totalCountT = currentEntries.length;
     renderStudentDetails();
   }
 
   function renderStudentDetails() {
-    const total = currentEntries.length;
-    const solved = currentEntries.filter(e => e.solved).length;
-    const unsorted = currentEntries.filter(e => !e.subject).length;
-    const reviewing = currentEntries.filter(e => {
+    const total = allEntryStats.length;
+    const solved = allEntryStats.filter(e => e.solved).length;
+    const unsorted = allEntryStats.filter(e => !e.subject).length;
+    const reviewing = allEntryStats.filter(e => {
       const rs = e.review_status || (e.solved ? 'approved' : 'pending');
       return rs === 'pending' || rs === 'rejected';
     }).length;
@@ -1634,17 +1700,41 @@
     renderReviewAlert();
     renderHeatmap();
 
-    let list = currentEntries;
-    if (currentFilter === 'pending') list = list.filter(e => !e.solved);
-    if (currentFilter === 'solved') list = list.filter(e => e.solved);
-    if (currentFilter === 'struggling') list = list.filter(e => (e.retry_count || 0) >= STRUGGLE_THRESHOLD);
-    if (currentFilter === 'unsorted') list = list.filter(e => !e.subject);
-    if (currentFilter === 'reviewing') list = list.filter(e => {
-      const rs = e.review_status || (e.solved ? 'approved' : 'pending');
-      return rs === 'pending' || rs === 'rejected';
-    });
+    renderNoteList();
+  }
 
+  function renderNoteList() {
     const container = document.getElementById('note-list');
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('page-info');
+    const list = currentEntries;
+
+    // 대단원별 뷰
+    if (currentFilter === 'byUnit') {
+      if (!list.length) {
+        container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
+        if (pag) pag.innerHTML = '';
+        if (info) info.textContent = '';
+        return;
+      }
+      const groups = {};
+      list.forEach(e => {
+        const key = [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(e);
+      });
+      container.innerHTML = Object.entries(groups).map(([unit, entries]) => `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:#0F6E56;padding:8px 12px;background:#F0F8F5;border-radius:10px;margin-bottom:8px;">
+            📚 ${unit} <span style="font-size:12px;color:#888;font-weight:400;">(${entries.length}개)</span>
+          </div>
+          ${entries.map(noteCardHtml).join('')}
+        </div>
+      `).join('');
+      if (pag) pag.innerHTML = '';
+      if (info) info.textContent = '';
+      return;
+    }
 
     if (currentFilter === 'unsorted' || currentFilter === 'reviewing') {
       // 미분류/검수대기는 폴더 없이 그냥 리스트로
@@ -1803,6 +1893,32 @@
     }).join('');
 
     container.innerHTML = html;
+    renderPaginationT();
+  }
+
+  function renderPaginationT() {
+    const pag = document.getElementById('pagination');
+    const info = document.getElementById('page-info');
+    if (!pag) return;
+    const totalPages = Math.ceil(totalCountT / PAGE_SIZE_T);
+    if (totalPages <= 1) { pag.innerHTML = ''; if(info) info.textContent = ''; return; }
+    if (info) info.textContent = `전체 ${totalCountT}개 중 ${(currentPageT-1)*PAGE_SIZE_T+1}–${Math.min(currentPageT*PAGE_SIZE_T, totalCountT)}번째`;
+    const start = Math.max(1, currentPageT - 2);
+    const end = Math.min(totalPages, start + 4);
+    let btns = `<button class="page-btn ${currentPageT===1?'disabled':''}" onclick="goPageT(${currentPageT-1})">‹</button>`;
+    if (start > 1) btns += `<button class="page-btn" onclick="goPageT(1)">1</button>${start>2?'<span style="padding:0 2px;color:#ccc">…</span>':''}`;
+    for (let p = start; p <= end; p++) btns += `<button class="page-btn ${p===currentPageT?'active':''}" onclick="goPageT(${p})">${p}</button>`;
+    if (end < totalPages) btns += `${end<totalPages-1?'<span style="padding:0 2px;color:#ccc">…</span>':''}<button class="page-btn" onclick="goPageT(${totalPages})">${totalPages}</button>`;
+    btns += `<button class="page-btn ${currentPageT===totalPages?'disabled':''}" onclick="goPageT(${currentPageT+1})">›</button>`;
+    pag.innerHTML = btns;
+  }
+
+  async function goPageT(p) {
+    const totalPages = Math.ceil(totalCountT / PAGE_SIZE_T);
+    if (p < 1 || p > totalPages) return;
+    currentPageT = p;
+    await loadCurrentPage();
+    document.getElementById('note-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // ===== 월별 순위표 =====
