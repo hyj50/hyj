@@ -123,7 +123,30 @@
 
   html, body { width: 100%; overflow-x: hidden; background: var(--bg); color: var(--text1); }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 1rem; }
-  .wrap { max-width: 480px; margin: 0 auto; }
+  /* 바텀 네비게이션 */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    z-index: 100;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  }
+  .bottom-nav-btn {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; border: none; background: none;
+    cursor: pointer; padding: 4px 0;
+    color: var(--text4); font-size: 10px; font-weight: 600;
+    transition: color 0.15s;
+  }
+  .bottom-nav-btn .nav-icon { font-size: 22px; line-height: 1; }
+  .bottom-nav-btn.active { color: var(--green); }
+  .bottom-nav-btn.active .nav-icon { transform: scale(1.1); }
+
+  /* 바텀 네비게이션 공간 확보 */
+  .wrap { max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
 
   .board {
     background: var(--bg2);
@@ -140,12 +163,11 @@
   .form-group select, .form-group input { width: 100%; padding: 12px 14px; font-size: 16px; border-radius: 10px; border: 1px solid var(--border2); outline: none; background: var(--bg2); color: var(--text1); }
   .form-group select:focus, .form-group input:focus { border-color: var(--green); }
 
-  .tab-bar { display: flex; gap: 4px; margin-bottom: 1.2rem; background: var(--tab-bg); padding: 4px; border-radius: 12px; }
-  .tab-btn { flex: 1; padding: 8px 4px; border: none; background: transparent; border-radius: 9px; font-size: 11px; font-weight: 600; color: var(--text3); cursor: pointer; text-align: center; line-height: 1.6; }
-  .tab-btn.active { background: var(--bg2); color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-
   .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
+  .tab-panel.active {
+    display: block;
+    animation: fadeSlideIn 0.25s ease both;
+  }
 
   .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
   .upload-mini-label { font-size: 12px; color: var(--text3); margin-bottom: 5px; text-align: center; }
@@ -346,12 +368,6 @@
     </div>
 
     <div id="content-area" style="display:none;">
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="upload" onclick="switchTab('upload')">📷<br>오답 올리기</button>
-        <button class="tab-btn" data-tab="view" onclick="switchTab('view')">📖<br>내 오답노트</button>
-        <button class="tab-btn" data-tab="qna" onclick="switchTab('qna')">💬<br>문의</button>
-      </div>
-
       <div class="tab-panel active" id="tab-upload">
         <div class="upload-grid">
           <div>
@@ -460,6 +476,22 @@
     <div id="review-modal-body"></div>
   </div>
 </div>
+
+<!-- 바텀 네비게이션 -->
+<nav class="bottom-nav">
+  <button class="bottom-nav-btn active" data-tab="upload" onclick="switchTab('upload')">
+    <span class="nav-icon">📷</span>
+    <span>오답 올리기</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="view" onclick="switchTab('view')">
+    <span class="nav-icon">📖</span>
+    <span>내 오답노트</span>
+  </button>
+  <button class="bottom-nav-btn" data-tab="qna" onclick="switchTab('qna')">
+    <span class="nav-icon">💬</span>
+    <span>문의</span>
+  </button>
+</nav>
 
 <script>
   const SUPABASE_URL = 'https://pfaovietojozlrfztwom.supabase.co';
@@ -571,9 +603,9 @@
   }
 
   function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     if (tab === 'view') loadMyEntries();
     if (tab === 'qna') loadQnA();
   }
