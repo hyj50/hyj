@@ -262,6 +262,40 @@
   .weakness-count-s { font-size: 12px; font-weight: 600; color: #B5421F; }
   .weakness-empty-s { font-size: 12px; color: var(--text4); padding: 4px 0; }
 
+  /* 애니메이션 */
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeSlideLeft {
+    from { opacity: 0; transform: translateX(18px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeSlideRight {
+    from { opacity: 0; transform: translateX(-18px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .tab-panel.active {
+    display: block;
+    animation: fadeSlideIn 0.25s ease both;
+  }
+
+  .note-card {
+    animation: fadeSlideIn 0.2s ease both;
+  }
+
+  .note-card:nth-child(1) { animation-delay: 0.00s; }
+  .note-card:nth-child(2) { animation-delay: 0.04s; }
+  .note-card:nth-child(3) { animation-delay: 0.08s; }
+  .note-card:nth-child(4) { animation-delay: 0.12s; }
+  .note-card:nth-child(5) { animation-delay: 0.16s; }
+  .note-card:nth-child(6) { animation-delay: 0.20s; }
+  .note-card:nth-child(7) { animation-delay: 0.24s; }
+  .note-card:nth-child(8) { animation-delay: 0.28s; }
+  .note-card:nth-child(9) { animation-delay: 0.32s; }
+  .note-card:nth-child(10) { animation-delay: 0.36s; }
+
   .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.85); z-index: 99999; align-items: center; justify-content: center; padding: 1.2rem; }
   .modal-overlay.show { display: flex; }
   .modal-content { max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; }
