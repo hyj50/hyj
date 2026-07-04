@@ -397,17 +397,19 @@
         <div class="upload-grid">
           <div>
             <p class="upload-mini-label">문제 사진 (필수)</p>
-            <div class="upload-zone" id="upload-zone-problem" onclick="document.getElementById('file-input-problem').click()">
-              <div class="upload-text"><div class="upload-icon">📷</div>탭해서 촬영</div>
+            <div class="upload-zone" id="upload-zone-problem" onclick="showUploadOptions('problem')">
+              <div class="upload-text"><div class="upload-icon">📷</div>탭해서 선택</div>
             </div>
             <input type="file" id="file-input-problem" class="file-input-hidden" accept="image/*" onchange="onFileSelect(event,'problem')" />
+            <input type="file" id="file-input-problem-cam" class="file-input-hidden" accept="image/*" capture="environment" onchange="onFileSelect(event,'problem')" />
           </div>
           <div>
             <p class="upload-mini-label">내 풀이 (선택)</p>
-            <div class="upload-zone" id="upload-zone-mine" onclick="document.getElementById('file-input-mine').click()">
-              <div class="upload-text"><div class="upload-icon">✏️</div>탭해서 촬영</div>
+            <div class="upload-zone" id="upload-zone-mine" onclick="showUploadOptions('mine')">
+              <div class="upload-text"><div class="upload-icon">✏️</div>탭해서 선택</div>
             </div>
             <input type="file" id="file-input-mine" class="file-input-hidden" accept="image/*" onchange="onFileSelect(event,'mine')" />
+            <input type="file" id="file-input-mine-cam" class="file-input-hidden" accept="image/*" capture="environment" onchange="onFileSelect(event,'mine')" />
           </div>
         </div>
 
@@ -477,16 +479,33 @@
       </div>
 
       <div class="tab-panel" id="tab-qna">
-        <div style="background:white;border-radius:14px;padding:1.2rem;margin-bottom:12px;border:1px solid #eee;">
-          <div style="font-size:14px;font-weight:700;margin-bottom:10px;">✏️ 질문 올리기</div>
-          <input type="text" id="qna-title" placeholder="제목" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #ddd;font-size:14px;margin-bottom:8px;outline:none;" />
-          <textarea id="qna-content" placeholder="내용을 입력하세요" rows="3" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #ddd;font-size:14px;resize:none;outline:none;margin-bottom:8px;"></textarea>
-          <button onclick="submitQuestion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:#0F6E56;color:white;font-size:14px;font-weight:700;cursor:pointer;">질문 올리기</button>
+        <!-- 게시판 목록 뷰 -->
+        <div id="qna-board-view">
+          <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:12px;border:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text1);">✏️ 질문 올리기</div>
+            <input type="text" id="qna-title" placeholder="제목" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;margin-bottom:8px;outline:none;background:var(--bg2);color:var(--text1);" />
+            <textarea id="qna-content" placeholder="내용을 입력하세요" rows="3" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;resize:none;outline:none;margin-bottom:8px;background:var(--bg2);color:var(--text1);"></textarea>
+            <button onclick="submitQuestion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:14px;font-weight:700;cursor:pointer;">질문 올리기</button>
+          </div>
+          <div id="qna-list" style="display:flex;flex-direction:column;gap:0;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);">
+            <div class="empty">불러오는 중...</div>
+          </div>
+          <div class="pagination" id="qna-pagination" style="margin-top:12px;"></div>
         </div>
-        <div id="qna-list" style="display:flex;flex-direction:column;gap:10px;">
-          <div class="empty">불러오는 중...</div>
+
+        <!-- 게시글 상세 뷰 -->
+        <div id="qna-detail-view" style="display:none;">
+          <button onclick="closeQnaDetail()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--pink);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px;padding:0;">← 목록으로</button>
+          <div id="qna-detail-content"></div>
+          <div style="margin-top:16px;">
+            <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;">💬 댓글</div>
+            <div id="qna-comments-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;"></div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="comment-input" placeholder="댓글을 입력하세요" style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:13px;outline:none;background:var(--bg2);color:var(--text1);" />
+              <button onclick="submitComment()" style="padding:10px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:13px;font-weight:600;cursor:pointer;">등록</button>
+            </div>
+          </div>
         </div>
-        <div class="pagination" id="qna-pagination" style="margin-top:12px;"></div>
       </div>
 
     </div>
@@ -500,6 +519,16 @@
   <div class="modal-content">
     <img id="modal-img" src="" alt="확대 이미지" />
     <div class="modal-label" id="modal-label"></div>
+  </div>
+</div>
+
+<!-- 업로드 액션시트 -->
+<div id="upload-action-sheet" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:1.2rem;width:100%;max-width:480px;">
+    <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:12px;">사진 선택 방법</div>
+    <button onclick="uploadSheetSelect('camera')" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;">📷 카메라로 찍기</button>
+    <button onclick="uploadSheetSelect('gallery')" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;">🖼️ 사진첩에서 선택</button>
+    <button onclick="hideUploadSheet()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text3);font-size:15px;cursor:pointer;">취소</button>
   </div>
 </div>
 
@@ -645,6 +674,26 @@
     document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     if (tab === 'view') loadMyEntries();
     if (tab === 'qna') loadQnA();
+  }
+
+  function showUploadOptions(kind) {
+    const sheet = document.getElementById('upload-action-sheet');
+    sheet.style.display = 'flex';
+    sheet.dataset.kind = kind;
+  }
+
+  function hideUploadSheet() {
+    document.getElementById('upload-action-sheet').style.display = 'none';
+  }
+
+  function uploadSheetSelect(type) {
+    const kind = document.getElementById('upload-action-sheet').dataset.kind;
+    hideUploadSheet();
+    if (type === 'camera') {
+      document.getElementById(`file-input-${kind}-cam`).click();
+    } else {
+      document.getElementById(`file-input-${kind}`).click();
+    }
   }
 
   function onFileSelect(e, kind) {
@@ -1082,6 +1131,7 @@
   const QNA_PAGE_SIZE = 5;
   let qnaPage = 1;
   let qnaTotalCount = 0;
+  let currentQnaId = null;
 
   async function loadQnA(page = 1) {
     qnaPage = page;
@@ -1092,13 +1142,10 @@
 
     try {
       const offset = (page - 1) * QNA_PAGE_SIZE;
-
-      // 전체 개수
       const countRes = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=id`, { headers: sbHeaders({ 'Prefer': 'count=exact' }) });
       const cr = countRes.headers.get('content-range');
       qnaTotalCount = cr ? parseInt(cr.split('/')[1]) : 0;
 
-      // 현재 페이지 데이터
       const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?select=*&order=created_at.desc&limit=${QNA_PAGE_SIZE}&offset=${offset}`, { headers: sbHeaders() });
       const list = await res.json();
 
@@ -1114,28 +1161,26 @@
       }
 
       if (!Array.isArray(list) || !list.length) {
-        container.innerHTML = '<div class="empty">아직 질문이 없어요</div>';
+        container.innerHTML = '<div class="empty" style="padding:2rem;">아직 질문이 없어요</div>';
         if (pagEl) pagEl.innerHTML = '';
         return;
       }
 
-      container.innerHTML = list.map(q => {
+      // 게시판 목록 스타일
+      container.innerHTML = list.map((q, i) => {
         const date = new Date(q.created_at).toLocaleDateString('ko-KR');
         const studentName = studentMap[q.student_id] || '알 수 없음';
         const isMe = q.student_id === document.getElementById('student-select').value;
         return `
-          <div style="background:white;border-radius:14px;padding:1.2rem;border:1px solid ${isMe ? '#CCE7DD' : '#eee'};">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;gap:8px;">
-              <span style="font-size:14px;font-weight:700;">${q.title}</span>
-              <span style="font-size:11px;color:#aaa;white-space:nowrap;">${studentName} · ${date}</span>
+          <div onclick="openQnaDetail('${q.id}')" style="padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);${i===list.length-1?'border-bottom:none;':''}display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:${isMe?'700':'600'};color:var(--text1);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${isMe?'👤 ':''} ${q.title}</div>
+              <div style="font-size:11px;color:var(--text4);">${studentName} · ${date}</div>
             </div>
-            ${q.content ? `<div style="font-size:13px;color:#555;margin-bottom:8px;">${q.content}</div>` : ''}
-            ${q.answer ? `
-              <div style="background:#F0F8F5;border-radius:10px;padding:10px 12px;border-left:3px solid #0F6E56;margin-top:8px;">
-                <div style="font-size:11px;font-weight:700;color:#0F6E56;margin-bottom:4px;">✅ 선생님 답변</div>
-                <div style="font-size:13px;color:#1a1a1a;">${q.answer}</div>
-              </div>
-            ` : '<div style="font-size:12px;color:#aaa;margin-top:6px;">⏳ 답변 대기중</div>'}
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+              ${q.answer ? '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:var(--green-light);color:var(--green);font-weight:700;">답변완료</span>' : '<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#FFF3CC;color:#854F0B;font-weight:700;">대기중</span>'}
+              <span style="font-size:18px;color:var(--text4);">›</span>
+            </div>
           </div>`;
       }).join('');
 
@@ -1144,13 +1189,133 @@
         const totalPages = Math.ceil(qnaTotalCount / QNA_PAGE_SIZE);
         if (totalPages <= 1) { pagEl.innerHTML = ''; return; }
         let btns = `<button class="page-btn ${page===1?'disabled':''}" onclick="loadQnA(${page-1})">‹</button>`;
-        for (let p = 1; p <= totalPages; p++) {
-          btns += `<button class="page-btn ${p===page?'active':''}" onclick="loadQnA(${p})">${p}</button>`;
-        }
-        btns += `<button class="page-btn ${page===totalPages?'disabled':''}" onclick="loadQnA(${page+1})">›</button>`;
+        for (let p = 1; p <= totalPages; p++) btns += `<button class="page-btn ${p===page?'active':''}" onclick="loadQnA(${p})">${p}</button>`;
+        btns += `<button class="page-btn ${page===qnaTotalCount?'disabled':''}" onclick="loadQnA(${page+1})">›</button>`;
         pagEl.innerHTML = btns;
       }
     } catch(e) { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+  }
+
+  async function openQnaDetail(qId) {
+    currentQnaId = qId;
+    document.getElementById('qna-board-view').style.display = 'none';
+    document.getElementById('qna-detail-view').style.display = 'block';
+
+    const detailEl = document.getElementById('qna-detail-content');
+    detailEl.innerHTML = '<div class="empty">불러오는 중...</div>';
+
+    // 질문 상세
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/questions?id=eq.${qId}&select=*`, { headers: sbHeaders() });
+    const list = await res.json();
+    const q = list[0];
+    if (!q) return;
+
+    const date = new Date(q.created_at).toLocaleDateString('ko-KR');
+    detailEl.innerHTML = `
+      <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;border:1px solid var(--border);margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:8px;">${q.title}</div>
+        <div style="font-size:11px;color:var(--text4);margin-bottom:12px;">${date}</div>
+        ${q.content ? `<div style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:1.6;">${q.content}</div>` : ''}
+        ${q.answer ? `
+          <div style="background:var(--green-light);border-radius:12px;padding:12px;border-left:3px solid var(--green);">
+            <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;">✅ 선생님 답변</div>
+            <div style="font-size:13px;color:var(--text1);">${q.answer}</div>
+          </div>` : ''}
+      </div>`;
+
+    loadComments(qId);
+  }
+
+  function closeQnaDetail() {
+    currentQnaId = null;
+    document.getElementById('qna-board-view').style.display = 'block';
+    document.getElementById('qna-detail-view').style.display = 'none';
+  }
+
+  async function loadComments(qId) {
+    const container = document.getElementById('qna-comments-list');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comments?question_id=eq.${qId}&order=created_at.asc`, { headers: sbHeaders() });
+      const comments = await res.json();
+
+      if (!comments.length) { container.innerHTML = '<div style="font-size:13px;color:var(--text4);text-align:center;padding:12px;">아직 댓글이 없어요</div>'; return; }
+
+      // 댓글/대댓글 구조
+      const roots = comments.filter(c => !c.parent_id);
+      const replies = comments.filter(c => c.parent_id);
+
+      container.innerHTML = roots.map(c => {
+        const date = new Date(c.created_at).toLocaleDateString('ko-KR');
+        const myReplies = replies.filter(r => r.parent_id === c.id);
+        return `
+          <div>
+            <div style="background:var(--bg3);border-radius:12px;padding:10px 12px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:12px;font-weight:700;color:var(--text1);">${c.author_name}</span>
+                <span style="font-size:11px;color:var(--text4);">${date}</span>
+              </div>
+              <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">${c.content}</div>
+              <button onclick="showReplyInput('${c.id}')" style="background:none;border:none;font-size:11px;color:var(--pink);font-weight:600;cursor:pointer;">↩ 답글</button>
+            </div>
+            ${myReplies.map(r => `
+              <div style="margin-left:16px;margin-top:6px;background:var(--bg4);border-radius:10px;padding:9px 12px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                  <span style="font-size:12px;font-weight:700;color:var(--text1);">↩ ${r.author_name}</span>
+                  <span style="font-size:11px;color:var(--text4);">${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>
+                </div>
+                <div style="font-size:13px;color:var(--text2);">${r.content}</div>
+              </div>`).join('')}
+            <div id="reply-input-${c.id}" style="display:none;margin-left:16px;margin-top:6px;display:none;">
+              <div style="display:flex;gap:6px;">
+                <input type="text" id="reply-text-${c.id}" placeholder="답글 입력..." style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);font-size:12px;outline:none;background:var(--bg2);color:var(--text1);" />
+                <button onclick="submitReply('${c.id}')" style="padding:8px 12px;border-radius:8px;border:none;background:var(--pink);color:white;font-size:12px;font-weight:600;cursor:pointer;">등록</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch { container.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+  }
+
+  function showReplyInput(commentId) {
+    const el = document.getElementById(`reply-input-${commentId}`);
+    if (el) { el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
+  }
+
+  async function submitComment() {
+    const input = document.getElementById('comment-input');
+    const content = input.value.trim();
+    const studentId = document.getElementById('student-select').value;
+    const nameEl = document.getElementById('logged-in-name');
+    const authorName = nameEl ? nameEl.textContent : '학생';
+    if (!content) return;
+    if (!currentQnaId) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ question_id: currentQnaId, student_id: studentId, author_name: authorName, content })
+      });
+      input.value = '';
+      loadComments(currentQnaId);
+    } catch { alert('댓글 등록 실패했어요 ㅠㅠ'); }
+  }
+
+  async function submitReply(parentId) {
+    const input = document.getElementById(`reply-text-${parentId}`);
+    const content = input.value.trim();
+    const studentId = document.getElementById('student-select').value;
+    const nameEl = document.getElementById('logged-in-name');
+    const authorName = nameEl ? nameEl.textContent : '학생';
+    if (!content) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ question_id: currentQnaId, student_id: studentId, author_name: authorName, content, parent_id: parentId })
+      });
+      input.value = '';
+      loadComments(currentQnaId);
+    } catch { alert('답글 등록 실패했어요 ㅠㅠ'); }
   }
 
   async function submitQuestion() {
