@@ -453,13 +453,14 @@
         <tbody id="lb-body"></tbody>
       </table>
       <div class="bonus-section">
-        <p style="font-size:12px;color:#888;margin-bottom:8px;">🎁 보너스 점수 주기</p>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:8px;">🎁 보너스 점수 주기</p>
         <div class="bonus-row">
           <select id="bonus-student-select"></select>
           <input type="number" id="bonus-points" placeholder="점수" min="1" max="100" />
           <input type="text" id="bonus-memo" placeholder="사유 (선택)" maxlength="30" />
           <button class="btn-bonus" onclick="giveBonus()">지급</button>
         </div>
+        <div id="bonus-history" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
       </div>
     </div>
   </div>
@@ -2295,9 +2296,40 @@
         </tr>
       `).join('');
 
+      // 보너스 내역 렌더링
+      const historyEl = document.getElementById('bonus-history');
+      if (historyEl) {
+        if (!Array.isArray(bonuses) || bonuses.length === 0) {
+          historyEl.innerHTML = '';
+        } else {
+          const bonusDetail = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=*&month=eq.${monthStr}&order=created_at.desc`, { headers: sbHeaders() });
+          const bonusData = await bonusDetail.json();
+          historyEl.innerHTML = `
+            <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">📋 이번 달 보너스 내역</div>
+            ${bonusData.map(b => {
+              const sName = students.find(s => s.id === b.student_id)?.name || '알 수 없음';
+              return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:8px 12px;font-size:13px;">
+                <span style="color:var(--text1);font-weight:600;">${sName}</span>
+                <span style="color:#854F0B;font-weight:700;">+${b.points}점 ${b.memo ? `(${b.memo})` : ''}</span>
+                <button onclick="cancelBonus('${b.id}')" style="background:none;border:none;color:#FF453A;font-size:13px;cursor:pointer;font-weight:600;">취소</button>
+              </div>`;
+            }).join('')}`;
+        }
+      }
+
     } catch (err) {
       console.error('순위표 로드 실패:', err);
     }
+  }
+
+  async function cancelBonus(bonusId) {
+    if (!confirm('이 보너스 점수를 취소할까요?')) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?id=eq.${bonusId}`, {
+        method: 'DELETE', headers: sbHeaders()
+      });
+      loadLeaderboard();
+    } catch { alert('취소 실패했어요 ㅠㅠ'); }
   }
 
   function populateBonusSelect() {
