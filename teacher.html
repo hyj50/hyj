@@ -868,6 +868,9 @@
 
   // ===== 문의 게시판 =====
   let currentTeacherQnaId = null;
+  const QNA_PAGE_SIZE_T = 5;
+  let qnaPageT = 1;
+  let qnaTotalCountT = 0;
 
   async function loadTeacherQnA(page = 1) {
     qnaPageT = page;
