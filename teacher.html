@@ -266,9 +266,6 @@
   .classify-row { display: flex; gap: 6px; margin-bottom: 6px; }
   .classify-row select, .classify-row input { flex: 1; padding: 7px 9px; font-size: 12px; border-radius: 7px; border: 1.5px solid var(--border2); outline: none; background: var(--bg2); color: var(--text1); }
   .classify-row select:disabled { background: var(--bg3); color: var(--text4); }
-  .reason-tags-mini { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
-  .reason-tag-btn-mini { padding: 4px 10px; border-radius: 14px; border: 1px solid #ddd; background: white; font-size: 11px; cursor: pointer; color: #666; }
-  .reason-tag-btn-mini.selected { background: var(--text1); color: var(--bg2); border-color: var(--text1); }
   .btn-save-classify { width: 100%; padding: 8px; border-radius: 8px; border: none; background: linear-gradient(135deg, var(--pink), var(--pink-dark)); color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
 
   /* 일괄삭제 */
@@ -601,7 +598,6 @@
     }
   };
 
-  const REASON_TAGS = ['계산 실수', '개념 이해 부족', '시간 부족', '문제 잘못 읽음', '풀이 막힘'];
   const STRUGGLE_THRESHOLD = 2; // 틀린 횟수(NO 받은 횟수) 2 이상이면 별표
   const SCOREBOARD_POINT_PER_SOLVE = 5;
 
@@ -1300,18 +1296,6 @@
     minorSel.disabled = minors.length === 0;
   }
 
-  function toggleClassifyReasonTag(entryId, tag) {
-    const wrap = document.getElementById(`classify-reasons-${entryId}`);
-    const btns = wrap.querySelectorAll('.reason-tag-btn-mini');
-    btns.forEach(b => {
-      if (b.dataset.reason === tag) {
-        b.classList.toggle('selected');
-      } else {
-        b.classList.remove('selected');
-      }
-    });
-  }
-
   function toggleClassifyForm(entryId) {
     if (classifyOpenIds.has(entryId)) {
       classifyOpenIds.delete(entryId);
@@ -1554,70 +1538,79 @@
   }
 
   // 이미지 모달 + 핀치 줌
-  let tModalScale = 1, tModalLastScale = 1;
-  let tModalOffsetX = 0, tModalOffsetY = 0;
-  let tModalIsPinching = false, tModalInitDist = 0;
-  let tModalIsDragging = false, tModalStartX = 0, tModalStartY = 0;
+  let _tScale = 1, _tLastScale = 1;
+  let _tTx = 0, _tTy = 0;
+  let _tPinching = false, _tInitDist = 0;
+  let _tDragging = false, _tDragStartX = 0, _tDragStartY = 0;
+  let _tLastTap = 0;
 
   function openModal(src) {
     const img = document.getElementById('modal-img');
     const overlay = document.getElementById('modal-overlay');
     img.src = src;
-    overlay.classList.add('show');
-    tModalScale = 1; tModalLastScale = 1; tModalOffsetX = 0; tModalOffsetY = 0;
+    _tScale = 1; _tTx = 0; _tTy = 0;
+    img.style.transition = 'none';
     img.style.transform = '';
-
-    img.ontouchstart = e => {
-      if (e.touches.length === 2) {
-        tModalIsPinching = true;
-        tModalInitDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-        tModalLastScale = tModalScale;
-        e.preventDefault();
-      } else if (e.touches.length === 1) {
-        tModalIsDragging = true;
-        tModalStartX = e.touches[0].clientX - tModalOffsetX * tModalScale;
-        tModalStartY = e.touches[0].clientY - tModalOffsetY * tModalScale;
-      }
-    };
-    img.ontouchmove = e => {
-      if (e.touches.length === 2 && tModalIsPinching) {
-        const d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-        tModalScale = Math.min(5, Math.max(1, tModalLastScale * (d / tModalInitDist)));
-        img.style.transform = `scale(${tModalScale}) translate(${tModalOffsetX}px, ${tModalOffsetY}px)`;
-        e.preventDefault();
-      } else if (e.touches.length === 1 && tModalIsDragging && tModalScale > 1) {
-        tModalOffsetX = (e.touches[0].clientX - tModalStartX) / tModalScale;
-        tModalOffsetY = (e.touches[0].clientY - tModalStartY) / tModalScale;
-        img.style.transform = `scale(${tModalScale}) translate(${tModalOffsetX}px, ${tModalOffsetY}px)`;
-        e.preventDefault();
-      }
-    };
-    img.ontouchend = e => {
-      if (e.touches.length < 2) tModalIsPinching = false;
-      if (e.touches.length === 0) tModalIsDragging = false;
-      if (tModalScale < 1.05) { tModalScale = 1; tModalOffsetX = 0; tModalOffsetY = 0; img.style.transform = ''; }
-    };
-
-    // 배경 클릭 닫기
-    overlay.onclick = e => { if (e.target === overlay) closeModal(); };
-
-    // 더블탭 리셋/확대
-    let lastTap = 0;
-    img.addEventListener('touchend', () => {
-      const now = Date.now();
-      if (now - lastTap < 300) {
-        if (tModalScale > 1) { tModalScale = 1; tModalOffsetX = 0; tModalOffsetY = 0; img.style.transform = ''; }
-        else { tModalScale = 2; img.style.transform = `scale(2)`; }
-      }
-      lastTap = now;
-    });
+    overlay.classList.add('show');
   }
 
   function closeModal() {
     document.getElementById('modal-overlay').classList.remove('show');
-    tModalScale = 1; tModalOffsetX = 0; tModalOffsetY = 0;
-    document.getElementById('modal-img').style.transform = '';
   }
+
+  function _tApply(img, animated) {
+    img.style.transition = animated ? 'transform 0.2s ease' : 'none';
+    img.style.transform = `translate(${_tTx}px, ${_tTy}px) scale(${_tScale})`;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const img = document.getElementById('modal-img');
+    const overlay = document.getElementById('modal-overlay');
+    if (!img || !overlay) return;
+
+    img.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        _tPinching = true; _tDragging = false;
+        _tInitDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        _tLastScale = _tScale;
+      } else if (e.touches.length === 1) {
+        _tDragging = true;
+        _tDragStartX = e.touches[0].clientX - _tTx;
+        _tDragStartY = e.touches[0].clientY - _tTy;
+        const now = Date.now();
+        if (now - _tLastTap < 280) {
+          if (_tScale > 1) { _tScale = 1; _tTx = 0; _tTy = 0; }
+          else { _tScale = 2.5; }
+          _tApply(img, true);
+        }
+        _tLastTap = now;
+      }
+    }, { passive: false });
+
+    img.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (e.touches.length === 2 && _tPinching) {
+        const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        _tScale = Math.min(6, Math.max(1, _tLastScale * (dist / _tInitDist)));
+        _tApply(img, false);
+      } else if (e.touches.length === 1 && _tDragging && _tScale > 1) {
+        _tTx = e.touches[0].clientX - _tDragStartX;
+        _tTy = e.touches[0].clientY - _tDragStartY;
+        _tApply(img, false);
+      }
+    }, { passive: false });
+
+    img.addEventListener('touchend', e => {
+      if (e.touches.length < 2) _tPinching = false;
+      if (e.touches.length === 0) {
+        _tDragging = false;
+        if (_tScale < 1.1) { _tScale = 1; _tTx = 0; _tTy = 0; _tApply(img, true); }
+      }
+    });
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  });
 
   function toggleGroup(key) {
     openGroups[key] = !openGroups[key];
@@ -1701,10 +1694,6 @@
           </select>
         </div>
 
-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">
-          ${REASON_TAGS.map(t => `<button type="button" class="reason-tag-btn-mini ${e.reason === t ? 'selected' : ''}" data-reason="${t}" onclick="toggleClassifyReasonTag('${e.id}', '${t}')">${t}</button>`).join('')}
-        </div>
-
         <input type="text" id="classify-memo-${e.id}" placeholder="메모 (선택)" value="${(e.memo || '').replace(/"/g,'&quot;')}" maxlength="60" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);outline:none;margin-bottom:10px;" />
 
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
@@ -1737,7 +1726,6 @@
               ${statusBadge}
               ${isUnsorted ? '<span class="note-unsorted-badge">🆕 미분류</span>' : ''}
               ${unitLabel ? `<span class="note-reason-tag">${unitLabel}</span>` : ''}
-              ${e.reason ? `<span class="note-reason-tag">${e.reason}</span>` : ''}
               ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
             </div>
             ${e.memo ? `<p class="note-memo">📝 ${e.memo}</p>` : ''}

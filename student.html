@@ -343,10 +343,20 @@
   .note-card:nth-child(9) { animation-delay: 0.32s; }
   .note-card:nth-child(10) { animation-delay: 0.36s; }
 
+  /* 대단원별 폴더 */
+  .s-subject-group { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .s-subject-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--bg3); cursor: pointer; user-select: none; }
+  .s-subject-arrow { font-size: 11px; color: var(--text4); transition: transform 0.2s; flex-shrink: 0; }
+  .s-subject-arrow.open { transform: rotate(90deg); }
+  .s-subject-name { font-size: 14px; font-weight: 700; color: var(--text1); flex: 1; }
+  .s-subject-count { font-size: 12px; color: var(--text3); background: var(--bg2); padding: 2px 9px; border-radius: 10px; border: 1px solid var(--border); }
+  .s-subject-body { display: none; padding: 10px; background: var(--bg3); flex-direction: column; gap: 10px; }
+  .s-subject-body.open { display: flex; }
+
   .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.92); z-index: 99999; align-items: center; justify-content: center; }
   .modal-overlay.show { display: flex; }
   .modal-content { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-  .modal-overlay img { max-width: 100%; max-height: 100vh; object-fit: contain; touch-action: none; user-select: none; transform-origin: center center; transition: transform 0.05s; }
+  .modal-overlay img { max-width: 100%; max-height: 100vh; object-fit: contain; touch-action: none; user-select: none; transform-origin: center center; }
   .modal-label { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 13px; background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; white-space: nowrap; }
   .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; z-index: 1; display: flex; align-items: center; justify-content: center; }
   .modal-zoom-hint { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 11px; white-space: nowrap; }
@@ -918,105 +928,106 @@
     return `${y}.${m}.${d}`;
   }
 
-  // 이미지 모달 + 핀치 줌
-  let modalScale = 1;
-  let modalLastScale = 1;
-  let modalOffsetX = 0;
-  let modalOffsetY = 0;
-  let modalLastX = 0;
-  let modalLastY = 0;
-  let modalIsPinching = false;
-  let modalInitDist = 0;
+  // 이미지 모달 + 핀치 줌 (완전 재작성)
+  let _scale = 1, _lastScale = 1;
+  let _tx = 0, _ty = 0;
+  let _lastTx = 0, _lastTy = 0;
+  let _pinching = false, _initDist = 0, _initMidX = 0, _initMidY = 0;
+  let _dragging = false, _dragStartX = 0, _dragStartY = 0;
+  let _lastTap = 0;
 
   function openModal(src, label) {
     const img = document.getElementById('modal-img');
     const overlay = document.getElementById('modal-overlay');
     img.src = src;
     document.getElementById('modal-label').textContent = label || '';
+    _scale = 1; _tx = 0; _ty = 0;
+    img.style.transition = 'none';
+    img.style.transform = '';
     overlay.classList.add('show');
-    resetModalTransform();
-    setupModalGestures(img, overlay);
   }
 
   function closeModal() {
     document.getElementById('modal-overlay').classList.remove('show');
-    resetModalTransform();
   }
 
-  function resetModalTransform() {
-    modalScale = 1; modalLastScale = 1;
-    modalOffsetX = 0; modalOffsetY = 0;
+  function _applyTransform(img, animated) {
+    img.style.transition = animated ? 'transform 0.2s ease' : 'none';
+    img.style.transform = `translate(${_tx}px, ${_ty}px) scale(${_scale})`;
+  }
+
+  // 모달 터치 이벤트 (한 번만 등록)
+  document.addEventListener('DOMContentLoaded', () => {
     const img = document.getElementById('modal-img');
-    if (img) img.style.transform = 'scale(1) translate(0px, 0px)';
-  }
-
-  function applyModalTransform() {
-    const img = document.getElementById('modal-img');
-    if (img) img.style.transform = `scale(${modalScale}) translate(${modalOffsetX}px, ${modalOffsetY}px)`;
-  }
-
-  function getDistance(t1, t2) {
-    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-  }
-
-  function setupModalGestures(img, overlay) {
-    // 터치 이벤트 제거 후 재등록
-    img.ontouchstart = null; img.ontouchmove = null; img.ontouchend = null;
-    overlay.onclick = null;
-
-    let startX = 0, startY = 0;
-    let isDragging = false;
+    const overlay = document.getElementById('modal-overlay');
+    if (!img || !overlay) return;
 
     img.addEventListener('touchstart', e => {
+      e.preventDefault();
       if (e.touches.length === 2) {
-        modalIsPinching = true;
-        modalInitDist = getDistance(e.touches[0], e.touches[1]);
-        modalLastScale = modalScale;
-        e.preventDefault();
+        _pinching = true;
+        _dragging = false;
+        _initDist = Math.hypot(
+          e.touches[1].clientX - e.touches[0].clientX,
+          e.touches[1].clientY - e.touches[0].clientY
+        );
+        _initMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        _initMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        _lastScale = _scale;
+        _lastTx = _tx; _lastTy = _ty;
       } else if (e.touches.length === 1) {
-        isDragging = true;
-        startX = e.touches[0].clientX - modalOffsetX * modalScale;
-        startY = e.touches[0].clientY - modalOffsetY * modalScale;
+        _dragging = true;
+        _dragStartX = e.touches[0].clientX - _tx;
+        _dragStartY = e.touches[0].clientY - _ty;
+
+        // 더블탭 체크
+        const now = Date.now();
+        if (now - _lastTap < 280) {
+          if (_scale > 1) {
+            _scale = 1; _tx = 0; _ty = 0;
+          } else {
+            _scale = 2.5;
+          }
+          _applyTransform(img, true);
+        }
+        _lastTap = now;
       }
     }, { passive: false });
 
     img.addEventListener('touchmove', e => {
-      if (e.touches.length === 2 && modalIsPinching) {
-        const dist = getDistance(e.touches[0], e.touches[1]);
-        modalScale = Math.min(5, Math.max(1, modalLastScale * (dist / modalInitDist)));
-        applyModalTransform();
-        e.preventDefault();
-      } else if (e.touches.length === 1 && isDragging && modalScale > 1) {
-        modalOffsetX = (e.touches[0].clientX - startX) / modalScale;
-        modalOffsetY = (e.touches[0].clientY - startY) / modalScale;
-        applyModalTransform();
-        e.preventDefault();
+      e.preventDefault();
+      if (e.touches.length === 2 && _pinching) {
+        const dist = Math.hypot(
+          e.touches[1].clientX - e.touches[0].clientX,
+          e.touches[1].clientY - e.touches[0].clientY
+        );
+        _scale = Math.min(6, Math.max(1, _lastScale * (dist / _initDist)));
+        _applyTransform(img, false);
+      } else if (e.touches.length === 1 && _dragging) {
+        if (_scale <= 1) return;
+        _tx = e.touches[0].clientX - _dragStartX;
+        _ty = e.touches[0].clientY - _dragStartY;
+        _applyTransform(img, false);
       }
     }, { passive: false });
 
     img.addEventListener('touchend', e => {
-      if (e.touches.length < 2) modalIsPinching = false;
-      if (e.touches.length === 0) isDragging = false;
-      if (modalScale < 1.05) { modalScale = 1; modalOffsetX = 0; modalOffsetY = 0; applyModalTransform(); }
+      if (e.touches.length < 2) _pinching = false;
+      if (e.touches.length === 0) {
+        _dragging = false;
+        // 1배 이하면 원위치
+        if (_scale < 1.1) {
+          _scale = 1; _tx = 0; _ty = 0;
+          _applyTransform(img, true);
+        }
+      }
     });
 
-    // 배경 클릭 시 닫기 (이미지 클릭은 제외)
+    // 배경 탭으로 닫기
     overlay.addEventListener('click', e => {
       if (e.target === overlay) closeModal();
     });
-
-    // 더블탭으로 리셋
-    let lastTap = 0;
-    img.addEventListener('touchend', e => {
-      const now = Date.now();
-      if (now - lastTap < 300) {
-        if (modalScale > 1) { modalScale = 1; modalOffsetX = 0; modalOffsetY = 0; }
-        else { modalScale = 2; }
-        applyModalTransform();
-      }
-      lastTap = now;
-    });
-  }
+  });
 
   async function uploadMinePhoto(e, entryId) {
     const file = e.target.files[0];
@@ -1109,7 +1120,7 @@
     const pag = document.getElementById('pagination');
     const info = document.getElementById('page-info');
 
-    // 대단원별 뷰는 전체 데이터 그룹핑
+    // 대단원별 폴더 뷰
     if (viewFilter === 'byUnit') {
       if (!currentEntries.length) {
         container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
@@ -1117,21 +1128,28 @@
         if (info) info.textContent = '';
         return;
       }
-      // 대단원별 그룹핑
       const groups = {};
       currentEntries.forEach(e => {
         const key = [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
         if (!groups[key]) groups[key] = [];
         groups[key].push(e);
       });
-      container.innerHTML = Object.entries(groups).map(([unit, entries]) => `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:700;color:#0F6E56;padding:8px 12px;background:#F0F8F5;border-radius:10px;margin-bottom:8px;">
-            📚 ${unit} <span style="font-size:12px;color:#888;font-weight:400;">(${entries.length}개)</span>
-          </div>
-          ${entries.map(noteCardHtml).join('')}
-        </div>
-      `).join('');
+      container.innerHTML = Object.entries(groups).map(([unit, entries], i) => {
+        const groupId = `s-group-${i}`;
+        const isUnsorted = unit === '미분류';
+        return `
+          <div class="s-subject-group">
+            <div class="s-subject-header" onclick="toggleStudentGroup('${groupId}')">
+              <span class="s-subject-arrow open" id="arrow-${groupId}">▶</span>
+              <span style="font-size:18px;">${isUnsorted ? '📂' : '📚'}</span>
+              <span class="s-subject-name">${unit}</span>
+              <span class="s-subject-count">${entries.length}개</span>
+            </div>
+            <div class="s-subject-body open" id="${groupId}">
+              ${entries.map(noteCardHtml).join('')}
+            </div>
+          </div>`;
+      }).join('');
       if (pag) pag.innerHTML = '';
       if (info) info.textContent = '';
       return;
@@ -1440,6 +1458,15 @@
 
   let reviewQueue = [];
   let reviewIndex = 0;
+
+  function toggleStudentGroup(groupId) {
+    const body = document.getElementById(groupId);
+    const arrow = document.getElementById(`arrow-${groupId}`);
+    if (!body) return;
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    if (arrow) arrow.classList.toggle('open', !isOpen);
+  }
 
   function startRandomReview() {
     const pending = currentEntries.filter(e => !e.solved);
