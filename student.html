@@ -343,12 +343,13 @@
   .note-card:nth-child(9) { animation-delay: 0.32s; }
   .note-card:nth-child(10) { animation-delay: 0.36s; }
 
-  .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.85); z-index: 99999; align-items: center; justify-content: center; padding: 1.2rem; }
+  .modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.92); z-index: 99999; align-items: center; justify-content: center; }
   .modal-overlay.show { display: flex; }
-  .modal-content { max-width: 100%; max-height: 100%; display: flex; flex-direction: column; align-items: center; }
-  .modal-overlay img { max-width: 100%; max-height: 80vh; border-radius: 10px; object-fit: contain; }
-  .modal-label { color: white; font-size: 13px; margin-top: 10px; background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; }
-  .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
+  .modal-content { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+  .modal-overlay img { max-width: 100%; max-height: 100vh; object-fit: contain; touch-action: none; user-select: none; transform-origin: center center; transition: transform 0.05s; }
+  .modal-label { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 13px; background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; white-space: nowrap; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; z-index: 1; display: flex; align-items: center; justify-content: center; }
+  .modal-zoom-hint { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 11px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -514,10 +515,11 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+<div class="modal-overlay" id="modal-overlay">
   <button class="modal-close" onclick="closeModal()">✕</button>
-  <div class="modal-content">
+  <div class="modal-content" id="modal-content">
     <img id="modal-img" src="" alt="확대 이미지" />
+    <div class="modal-zoom-hint">두 손가락으로 확대/축소</div>
     <div class="modal-label" id="modal-label"></div>
   </div>
 </div>
@@ -916,13 +918,104 @@
     return `${y}.${m}.${d}`;
   }
 
+  // 이미지 모달 + 핀치 줌
+  let modalScale = 1;
+  let modalLastScale = 1;
+  let modalOffsetX = 0;
+  let modalOffsetY = 0;
+  let modalLastX = 0;
+  let modalLastY = 0;
+  let modalIsPinching = false;
+  let modalInitDist = 0;
+
   function openModal(src, label) {
-    document.getElementById('modal-img').src = src;
+    const img = document.getElementById('modal-img');
+    const overlay = document.getElementById('modal-overlay');
+    img.src = src;
     document.getElementById('modal-label').textContent = label || '';
-    document.getElementById('modal-overlay').classList.add('show');
+    overlay.classList.add('show');
+    resetModalTransform();
+    setupModalGestures(img, overlay);
   }
+
   function closeModal() {
     document.getElementById('modal-overlay').classList.remove('show');
+    resetModalTransform();
+  }
+
+  function resetModalTransform() {
+    modalScale = 1; modalLastScale = 1;
+    modalOffsetX = 0; modalOffsetY = 0;
+    const img = document.getElementById('modal-img');
+    if (img) img.style.transform = 'scale(1) translate(0px, 0px)';
+  }
+
+  function applyModalTransform() {
+    const img = document.getElementById('modal-img');
+    if (img) img.style.transform = `scale(${modalScale}) translate(${modalOffsetX}px, ${modalOffsetY}px)`;
+  }
+
+  function getDistance(t1, t2) {
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  }
+
+  function setupModalGestures(img, overlay) {
+    // 터치 이벤트 제거 후 재등록
+    img.ontouchstart = null; img.ontouchmove = null; img.ontouchend = null;
+    overlay.onclick = null;
+
+    let startX = 0, startY = 0;
+    let isDragging = false;
+
+    img.addEventListener('touchstart', e => {
+      if (e.touches.length === 2) {
+        modalIsPinching = true;
+        modalInitDist = getDistance(e.touches[0], e.touches[1]);
+        modalLastScale = modalScale;
+        e.preventDefault();
+      } else if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX - modalOffsetX * modalScale;
+        startY = e.touches[0].clientY - modalOffsetY * modalScale;
+      }
+    }, { passive: false });
+
+    img.addEventListener('touchmove', e => {
+      if (e.touches.length === 2 && modalIsPinching) {
+        const dist = getDistance(e.touches[0], e.touches[1]);
+        modalScale = Math.min(5, Math.max(1, modalLastScale * (dist / modalInitDist)));
+        applyModalTransform();
+        e.preventDefault();
+      } else if (e.touches.length === 1 && isDragging && modalScale > 1) {
+        modalOffsetX = (e.touches[0].clientX - startX) / modalScale;
+        modalOffsetY = (e.touches[0].clientY - startY) / modalScale;
+        applyModalTransform();
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    img.addEventListener('touchend', e => {
+      if (e.touches.length < 2) modalIsPinching = false;
+      if (e.touches.length === 0) isDragging = false;
+      if (modalScale < 1.05) { modalScale = 1; modalOffsetX = 0; modalOffsetY = 0; applyModalTransform(); }
+    });
+
+    // 배경 클릭 시 닫기 (이미지 클릭은 제외)
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) closeModal();
+    });
+
+    // 더블탭으로 리셋
+    let lastTap = 0;
+    img.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        if (modalScale > 1) { modalScale = 1; modalOffsetX = 0; modalOffsetY = 0; }
+        else { modalScale = 2; }
+        applyModalTransform();
+      }
+      lastTap = now;
+    });
   }
 
   async function uploadMinePhoto(e, entryId) {
