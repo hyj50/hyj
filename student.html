@@ -1286,18 +1286,19 @@
     const content = input.value.trim();
     const studentId = document.getElementById('student-select').value;
     const nameEl = document.getElementById('logged-in-name');
-    const authorName = nameEl ? nameEl.textContent : '학생';
+    const authorName = (nameEl ? nameEl.textContent : '학생').replace(/✅\s*/g, '').trim();
     if (!content) return;
     if (!currentQnaId) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
         method: 'POST',
         headers: sbHeaders({ 'Prefer': 'return=minimal' }),
         body: JSON.stringify({ question_id: currentQnaId, student_id: studentId, author_name: authorName, content })
       });
+      if (!res.ok) { const err = await res.text(); alert('댓글 등록 실패: ' + err); return; }
       input.value = '';
       loadComments(currentQnaId);
-    } catch { alert('댓글 등록 실패했어요 ㅠㅠ'); }
+    } catch(e) { alert('댓글 등록 실패했어요 ㅠㅠ ' + e.message); }
   }
 
   async function submitReply(parentId) {
@@ -1305,17 +1306,18 @@
     const content = input.value.trim();
     const studentId = document.getElementById('student-select').value;
     const nameEl = document.getElementById('logged-in-name');
-    const authorName = nameEl ? nameEl.textContent : '학생';
+    const authorName = (nameEl ? nameEl.textContent : '학생').replace(/✅\s*/g, '').trim();
     if (!content) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
         method: 'POST',
         headers: sbHeaders({ 'Prefer': 'return=minimal' }),
         body: JSON.stringify({ question_id: currentQnaId, student_id: studentId, author_name: authorName, content, parent_id: parentId })
       });
+      if (!res.ok) { const err = await res.text(); alert('답글 등록 실패: ' + err); return; }
       input.value = '';
       loadComments(currentQnaId);
-    } catch { alert('답글 등록 실패했어요 ㅠㅠ'); }
+    } catch(e) { alert('답글 등록 실패했어요 ㅠㅠ ' + e.message); }
   }
 
   async function submitQuestion() {
