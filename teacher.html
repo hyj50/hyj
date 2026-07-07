@@ -1090,21 +1090,6 @@
     } catch { alert('삭제 실패했어요 ㅠㅠ'); }
   }
 
-  async function submitAnswer(qId) {
-    const input = document.getElementById(`answer-input-${qId}`);
-    const answer = input.value.trim();
-    if (!answer) { alert('답변을 입력해주세요!'); return; }
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/questions?id=eq.${qId}`, {
-        method: 'PATCH',
-        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
-        body: JSON.stringify({ answer })
-      });
-      alert('답변이 등록됐어요! 😊');
-      loadTeacherQnA();
-    } catch { alert('등록 실패했어요 ㅠㅠ'); }
-  }
-
   // ===== 초기화: 학생 목록 로드 =====
   async function init() {
     await loadStudentsFromDB();
