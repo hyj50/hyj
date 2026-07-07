@@ -37,11 +37,11 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0f0f0f;
-      --bg2: #1c1c1e;
-      --bg3: #2c2c2e;
-      --bg4: #242426;
-      --border: #3a3a3c;
-      --border2: #48484a;
+      --bg2: #252528;
+      --bg3: #38383a;
+      --bg4: #2c2c2e;
+      --border: #48484a;
+      --border2: #636366;
       --text1: #f2f2f7;
       --text2: #ebebf5cc;
       --text3: #ebebf599;
@@ -178,7 +178,7 @@
 
   .heatmap-card { background: var(--bg4); border-radius: 14px; padding: 1.2rem; margin-bottom: 1.2rem; border: 1px solid var(--border); }
   .heatmap-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 10px; }
-  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .heatmap-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; max-width: 280px; margin: 0 auto; }
   .heatmap-cell { aspect-ratio: 1; border-radius: 4px; background: var(--border); }
   .heatmap-cell.l1 { background: #FDE8F2; }
   .heatmap-cell.l2 { background: #F4A8CC; }
@@ -389,10 +389,9 @@
       <input type="text" id="new-password" placeholder="비밀번호" maxlength="20" />
       <button onclick="addStudent()">추가하기</button>
     </div>
-    <div class="student-link-box">
-      📱 학생 페이지 링크:
-      <code>https://hyj.vercel.app/student.html</code>
-      <button class="btn-small" style="margin-left:6px;" onclick="navigator.clipboard.writeText('https://hyj.vercel.app/student.html').then(()=>alert('링크가 복사됐어요! 학생들에게 공유해주세요 📋'))">복사</button>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--pink-light);border-radius:12px;margin-top:10px;">
+      <span style="font-size:12px;color:var(--pink-dark);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📱 hyj.vercel.app/student.html</span>
+      <button onclick="navigator.clipboard.writeText('https://hyj.vercel.app/student.html').then(()=>alert('복사됐어요! 📋'))" style="padding:6px 12px;border-radius:8px;border:none;background:var(--pink);color:white;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">복사</button>
     </div>
   </div>
 
@@ -1870,8 +1869,10 @@
 
         <div class="heatmap-card">
           <p class="heatmap-title">📅 최근 7주 학습 기록</p>
-          <div class="heatmap-grid" id="heatmap-grid"></div>
-          <div class="heatmap-legend">
+          <div id="heatmap-collapsible" style="margin-top:10px;">
+        <div class="heatmap-grid" id="heatmap-grid"></div>
+          </div>
+        <div class="heatmap-legend">
             <span>적음</span>
             <span class="heatmap-legend-cell" style="background:#ebebe5;"></span>
             <span class="heatmap-legend-cell" style="background:#C8E6D9;"></span>
@@ -2387,6 +2388,18 @@
       document.getElementById(`solution-file-input-cam-${entryId}`).click();
     } else {
       document.getElementById(`solution-file-input-${entryId}`).click();
+    }
+  }
+
+  function toggleHeatmap() {
+    const el = document.getElementById('heatmap-collapsible');
+    const icon = document.getElementById('heatmap-toggle-icon');
+    if (el.style.display === 'none') {
+      el.style.display = 'block';
+      icon.textContent = '▲';
+    } else {
+      el.style.display = 'none';
+      icon.textContent = '▼';
     }
   }
 
