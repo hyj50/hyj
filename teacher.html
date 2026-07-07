@@ -1031,14 +1031,15 @@
     const content = input.value.trim();
     if (!content || !currentTeacherQnaId) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
         method: 'POST',
-        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        headers: sbHeaders({ 'Prefer': 'return=minimal', 'Content-Type': 'application/json' }),
         body: JSON.stringify({ question_id: currentTeacherQnaId, author_name: '선생님', content })
       });
+      if (!res.ok) { const err = await res.text(); alert('댓글 등록 실패: ' + err); return; }
       input.value = '';
       loadTeacherComments(currentTeacherQnaId);
-    } catch { alert('댓글 등록 실패했어요 ㅠㅠ'); }
+    } catch(e) { alert('댓글 등록 실패했어요 ㅠㅠ ' + e.message); }
   }
 
   async function submitTeacherReply(parentId) {
@@ -1046,14 +1047,15 @@
     const content = input.value.trim();
     if (!content) return;
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/comments`, {
         method: 'POST',
-        headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+        headers: sbHeaders({ 'Prefer': 'return=minimal', 'Content-Type': 'application/json' }),
         body: JSON.stringify({ question_id: currentTeacherQnaId, author_name: '선생님', content, parent_id: parentId })
       });
+      if (!res.ok) { const err = await res.text(); alert('답글 등록 실패: ' + err); return; }
       input.value = '';
       loadTeacherComments(currentTeacherQnaId);
-    } catch { alert('답글 등록 실패했어요 ㅠㅠ'); }
+    } catch(e) { alert('답글 등록 실패했어요 ㅠㅠ ' + e.message); }
   }
 
   async function deleteComment(commentId) {
