@@ -1408,6 +1408,17 @@
     }, 7000);
   });
 
+  // 당겨서 새로고침 막기 (스크롤은 유지)
+  let touchStartY = 0;
+  document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    const touchY = e.touches[0].clientY;
+    if (scrollTop === 0 && touchY > touchStartY) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
   // 뒤로가기 버튼 막기
   history.pushState(null, '', location.href);
   window.addEventListener('popstate', () => {

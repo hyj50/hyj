@@ -380,6 +380,9 @@
       <button onclick="deleteCurrentStudent()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid #FF453A;background:var(--bg2);color:#FF453A;font-size:12px;font-weight:600;cursor:pointer;">🗑️ 학생 삭제</button>
       <button onclick="logout()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;">로그아웃</button>
     </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button onclick="changeTeacherPassword()" style="flex:1;padding:9px 10px;border-radius:10px;border:1.5px solid var(--pink);background:var(--bg2);color:var(--pink);font-size:12px;font-weight:600;cursor:pointer;">🔐 선생님 비번 변경</button>
+    </div>
 
     <!-- 학생 추가 폼 -->
     <div class="add-form" id="add-form">
@@ -498,8 +501,13 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmYW92aWV0b2pvemxyZnp0d29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NzcxMDMsImV4cCI6MjA5NzU1MzEwM30.pO2NzKjwZzQJFmOYloiCHNBg9PdNSQlkiWuMyYicamQ';
   const BUCKET = 'wrong-note-images';
 
-  // ⚠️ 비밀번호는 여기서 바꿀 수 있어요 (기본값: 1234)
-  const TEACHER_PASSWORD = '1234';
+  // 선생님 비밀번호 (localStorage에 저장)
+  function getTeacherPassword() {
+    return localStorage.getItem('teacher_pw') || '1234';
+  }
+  function setTeacherPassword(pw) {
+    localStorage.setItem('teacher_pw', pw);
+  }
 
   function sbHeaders(extra) {
     return Object.assign({
@@ -677,7 +685,7 @@
   // ===== 로그인 =====
   function tryLogin() {
     const input = document.getElementById('password-input').value;
-    if (input === TEACHER_PASSWORD) {
+    if (input === getTeacherPassword()) {
       sessionStorage.setItem('teacher_logged_in', 'true');
       document.getElementById('login-wrap').style.display = 'none';
       document.getElementById('main-wrap').style.display = 'block';
@@ -1168,6 +1176,18 @@
       console.error(err);
       alert('삭제에 실패했어요.');
     }
+  }
+
+  function changeTeacherPassword() {
+    const current = prompt('현재 비밀번호를 입력하세요:');
+    if (current === null) return;
+    if (current !== getTeacherPassword()) { alert('현재 비밀번호가 틀렸어요 ㅠㅠ'); return; }
+    const newPw = prompt('새 비밀번호를 입력하세요:');
+    if (!newPw) { alert('비밀번호를 입력해주세요!'); return; }
+    const confirm = prompt('새 비밀번호를 한 번 더 입력하세요:');
+    if (newPw !== confirm) { alert('비밀번호가 일치하지 않아요 ㅠㅠ'); return; }
+    setTeacherPassword(newPw);
+    alert(`✅ 선생님 비밀번호가 변경됐어요!\n다음 로그인부터 새 비밀번호를 사용해주세요.`);
   }
 
   async function changePassword() {
