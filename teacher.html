@@ -479,6 +479,7 @@
     <img id="modal-img" src="" alt="확대 이미지" />
     <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.5);font-size:11px;white-space:nowrap;">두 손가락으로 확대 · 더블탭으로 리셋</div>
   </div>
+  <button onclick="saveTeacherModalImage()" style="position:absolute;bottom:24px;right:20px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;cursor:pointer;backdrop-filter:blur(4px);">⬇️ 저장</button>
 </div>
 
 <div class="review-modal-overlay" id="review-modal-overlay">
@@ -1318,7 +1319,7 @@
     reader.readAsDataURL(file);
   }
 
-  function compressImage(file, maxSize = 1100, quality = 0.75) {
+  function compressImage(file, maxSize = 1400, quality = 0.88) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1363,9 +1364,7 @@
     const subject = document.getElementById(`classify-subject-${entryId}`).value;
     const major = document.getElementById(`classify-major-${entryId}`).value;
     const minor = document.getElementById(`classify-minor-${entryId}`).value;
-    const memo = document.getElementById(`classify-memo-${entryId}`).value.trim();
-    const reasonBtn = document.querySelector(`#classify-reasons-${entryId} .reason-tag-btn-mini.selected`);
-    const reason = reasonBtn ? reasonBtn.dataset.reason : '';
+    const teacherMemo = document.getElementById(`classify-memo-${entryId}`).value.trim();
 
     const saveBtn = document.querySelector(`button[onclick="saveClassify('${entryId}')"]`);
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '저장 중...'; }
@@ -1375,8 +1374,7 @@
         subject: subject || null,
         major_unit: major || null,
         minor_unit: minor || null,
-        memo: memo,
-        reason: reason || null
+        teacher_memo: teacherMemo || null
       };
 
       // 모범풀이 사진이 새로 선택되어 있으면 업로드 후 URL도 같이 저장
@@ -1537,6 +1535,16 @@
     } catch { totalCountT = 0; currentEntries = []; renderNoteList(); }
   }
 
+  function saveTeacherModalImage() {
+    const img = document.getElementById('modal-img');
+    if (!img.src) return;
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = '오답사진.jpg';
+    a.target = '_blank';
+    a.click();
+  }
+
   // 이미지 모달 + 핀치 줌
   let _tScale = 1, _tLastScale = 1;
   let _tTx = 0, _tTy = 0;
@@ -1694,7 +1702,7 @@
           </select>
         </div>
 
-        <input type="text" id="classify-memo-${e.id}" placeholder="메모 (선택)" value="${(e.memo || '').replace(/"/g,'&quot;')}" maxlength="60" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);outline:none;margin-bottom:10px;" />
+        <input type="text" id="classify-memo-${e.id}" placeholder="선생님 의견 (선택)" value="${(e.teacher_memo || '').replace(/"/g,'&quot;')}" maxlength="60" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);outline:none;margin-bottom:10px;" />
 
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
           <div id="solution-upload-zone-${e.id}" onclick="showTeacherUploadOptions('${e.id}')" style="flex:1;border:2px dashed var(--border2);border-radius:12px;padding:10px;text-align:center;cursor:pointer;background:var(--bg2);min-height:48px;display:flex;align-items:center;justify-content:center;">
@@ -1728,7 +1736,8 @@
               ${unitLabel ? `<span class="note-reason-tag">${unitLabel}</span>` : ''}
               ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
             </div>
-            ${e.memo ? `<p class="note-memo">📝 ${e.memo}</p>` : ''}
+            ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
+            ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
             <p class="note-date">${formatDate(e.entry_date)}</p>
           </div>
         </div>
