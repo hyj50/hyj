@@ -343,6 +343,13 @@
   .note-card:nth-child(9) { animation-delay: 0.32s; }
   .note-card:nth-child(10) { animation-delay: 0.36s; }
 
+  /* 알림 배너 */
+  .notif-banner { display:none; position:fixed; top:0; left:0; right:0; z-index:9998; background:linear-gradient(135deg,#E8639A,#C94080); color:white; padding:12px 16px; font-size:13px; font-weight:600; box-shadow:0 4px 16px rgba(232,99,154,0.4); animation:slideDown 0.3s ease; }
+  .notif-banner.show { display:block; }
+  @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+  .notif-banner-inner { max-width:480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .notif-close { background:none; border:none; color:white; font-size:18px; cursor:pointer; flex-shrink:0; }
+
   /* 대단원별 폴더 */
   .s-subject-group { margin-bottom: 10px; border: 1.5px solid var(--border); border-radius: 16px; overflow: hidden; }
   .s-subject-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--bg3); cursor: pointer; user-select: none; }
@@ -372,6 +379,13 @@
   </div>
   <div class="splash-bar-wrap">
     <div class="splash-bar-bg"><div class="splash-bar-fill"></div></div>
+  </div>
+</div>
+
+<div class="notif-banner" id="notif-banner">
+  <div class="notif-banner-inner">
+    <span id="notif-text"></span>
+    <button class="notif-close" onclick="closeNotif()">✕</button>
   </div>
 </div>
 
@@ -666,6 +680,9 @@
     document.getElementById('no-student-msg').style.display = 'none';
     checkSubmitButton();
     loadMyEntries();
+    // 알림 체크
+    const studentId = document.getElementById('student-select').value;
+    if (studentId) checkNotifications(studentId);
   }
 
   function logout() {
@@ -1564,6 +1581,40 @@
   }, 4200);
 
   initLogin();
+
+  function closeNotif() {
+    document.getElementById('notif-banner').classList.remove('show');
+  }
+
+  async function checkNotifications(studentId) {
+    try {
+      const lastCheck = localStorage.getItem(`last_check_${studentId}`) || '2000-01-01T00:00:00Z';
+
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${studentId}&select=id,review_status,image_solution_url,updated_at&updated_at=gt.${lastCheck}`,
+        { headers: sbHeaders() }
+      );
+      const updated = await res.json();
+      if (!Array.isArray(updated) || !updated.length) return;
+
+      const msgs = [];
+      const approved = updated.filter(e => e.review_status === 'approved');
+      const rejected = updated.filter(e => e.review_status === 'rejected');
+      const withSolution = updated.filter(e => e.image_solution_url);
+
+      if (approved.length > 0) msgs.push(`✅ 검수 완료된 오답이 ${approved.length}개 있어요!`);
+      if (rejected.length > 0) msgs.push(`🔄 다시 풀어야 할 오답이 ${rejected.length}개 있어요!`);
+      if (withSolution.length > 0) msgs.push(`📖 모범풀이가 올라온 오답이 ${withSolution.length}개 있어요!`);
+
+      if (msgs.length > 0) {
+        document.getElementById('notif-text').textContent = msgs[0];
+        document.getElementById('notif-banner').classList.add('show');
+        setTimeout(closeNotif, 5000);
+      }
+
+      localStorage.setItem(`last_check_${studentId}`, new Date().toISOString());
+    } catch(e) { console.error(e); }
+  }
 
   // PWA 서비스워커 등록
   if ('serviceWorker' in navigator) {
