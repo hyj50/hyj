@@ -1652,27 +1652,22 @@
     try {
       const res = await fetch(img.src);
       const blob = await res.blob();
-      const file = new File([blob], `오답사진_${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
 
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file] });
-        btn.textContent = origText;
-        btn.disabled = false;
-        return;
-      }
-
+      // 1순위: 파일 다운로드 (다운로드 폴더에 저장 → 갤러리에서도 보임)
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = file.name;
+      a.download = `오답사진_${Date.now()}.jpg`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
+      btn.textContent = '✅ 저장됨!';
+      setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 1500);
+      return;
     } catch (e) {
-      if (e.name !== 'AbortError') {
-        window.open(img.src, '_blank');
-      }
+      // 실패 시 새 탭에서 열기
+      window.open(img.src, '_blank');
     }
     btn.textContent = origText;
     btn.disabled = false;
