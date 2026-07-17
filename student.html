@@ -370,14 +370,34 @@
   .edit-note-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:5000; align-items:flex-end; justify-content:center; }
   .edit-note-overlay.show { display:flex; }
   .edit-note-sheet { background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
-  .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:5000; align-items:flex-end; justify-content:center; }
+  .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:5000; align-items:flex-end; justify-content:center; }
   .theme-overlay.show { display:flex; }
-  .theme-sheet { background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
-  .theme-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:16px; }
-  .theme-card { border-radius:14px; padding:14px 10px; text-align:center; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; }
-  .theme-card.active { border-color: white; box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
-  .theme-card-dot { width:32px; height:32px; border-radius:50%; margin:0 auto 8px; }
-  .theme-card-name { font-size:12px; font-weight:700; }
+  .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; }
+  .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
+  .bg-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:1; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#333; }
+  .bg-card.active { border-color:#fff; }
+  .bg-card img, .bg-card .bg-card-inner { width:100%; height:100%; object-fit:cover; display:block; }
+  .bg-card-label { position:absolute; bottom:0; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:white; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:6px 2px 3px; }
+  .palette-row { display:flex; gap:10px; flex-wrap:wrap; }
+  .palette-dot { width:34px; height:34px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; flex-shrink:0; }
+  .palette-dot.active { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.4); }
+  /* 테마 활성시 glassmorphism */
+  body.theme-active { color:white !important; }
+  body.theme-active .note-card { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.13)!important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  body.theme-active .note-card.has-solution { background:rgba(255,255,255,0.12)!important; }
+  body.theme-active .note-memo, body.theme-active .note-date, body.theme-active .note-unit-tag { color:rgba(255,255,255,0.7)!important; }
+  body.theme-active input, body.theme-active textarea { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
+  body.theme-active input::placeholder, body.theme-active textarea::placeholder { color:rgba(255,255,255,0.4)!important; }
+  body.theme-active .note-unsorted-tag, body.theme-active .student-status-badge, body.theme-active .note-solution-tag, body.theme-active .note-retry-badge-s { background:rgba(255,255,255,0.12)!important; color:rgba(255,255,255,0.85)!important; border-color:rgba(255,255,255,0.2)!important; }
+  body.theme-active .upload-zone { background:rgba(255,255,255,0.07)!important; border-color:rgba(255,255,255,0.2)!important; }
+  body.theme-active .board { background:transparent!important; }
+  body.theme-active .bottom-nav { background:rgba(10,10,20,0.85)!important; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-top-color:rgba(255,255,255,0.1)!important; }
+  body.theme-active .qna-card { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.13)!important; }
+  body.theme-active .weakness-card-s { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.15)!important; }
+  body.theme-active .weakness-item-s { background:rgba(255,255,255,0.1)!important; color:white!important; }
+  body.theme-active .filter-btn, body.theme-active .tab-btn, body.theme-active .page-btn { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
+  body.theme-active .form-label, body.theme-active .sub, body.theme-active h1, body.theme-active p { color:white!important; }
 </style>
 </head>
 <body>
@@ -400,7 +420,13 @@
   </div>
 </div>
 
-<div class="wrap">
+<!-- 배경 사진 레이어 -->
+<div id="theme-bg-wrap" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:0;overflow:hidden;">
+  <div id="theme-bg-image" style="width:100%;height:100%;background-size:cover;background-position:center;background-repeat:no-repeat;transition:background-image .5s;"></div>
+  <div id="theme-bg-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.62);"></div>
+</div>
+
+<div class="wrap" style="position:relative;z-index:1;">
   <div class="board">
     <h1 style="display:flex;align-items:center;justify-content:space-between;"><span><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />오답 너 뒤졌다</span><button onclick="openThemePanel()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px;" title="테마 꾸미기">🎨</button></h1>
     <p class="sub">사진을 올리고, 선생님이 정리해주신 풀이를 확인해보세요</p>
@@ -577,9 +603,18 @@
 <!-- 테마 꾸미기 바텀시트 -->
 <div class="theme-overlay" id="theme-overlay" onclick="if(event.target===this)closeThemePanel()">
   <div class="theme-sheet">
-    <div style="font-size:15px;font-weight:700;color:var(--text1);">🎨 테마 선택</div>
-    <div class="theme-grid" id="theme-grid"></div>
-    <button onclick="closeThemePanel()" style="width:100%;margin-top:16px;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:none;font-size:14px;font-weight:600;color:var(--text3);cursor:pointer;">닫기</button>
+    <div style="font-size:16px;font-weight:800;color:white;margin-bottom:2px;">🎨 테마 꾸미기</div>
+
+    <div class="theme-section-title" style="margin-top:14px;">배경 사진</div>
+    <div class="bg-grid" id="bg-grid"></div>
+
+    <div class="theme-section-title">포인트 색상</div>
+    <div class="palette-row" id="palette-row"></div>
+
+    <div style="display:flex;gap:8px;margin-top:20px;">
+      <button onclick="resetTheme()" style="flex:1;padding:11px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);cursor:pointer;">초기화</button>
+      <button onclick="closeThemePanel()" style="flex:2;padding:11px;border-radius:10px;border:none;background:rgba(255,255,255,0.15);font-size:13px;font-weight:700;color:white;cursor:pointer;">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -741,10 +776,7 @@
       checkNotifications(studentId);
       if (_notifInterval) clearInterval(_notifInterval);
       _notifInterval = setInterval(() => checkNotifications(studentId), 30000);
-      // 학생별 테마 로드
-      const savedTheme = localStorage.getItem(`theme_${studentId}`);
-      if (savedTheme) applyThemeById(savedTheme);
-      else resetTheme();
+      loadStudentTheme(studentId);
     }
   }
 
@@ -1737,216 +1769,176 @@
   }
 
   // ===== 테마 팩 =====
-  const THEMES = [
-    { id:'cat',    name:'고양이', emoji:'🐱', dot:'#F9A8D4',
-      v:{ bg1:'#1e1618',bg2:'#2d2226',bg3:'#3d2e34', t1:'#FFF0F5',t2:'rgba(255,240,245,0.72)',t3:'rgba(255,240,245,0.5)',t4:'rgba(255,240,245,0.35)', b:'rgba(249,168,212,0.12)',b2:'rgba(249,168,212,0.25)', pk:'#F9A8D4',g1:'#F9A8D4',g2:'#EC4899' } },
-    { id:'dog',    name:'강아지', emoji:'🐶', dot:'#FBBF24',
-      v:{ bg1:'#1c1208',bg2:'#2d1f0e',bg3:'#3d2d16', t1:'#FFFBEB',t2:'rgba(255,251,235,0.72)',t3:'rgba(255,251,235,0.5)',t4:'rgba(255,251,235,0.35)', b:'rgba(251,191,36,0.12)',b2:'rgba(251,191,36,0.25)', pk:'#FBBF24',g1:'#FBBF24',g2:'#D97706' } },
-    { id:'frog',   name:'개구리', emoji:'🐸', dot:'#86EFAC',
-      v:{ bg1:'#071408',bg2:'#0e2410',bg3:'#163518', t1:'#DCFCE7',t2:'rgba(220,252,231,0.72)',t3:'rgba(220,252,231,0.5)',t4:'rgba(220,252,231,0.35)', b:'rgba(134,239,172,0.12)',b2:'rgba(134,239,172,0.25)', pk:'#86EFAC',g1:'#86EFAC',g2:'#16A34A' } },
-    { id:'rabbit', name:'토끼',   emoji:'🐰', dot:'#C4B5FD',
-      v:{ bg1:'#100c1f',bg2:'#1a1530',bg3:'#252040', t1:'#F5F0FF',t2:'rgba(245,240,255,0.72)',t3:'rgba(245,240,255,0.5)',t4:'rgba(245,240,255,0.35)', b:'rgba(196,181,253,0.12)',b2:'rgba(196,181,253,0.25)', pk:'#C4B5FD',g1:'#C4B5FD',g2:'#7C3AED' } },
-    { id:'autumn', name:'가을',   emoji:'🍂', dot:'#F59E0B',
-      v:{ bg1:'#150d04',bg2:'#231508',bg3:'#321e0c', t1:'#FEF3C7',t2:'rgba(254,243,199,0.72)',t3:'rgba(254,243,199,0.5)',t4:'rgba(254,243,199,0.35)', b:'rgba(245,158,11,0.12)',b2:'rgba(245,158,11,0.25)', pk:'#F59E0B',g1:'#F59E0B',g2:'#B45309' } },
-    { id:'winter', name:'겨울',   emoji:'❄️', dot:'#BAE6FD',
-      v:{ bg1:'#080f1a',bg2:'#0f1c2e',bg3:'#162840', t1:'#F0F9FF',t2:'rgba(240,249,255,0.72)',t3:'rgba(240,249,255,0.5)',t4:'rgba(240,249,255,0.35)', b:'rgba(186,230,253,0.12)',b2:'rgba(186,230,253,0.25)', pk:'#BAE6FD',g1:'#BAE6FD',g2:'#0284C7' } },
-    { id:'city',   name:'도시',   emoji:'🌆', dot:'#FDE68A',
-      v:{ bg1:'#080c10',bg2:'#101620',bg3:'#182030', t1:'#F8FAFC',t2:'rgba(248,250,252,0.72)',t3:'rgba(248,250,252,0.5)',t4:'rgba(248,250,252,0.35)', b:'rgba(253,230,138,0.12)',b2:'rgba(253,230,138,0.25)', pk:'#FDE68A',g1:'#FDE68A',g2:'#F59E0B' } },
-    { id:'space',  name:'우주',   emoji:'🌌', dot:'#A78BFA',
-      v:{ bg1:'#03000f',bg2:'#07021a',bg3:'#0c0525', t1:'#F5F0FF',t2:'rgba(245,240,255,0.72)',t3:'rgba(245,240,255,0.5)',t4:'rgba(245,240,255,0.35)', b:'rgba(167,139,250,0.12)',b2:'rgba(167,139,250,0.25)', pk:'#A78BFA',g1:'#A78BFA',g2:'#6D28D9' } },
-    { id:'sea',    name:'바다',   emoji:'🌊', dot:'#22D3EE',
-      v:{ bg1:'#020d1a',bg2:'#051828',bg3:'#082438', t1:'#ECFEFF',t2:'rgba(236,254,255,0.72)',t3:'rgba(236,254,255,0.5)',t4:'rgba(236,254,255,0.35)', b:'rgba(34,211,238,0.12)',b2:'rgba(34,211,238,0.25)', pk:'#22D3EE',g1:'#22D3EE',g2:'#0891B2' } },
-    { id:'spring', name:'봄',     emoji:'🌸', dot:'#F472B6',
-      v:{ bg1:'#1a0c14',bg2:'#2a1420',bg3:'#3a1e2e', t1:'#FFF0F8',t2:'rgba(255,240,248,0.72)',t3:'rgba(255,240,248,0.5)',t4:'rgba(255,240,248,0.35)', b:'rgba(244,114,182,0.12)',b2:'rgba(244,114,182,0.25)', pk:'#F472B6',g1:'#F9A8D4',g2:'#DB2777' } },
+  // ===== 배경사진 + 색상 테마 시스템 =====
+  const BG_PRESETS = [
+    { id:'cat',    name:'고양이', emoji:'🐱', url:'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&q=70&auto=format&fit=crop' },
+    { id:'dog',    name:'강아지', emoji:'🐶', url:'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800&q=70&auto=format&fit=crop' },
+    { id:'rabbit', name:'토끼',   emoji:'🐰', url:'https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=800&q=70&auto=format&fit=crop' },
+    { id:'autumn', name:'가을',   emoji:'🍂', url:'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=70&auto=format&fit=crop' },
+    { id:'winter', name:'겨울',   emoji:'❄️', url:'https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=800&q=70&auto=format&fit=crop' },
+    { id:'city',   name:'도시',   emoji:'🌆', url:'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=70&auto=format&fit=crop' },
+    { id:'space',  name:'우주',   emoji:'🌌', url:'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800&q=70&auto=format&fit=crop' },
+    { id:'sea',    name:'바다',   emoji:'🌊', url:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&q=70&auto=format&fit=crop' },
+    { id:'spring', name:'봄',     emoji:'🌸', url:'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=800&q=70&auto=format&fit=crop' },
+    { id:'forest', name:'숲',     emoji:'🌲', url:'https://images.unsplash.com/photo-1448375240586-882707db888b?w=800&q=70&auto=format&fit=crop' },
   ];
 
-  function initDecos() {
-    const animStyle = document.createElement('style');
-    animStyle.textContent = `
-      @keyframes td-slideup { 0%{bottom:-130px} 100%{bottom:65px} }
-      @keyframes td-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-      @keyframes td-earwig { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
-      @keyframes td-leaf { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(-480deg) translateX(var(--tdx,-25px));opacity:.4} }
-      @keyframes td-snow { 0%{transform:translateY(0) translateX(0);opacity:.9} 100%{transform:translateY(110vh) translateX(var(--tdx,20px));opacity:.3} }
-      @keyframes td-petal { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(540deg) translateX(var(--tdx,30px));opacity:.4} }
-      @keyframes td-twinkle { 0%,100%{opacity:1} 50%{opacity:.1} }
-      @keyframes td-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
-      @keyframes td-swim { 0%{left:-80px;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{left:110%;opacity:0} }
-      @keyframes td-wave { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-40px)} }
-      @keyframes td-citylight { 0%,100%{opacity:.9} 50%{opacity:.15} }
-      @keyframes td-redlight { 0%,60%,100%{opacity:1} 30%{opacity:.2} }
-    `;
-    document.head.appendChild(animStyle);
+  const COLOR_PALETTES = [
+    { id:'rose',     name:'로즈',    dot:'#F9A8D4', accent:'#F9A8D4', g2:'#EC4899' },
+    { id:'blue',     name:'블루',    dot:'#60A5FA', accent:'#60A5FA', g2:'#2563EB' },
+    { id:'mint',     name:'민트',    dot:'#34D399', accent:'#34D399', g2:'#059669' },
+    { id:'purple',   name:'퍼플',    dot:'#A78BFA', accent:'#A78BFA', g2:'#7C3AED' },
+    { id:'orange',   name:'오렌지',  dot:'#FB923C', accent:'#FB923C', g2:'#EA580C' },
+    { id:'gold',     name:'골드',    dot:'#FDE68A', accent:'#FDE68A', g2:'#D97706' },
+    { id:'cyan',     name:'시안',    dot:'#22D3EE', accent:'#22D3EE', g2:'#0891B2' },
+    { id:'red',      name:'레드',    dot:'#FB7185', accent:'#FB7185', g2:'#E11D48' },
+    { id:'lavender', name:'라벤더',  dot:'#C4B5FD', accent:'#C4B5FD', g2:'#7C3AED' },
+    { id:'white',    name:'화이트',  dot:'#F8FAFC', accent:'#F8FAFC', g2:'#94A3B8' },
+  ];
 
-    const T = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg";
-    const leafColors = ['#D97706','#B45309','#DC2626','#EA580C','#CA8A04','#92400E'];
-    const leafSvg = c => `<svg viewBox="0 0 28 34" width="28" height="34" xmlns="http://www.w3.org/2000/svg"><path d="M14,2 Q26,8 24,19 Q20,29 14,32 Q8,29 4,19 Q2,8 14,2Z" fill="${c}" opacity=".85"/><line x1="14" y1="5" x2="14" y2="30" stroke="${c}" stroke-width="1" opacity=".5"/><line x1="14" y1="13" x2="7" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/><line x1="14" y1="13" x2="21" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/></svg>`;
-    const snowSvg = `<svg viewBox="0 0 22 22" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.5"/><line x1="1" y1="11" x2="21" y2="11" stroke="white" stroke-width="1.5"/><line x1="4" y1="4" x2="18" y2="18" stroke="white" stroke-width="1.5"/><line x1="18" y1="4" x2="4" y2="18" stroke="white" stroke-width="1.5"/><circle cx="11" cy="1" r="1.5" fill="white"/><circle cx="11" cy="21" r="1.5" fill="white"/><circle cx="1" cy="11" r="1.5" fill="white"/><circle cx="21" cy="11" r="1.5" fill="white"/></svg>`;
-    const petalSvg = `<svg viewBox="0 0 18 24" width="18" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M9,2 Q17,7 15,15 Q12,21 9,23 Q6,21 3,15 Q1,7 9,2Z" fill="#FDA4AF" opacity=".88"/></svg>`;
-
-    const decos = {};
-
-    // 🐱 고양이 - 우하단 빼꼼 (시스템 이모지)
-    decos.cat = `<div style="position:fixed;bottom:-110px;right:12px;font-size:88px;line-height:1;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;">🐱</div>`;
-
-    // 🐶 강아지 - 우하단, 위아래 바운스
-    decos.dog = `<div style="position:fixed;bottom:68px;right:12px;font-size:84px;line-height:1;animation:td-bounce 1.4s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;">🐶</div>`;
-
-    // 🐸 개구리 - 좌하단
-    decos.frog = `<div style="position:fixed;bottom:68px;left:12px;font-size:80px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;animation:td-bounce 2.2s .4s ease-in-out infinite;">🐸</div>`;
-
-    // 🐰 토끼 - 좌하단 (글자 안 겹치게)
-    decos.rabbit = `<div style="position:fixed;bottom:68px;left:12px;font-size:82px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;animation:td-bounce 1.8s .2s ease-in-out infinite;">🐰</div>`;
-
-    // 🍂 가을 - 낙엽
-    decos.autumn = Array.from({length:10}, (_,i) => {
-      const left = 4 + i*9 + (i%3)*3, delay = i*0.85, dur = 6 + (i%4)*1.5, px = (i%2===0?1:-1)*(14+i*3);
-      return `<div style="position:fixed;top:-60px;left:${left}%;--tdx:${px}px;animation:td-leaf ${dur}s ${delay}s linear infinite;">${leafSvg(leafColors[i%leafColors.length])}</div>`;
-    }).join('');
-
-    // ❄️ 겨울 - 눈송이 + 쌓인 눈 (nav 위까지만)
-    decos.winter = Array.from({length:12}, (_,i) => {
-      const left = 3 + i*8 + (i%3)*2, delay = i*0.65, dur = 5.5 + (i%4)*1.2, px = (i%2===0?1:-1)*(10+i*2), sc = (0.6 + (i%3)*0.2).toFixed(1);
-      return `<div style="position:fixed;top:-40px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-snow ${dur}s ${delay}s linear infinite;">${snowSvg}</div>`;
-    }).join('') + `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 30" preserveAspectRatio="none" width="100%" height="30" xmlns="http://www.w3.org/2000/svg"><path d="M0,30 Q30,10 60,18 Q90,28 120,14 Q150,4 180,16 Q210,28 240,12 Q270,2 300,16 Q330,28 360,14 Q385,6 400,12 L400,30 Z" fill="rgba(255,255,255,0.18)"/><path d="M0,30 Q25,22 50,26 Q80,30 110,22 Q140,14 170,24 Q200,30 230,20 Q260,12 290,22 Q320,30 350,20 Q375,14 400,18 L400,30 Z" fill="rgba(255,255,255,0.3)"/></svg></div>`;
-
-    // 🌆 도시 - 빌딩 실루엣 (nav 바로 위)
-    const wS = (d,s) => `style="animation:td-citylight ${s}s ${d}s ease-in-out infinite;" opacity=".85"`;
-    decos.city = `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 110" preserveAspectRatio="none" width="100%" height="110" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="55" width="38" height="55" fill="#0f1e30"/>
-        <rect x="6" y="64" width="9" height="6" fill="#FDE68A" ${wS(.3,2.1)}/><rect x="20" y="64" width="9" height="6" fill="#FDE68A" ${wS(1.1,3.2)}/><rect x="6" y="77" width="9" height="6" fill="#93C5FD" ${wS(.7,2.7)}/>
-        <rect x="32" y="25" width="48" height="85" fill="#162030"/>
-        <line x1="56" y1="8" x2="56" y2="25" stroke="#162030" stroke-width="4"/><circle cx="56" cy="8" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2s ease-in-out infinite;"/>
-        <rect x="40" y="38" width="10" height="7" fill="#FDE68A" ${wS(0,1.8)}/><rect x="57" y="38" width="10" height="7" fill="#FDE68A" ${wS(.5,2.5)}/><rect x="40" y="54" width="10" height="7" fill="#93C5FD" ${wS(1.3,3.1)}/><rect x="57" y="54" width="10" height="7" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="40" y="70" width="10" height="7" fill="#FDE68A" ${wS(1.6,3.3)}/>
-        <rect x="75" y="55" width="30" height="55" fill="#0f1e30"/>
-        <rect x="82" y="65" width="8" height="6" fill="#FDE68A" ${wS(.6,2.4)}/><rect x="93" y="65" width="8" height="6" fill="#93C5FD" ${wS(1.5,3.5)}/>
-        <rect x="102" y="35" width="55" height="75" fill="#162030"/>
-        <rect x="110" y="48" width="11" height="8" fill="#FDE68A" ${wS(.2,2.2)}/><rect x="128" y="48" width="11" height="8" fill="#FDE68A" ${wS(.8,1.6)}/><rect x="110" y="64" width="11" height="8" fill="#93C5FD" ${wS(1.2,2.8)}/><rect x="128" y="64" width="11" height="8" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="110" y="80" width="11" height="8" fill="#FDE68A" ${wS(1.6,3.3)}/>
-        <rect x="152" y="60" width="32" height="50" fill="#0f1e30"/>
-        <rect x="160" y="70" width="8" height="6" fill="#FDE68A" ${wS(.1,1.7)}/><rect x="172" y="70" width="8" height="6" fill="#FDE68A" ${wS(1.0,2.6)}/>
-        <rect x="178" y="42" width="62" height="68" fill="#162030"/>
-        <line x1="209" y1="16" x2="209" y2="42" stroke="#162030" stroke-width="4"/><circle cx="209" cy="16" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2.4s .8s ease-in-out infinite;"/>
-        <rect x="186" y="55" width="12" height="8" fill="#FDE68A" ${wS(0,2.0)}/><rect x="204" y="55" width="12" height="8" fill="#93C5FD" ${wS(.6,3.0)}/><rect x="222" y="55" width="12" height="8" fill="#FDE68A" ${wS(1.4,1.8)}/><rect x="186" y="71" width="12" height="8" fill="#93C5FD" ${wS(.3,2.4)}/><rect x="204" y="71" width="12" height="8" fill="#FDE68A" ${wS(1.0,2.0)}/><rect x="222" y="71" width="12" height="8" fill="#FDE68A" ${wS(1.6,3.1)}/>
-        <rect x="235" y="50" width="42" height="60" fill="#0f1e30"/>
-        <rect x="243" y="61" width="10" height="7" fill="#FDE68A" ${wS(.5,2.9)}/><rect x="258" y="61" width="10" height="7" fill="#FDE68A" ${wS(1.1,1.6)}/><rect x="243" y="76" width="10" height="7" fill="#93C5FD" ${wS(.7,2.3)}/>
-        <rect x="272" y="25" width="58" height="85" fill="#162030"/>
-        <rect x="280" y="40" width="12" height="8" fill="#FDE68A" ${wS(.2,2.1)}/><rect x="298" y="40" width="12" height="8" fill="#FDE68A" ${wS(1.0,3.4)}/><rect x="316" y="40" width="12" height="8" fill="#93C5FD" ${wS(.6,1.9)}/><rect x="280" y="56" width="12" height="8" fill="#FDE68A" ${wS(1.3,2.7)}/><rect x="298" y="56" width="12" height="8" fill="#FDE68A" ${wS(.4,1.4)}/><rect x="280" y="72" width="12" height="8" fill="#93C5FD" ${wS(1.5,2.2)}/>
-        <rect x="324" y="52" width="38" height="58" fill="#0f1e30"/>
-        <rect x="332" y="62" width="9" height="7" fill="#FDE68A" ${wS(.8,2.5)}/><rect x="346" y="62" width="9" height="7" fill="#93C5FD" ${wS(.3,1.7)}/><rect x="332" y="77" width="9" height="7" fill="#FDE68A" ${wS(1.2,3.1)}/>
-        <rect x="356" y="40" width="44" height="70" fill="#162030"/>
-        <line x1="378" y1="18" x2="378" y2="40" stroke="#162030" stroke-width="4"/><circle cx="378" cy="18" r="3.5" fill="#FF6B6B" style="animation:td-redlight 1.8s 1.2s ease-in-out infinite;"/>
-        <rect x="364" y="54" width="10" height="7" fill="#FDE68A" ${wS(.7,2.0)}/><rect x="379" y="54" width="10" height="7" fill="#93C5FD" ${wS(.2,1.8)}/><rect x="364" y="70" width="10" height="7" fill="#FDE68A" ${wS(1.4,2.8)}/><rect x="379" y="70" width="10" height="7" fill="#FDE68A" ${wS(.9,3.2)}/>
-      </svg></div>`;
-
-    // 🌌 우주 - 별 + 행성 (nav 위까지)
-    const stars = Array.from({length:28}, (_,i) => {
-      const x=(Math.random()*100).toFixed(1), y=(Math.random()*60).toFixed(1), s=(.4+Math.random()*1.8).toFixed(1), dur=(1.2+Math.random()*2.5).toFixed(1), delay=(Math.random()*3).toFixed(1);
-      return `<circle cx="${x}%" cy="${y}%" r="${s}" fill="white" style="animation:td-twinkle ${dur}s ${delay}s ease-in-out infinite;"/>`;
-    }).join('');
-    decos.space = `<svg style="position:fixed;top:0;left:0;width:100%;height:calc(100% - 65px);pointer-events:none;" xmlns="http://www.w3.org/2000/svg">${stars}</svg>
-      <div style="position:fixed;top:8%;right:10%;animation:td-float 4s ease-in-out infinite;pointer-events:none;">
-        <svg viewBox="0 0 52 52" width="52" height="52" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="26" cy="26" rx="38" ry="9" fill="none" stroke="#A78BFA" stroke-width="3.5" opacity=".55" transform="rotate(-20,26,26)"/>
-          <circle cx="26" cy="26" r="20" fill="#7C3AED"/>
-          <circle cx="18" cy="18" r="6" fill="#6D28D9" opacity=".45"/>
-        </svg></div>
-      <div style="position:fixed;top:30%;left:7%;animation:td-float 7s 2.5s ease-in-out infinite;pointer-events:none;">
-        <svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="18" cy="18" r="15" fill="#DB2777"/>
-          <circle cx="11" cy="12" r="5" fill="#be185d" opacity=".38"/>
-        </svg></div>`;
-
-    // 🌊 바다 - 파도 (nav 바로 위) + 물고기
-    decos.sea = `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;overflow:hidden;">
-      <svg viewBox="0 0 400 52" preserveAspectRatio="none" width="100%" height="52" xmlns="http://www.w3.org/2000/svg">
-        <g style="animation:td-wave 3.2s ease-in-out infinite;"><path d="M-50,24 Q0,6 50,24 Q100,42 150,24 Q200,6 250,24 Q300,42 350,24 Q400,6 450,24 L450,52 L-50,52 Z" fill="rgba(34,211,238,0.22)"/></g>
-        <g style="animation:td-wave 3.2s .6s ease-in-out infinite;"><path d="M-50,32 Q0,18 50,32 Q100,46 150,32 Q200,18 250,32 Q300,46 350,32 Q400,18 450,32 L450,52 L-50,52 Z" fill="rgba(34,211,238,0.32)"/></g>
-        <path d="M0,42 Q50,32 100,40 Q150,48 200,38 Q250,30 300,40 Q350,48 400,40 L400,52 L0,52 Z" fill="rgba(8,145,178,0.48)"/>
-      </svg></div>
-      <div style="position:fixed;bottom:80px;left:-80px;pointer-events:none;animation:td-swim 13s 1.5s linear infinite;">
-        <svg viewBox="0 0 64 32" width="64" height="32" xmlns="http://www.w3.org/2000/svg">
-          <path d="M54,16 Q40,4 20,10 Q4,14 6,16 Q4,18 20,22 Q40,28 54,16Z" fill="#22D3EE"/>
-          <path d="M58,16 L70,8 L70,24 Z" fill="#06B6D4"/>
-          <circle cx="22" cy="14.5" r="3.5" fill="#0e7490"/><circle cx="23.5" cy="13" r="1.2" fill="white"/>
-        </svg></div>
-      <div style="position:fixed;bottom:90px;left:-70px;pointer-events:none;animation:td-swim 20s 9s linear infinite;">
-        <svg viewBox="0 0 50 26" width="50" height="26" xmlns="http://www.w3.org/2000/svg">
-          <path d="M44,13 Q32,4 16,8 Q4,11 6,13 Q4,15 16,18 Q32,22 44,13Z" fill="#F472B6"/>
-          <path d="M48,13 L58,7 L58,19 Z" fill="#EC4899"/>
-          <circle cx="18" cy="11.5" r="2.8" fill="#be185d"/><circle cx="19.5" cy="10" r="1" fill="white"/>
-        </svg></div>`;
-
-    // 🌸 봄 - 꽃잎
-    decos.spring = Array.from({length:12}, (_,i) => {
-      const left = 2 + i*8 + (i%4)*2, delay = i*0.7, dur = 5 + (i%5)*1.3, px = (i%2===0?1:-1)*(18+i*3), sc = (.65 + (i%4)*.15).toFixed(2);
-      return `<div style="position:fixed;top:-50px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-petal ${dur}s ${delay}s linear infinite;">${petalSvg}</div>`;
-    }).join('');
-
-    ['cat','dog','frog','rabbit','autumn','winter','city','space','sea','spring'].forEach(id => {
-      const div = document.createElement('div');
-      div.id = `deco-${id}`;
-      div.className = 'theme-deco';
-      div.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:90;overflow:hidden;';
-      div.innerHTML = decos[id] || '';
-      document.body.appendChild(div);
-    });
+  function applyBg(src) {
+    const wrap = document.getElementById('theme-bg-wrap');
+    const img  = document.getElementById('theme-bg-image');
+    if (src) {
+      img.style.backgroundImage = `url('${src}')`;
+      wrap.style.display = 'block';
+      document.body.classList.add('theme-active');
+    } else {
+      wrap.style.display = 'none';
+      document.body.classList.remove('theme-active');
+    }
   }
 
-  function applyThemeById(id) {
-    const t = THEMES.find(t => t.id === id);
-    if (!t) return;
-    const v = t.v;
+  function applyPalette(id) {
+    const p = COLOR_PALETTES.find(x => x.id === id) || COLOR_PALETTES[0];
     let el = document.getElementById('custom-theme-style');
     if (!el) { el = document.createElement('style'); el.id = 'custom-theme-style'; document.head.appendChild(el); }
-    el.textContent = `:root {
-      --bg:${v.bg1}!important; --bg2:${v.bg2}!important; --bg3:${v.bg3}!important; --bg4:${v.bg3}!important;
-      --tab-bg:${v.bg2}!important; --page-btn-bg:${v.bg3}!important;
-      --text1:${v.t1}!important; --text2:${v.t2}!important; --text3:${v.t3}!important; --text4:${v.t4}!important;
-      --border:${v.b}!important; --border2:${v.b2}!important; --pink:${v.pk}!important;
-      --green:${v.pk}!important; --green-light:${v.bg3}!important; --green-text:${v.t2}!important;
-      --card-shadow:0 2px 12px rgba(0,0,0,0.4)!important;
-    }
-    body { background:${v.bg1}!important; color:${v.t1}!important; }
-    .board, .wrap, .note-card, .qna-card, input, textarea, select, .tab-btn { color:${v.t1}!important; background-color:inherit; }
-    .note-card { background:${v.bg2}!important; }
-    .note-card.has-solution { background:${v.bg3}!important; }
-    .note-unsorted-tag,.note-solution-tag,.student-status-badge,.note-retry-badge-s { background:${v.bg3}!important; color:${v.t2}!important; border:1px solid ${v.b2}!important; }
-    .weakness-card-s { background:${v.bg2}!important; border-color:${v.b2}!important; }
-    .weakness-item-s { background:${v.bg3}!important; color:${v.t1}!important; }
-    .status-msg.error { background:rgba(255,80,80,0.15)!important; color:#ff9090!important; }
-    .submit-btn,button.btn-submit { background:linear-gradient(135deg,${v.g1},${v.g2})!important; }`;
-    // 학생별 저장
-    const studentId = document.getElementById('student-select').value;
-    if (studentId) localStorage.setItem(`theme_${studentId}`, id);
-    document.querySelectorAll('.theme-deco').forEach(el => el.style.display = 'none');
-    const deco = document.getElementById(`deco-${id}`);
-    if (deco) deco.style.display = 'block';
+    el.textContent = `:root { --pink:${p.accent}!important; --green:${p.accent}!important; }
+    .btn-submit, button.btn-submit, .submit-btn { background:linear-gradient(135deg,${p.accent},${p.g2})!important; }
+    .bottom-nav-btn.active { color:${p.accent}!important; }
+    .notif-banner { background:linear-gradient(135deg,${p.accent},${p.g2})!important; }`;
+  }
+
+  function compressBgPhoto(file, cb) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const tryCompress = (maxW, quality) => {
+          let w = img.width, h = img.height;
+          if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          return canvas.toDataURL('image/jpeg', quality);
+        };
+        // 단계적 압축: 용량 초과시 더 줄임
+        let result = tryCompress(800, 0.6);
+        if (result.length > 1500000) result = tryCompress(600, 0.5);
+        if (result.length > 1000000) result = tryCompress(500, 0.4);
+        if (result.length > 700000)  result = tryCompress(400, 0.35);
+        cb(result);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function saveAndApplyBg(studentId, bgId, src) {
+    localStorage.setItem(`bg_${studentId}`, bgId);
+    applyBg(src);
   }
 
   function openThemePanel() {
-    const saved = localStorage.getItem('custom_theme') || 'cat';
-    const grid = document.getElementById('theme-grid');
-    grid.innerHTML = THEMES.map(t => `
-      <div class="theme-card ${saved===t.id?'active':''}" onclick="selectTheme('${t.id}')" style="background:${t.v.bg1};">
-        <div class="theme-card-dot" style="background:linear-gradient(135deg,${t.v.g1},${t.v.g2});"></div>
-        <div class="theme-card-name" style="color:${t.v.t1};">${t.emoji} ${t.name}</div>
-      </div>`).join('');
+    const studentId = document.getElementById('student-select').value;
+    const savedBg = localStorage.getItem(`bg_${studentId}`) || 'none';
+    const savedPalette = localStorage.getItem(`palette_${studentId}`) || 'rose';
+
+    // 배경 사진 그리드
+    const bgGrid = document.getElementById('bg-grid');
+    bgGrid.innerHTML = BG_PRESETS.map(p => `
+      <div class="bg-card ${savedBg===p.id?'active':''}" onclick="selectBg('${p.id}','${p.url}')">
+        <img src="${p.url.replace('w=800','w=120')}" alt="${p.name}" loading="lazy" />
+        <div class="bg-card-label">${p.emoji} ${p.name}</div>
+      </div>`).join('') +
+      `<div class="bg-card ${savedBg==='custom'?'active':''}" onclick="document.getElementById('bg-custom-input').click()" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:rgba(255,255,255,0.08);border:1.5px dashed rgba(255,255,255,0.3);">
+        <span style="font-size:22px;">📷</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:600;">내 사진</span>
+      </div>
+      <input type="file" id="bg-custom-input" class="file-input-hidden" accept="image/*" onchange="onCustomBgSelect(event)" />`;
+
+    // 색상 팔레트
+    const paletteRow = document.getElementById('palette-row');
+    paletteRow.innerHTML = COLOR_PALETTES.map(p => `
+      <div class="palette-dot ${savedPalette===p.id?'active':''}" title="${p.name}"
+           style="background:linear-gradient(135deg,${p.accent},${p.g2});"
+           onclick="selectPalette('${p.id}')"></div>`).join('');
+
     document.getElementById('theme-overlay').classList.add('show');
   }
 
-  function selectTheme(id) {
-    applyThemeById(id);
-    document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
+  function selectBg(id, url) {
+    const studentId = document.getElementById('student-select').value;
+    localStorage.setItem(`bg_${studentId}`, id);
+    applyBg(url);
+    document.querySelectorAll('.bg-card').forEach(c => c.classList.remove('active'));
     event.currentTarget.classList.add('active');
-    setTimeout(closeThemePanel, 300);
+  }
+
+  function onCustomBgSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const studentId = document.getElementById('student-select').value;
+    compressBgPhoto(file, compressed => {
+      try {
+        localStorage.setItem(`bg_custom_${studentId}`, compressed);
+        localStorage.setItem(`bg_${studentId}`, 'custom');
+        applyBg(compressed);
+        document.querySelectorAll('.bg-card').forEach(c => c.classList.remove('active'));
+      } catch(e) {
+        alert('사진 용량이 너무 커요. 더 작은 사진을 올려주세요.');
+      }
+    });
+  }
+
+  function selectPalette(id) {
+    const studentId = document.getElementById('student-select').value;
+    localStorage.setItem(`palette_${studentId}`, id);
+    applyPalette(id);
+    document.querySelectorAll('.palette-dot').forEach(d => d.classList.remove('active'));
+    event.currentTarget.classList.add('active');
   }
 
   function closeThemePanel() { document.getElementById('theme-overlay').classList.remove('show'); }
 
-  // 페이지 로드 시 데코 초기화만 (테마는 로그인 후 학생별로 적용)
-  (function() {
-    initDecos();
-  })();
+  function resetTheme() {
+    const studentId = document.getElementById('student-select').value;
+    localStorage.removeItem(`bg_${studentId}`);
+    localStorage.removeItem(`palette_${studentId}`);
+    applyBg(null);
+    const el = document.getElementById('custom-theme-style');
+    if (el) el.textContent = '';
+    document.body.classList.remove('theme-active');
+    closeThemePanel();
+  }
+
+  function loadStudentTheme(studentId) {
+    const bgId = localStorage.getItem(`bg_${studentId}`);
+    const paletteId = localStorage.getItem(`palette_${studentId}`) || 'rose';
+    if (bgId) {
+      if (bgId === 'custom') {
+        const custom = localStorage.getItem(`bg_custom_${studentId}`);
+        if (custom) applyBg(custom);
+      } else {
+        const preset = BG_PRESETS.find(p => p.id === bgId);
+        if (preset) applyBg(preset.url);
+      }
+    }
+    if (bgId) applyPalette(paletteId);
+  }
+
+  // 페이지 로드 시 초기화
+  (function() { })();
 
     // ===== 출처/메모 수정 =====
   const _editCache = {};
