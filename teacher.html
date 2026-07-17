@@ -1393,7 +1393,7 @@
     reader.readAsDataURL(file);
   }
 
-  function compressImage(file, maxSize = 2000, quality = 0.95) {
+  function compressImage(file, maxSize = 3000, quality = 0.98) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1623,6 +1623,7 @@
   let _tScale = 1, _tLastScale = 1;
   let _tTx = 0, _tTy = 0;
   let _tPinching = false, _tInitDist = 0;
+  let _tLastTx = 0, _tLastTy = 0, _tInitMx = 0, _tInitMy = 0, _tImgCx = 0, _tImgCy = 0;
   let _tDragging = false, _tDragStartX = 0, _tDragStartY = 0;
   let _tLastTap = 0;
 
@@ -1689,6 +1690,12 @@
         _tPinching = true; _tDragging = false;
         _tInitDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
         _tLastScale = _tScale;
+        _tLastTx = _tTx; _tLastTy = _tTy;
+        _tInitMx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        _tInitMy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rect = img.getBoundingClientRect();
+        _tImgCx = rect.left + rect.width / 2 - _tTx;
+        _tImgCy = rect.top + rect.height / 2 - _tTy;
       } else if (e.touches.length === 1) {
         _tDragging = true;
         _tDragStartX = e.touches[0].clientX - _tTx;
@@ -1707,7 +1714,15 @@
       e.preventDefault();
       if (e.touches.length === 2 && _tPinching) {
         const dist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-        _tScale = Math.min(6, Math.max(1, _tLastScale * (dist / _tInitDist)));
+        const newScale = Math.min(6, Math.max(1, _tLastScale * (dist / _tInitDist)));
+        const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const localX = (_tInitMx - _tImgCx - _tLastTx) / _tLastScale;
+        const localY = (_tInitMy - _tImgCy - _tLastTy) / _tLastScale;
+        _tScale = newScale;
+        _tTx = mx - _tImgCx - localX * newScale;
+        _tTy = my - _tImgCy - localY * newScale;
+        if (_tScale <= 1) { _tScale = 1; _tTx = 0; _tTy = 0; }
         _tApply(img, false);
       } else if (e.touches.length === 1 && _tDragging && _tScale > 1) {
         _tTx = e.touches[0].clientX - _tDragStartX;

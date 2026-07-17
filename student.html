@@ -960,7 +960,7 @@
   let _scale = 1, _lastScale = 1;
   let _tx = 0, _ty = 0;
   let _lastTx = 0, _lastTy = 0;
-  let _pinching = false, _initDist = 0, _initMidX = 0, _initMidY = 0;
+  let _pinching = false, _initDist = 0, _initMidX = 0, _initMidY = 0, _imgCx = 0, _imgCy = 0;
   let _dragging = false, _dragStartX = 0, _dragStartY = 0;
   let _lastTap = 0;
 
@@ -1036,6 +1036,9 @@
         _initMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         _lastScale = _scale;
         _lastTx = _tx; _lastTy = _ty;
+        const rect = img.getBoundingClientRect();
+        _imgCx = rect.left + rect.width / 2 - _tx;
+        _imgCy = rect.top + rect.height / 2 - _ty;
       } else if (e.touches.length === 1) {
         _dragging = true;
         _dragStartX = e.touches[0].clientX - _tx;
@@ -1062,7 +1065,15 @@
           e.touches[1].clientX - e.touches[0].clientX,
           e.touches[1].clientY - e.touches[0].clientY
         );
-        _scale = Math.min(6, Math.max(1, _lastScale * (dist / _initDist)));
+        const newScale = Math.min(6, Math.max(1, _lastScale * (dist / _initDist)));
+        const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const localX = (_initMidX - _imgCx - _lastTx) / _lastScale;
+        const localY = (_initMidY - _imgCy - _lastTy) / _lastScale;
+        _scale = newScale;
+        _tx = mx - _imgCx - localX * newScale;
+        _ty = my - _imgCy - localY * newScale;
+        if (_scale <= 1) { _scale = 1; _tx = 0; _ty = 0; }
         _applyTransform(img, false);
       } else if (e.touches.length === 1 && _dragging) {
         if (_scale <= 1) return;
