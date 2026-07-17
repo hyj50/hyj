@@ -736,17 +736,21 @@
     document.getElementById('no-student-msg').style.display = 'none';
     checkSubmitButton();
     loadMyEntries();
-    // 알림 체크 (최초 + 30초 폴링)
     const studentId = document.getElementById('student-select').value;
     if (studentId) {
       checkNotifications(studentId);
       if (_notifInterval) clearInterval(_notifInterval);
       _notifInterval = setInterval(() => checkNotifications(studentId), 30000);
+      // 학생별 테마 로드
+      const savedTheme = localStorage.getItem(`theme_${studentId}`);
+      if (savedTheme) applyThemeById(savedTheme);
+      else resetTheme();
     }
   }
 
   function logout() {
     if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
+    resetTheme();
     sessionStorage.removeItem('my_student_id');
     sessionStorage.removeItem('my_student_name');
     document.getElementById('student-select').value = '';
@@ -757,6 +761,12 @@
     document.getElementById('name-input').value = '';
     document.getElementById('pw-input').value = '';
     document.getElementById('pw-error').classList.remove('show');
+  }
+
+  function resetTheme() {
+    const el = document.getElementById('custom-theme-style');
+    if (el) el.textContent = '';
+    document.querySelectorAll('.theme-deco').forEach(e => e.style.display = 'none');
   }
 
   function switchTab(tab) {
@@ -1776,21 +1786,17 @@
 
     const decos = {};
 
-    // 🐱 고양이 - Twemoji, 우하단 빼꼼
-    decos.cat = `<div style="position:fixed;bottom:-130px;right:16px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
-      <img src="${T}/1f431.svg" width="88" height="88" style="display:block;" /></div>`;
+    // 🐱 고양이 - 우하단 빼꼼 (시스템 이모지)
+    decos.cat = `<div style="position:fixed;bottom:-110px;right:12px;font-size:88px;line-height:1;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;">🐱</div>`;
 
-    // 🐶 강아지 - Twemoji, 우하단 빼꼼 + 바운스
-    decos.dog = `<div style="position:fixed;bottom:65px;right:14px;animation:td-bounce 1.2s ease-in-out infinite;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
-      <img src="${T}/1f436.svg" width="84" height="84" style="display:block;" /></div>`;
+    // 🐶 강아지 - 우하단, 위아래 바운스
+    decos.dog = `<div style="position:fixed;bottom:68px;right:12px;font-size:84px;line-height:1;animation:td-bounce 1.4s ease-in-out infinite;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;">🐶</div>`;
 
-    // 🐸 개구리 - Twemoji, 좌하단
-    decos.frog = `<div style="position:fixed;bottom:65px;left:14px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
-      <img src="${T}/1f438.svg" width="78" height="78" style="display:block;" /></div>`;
+    // 🐸 개구리 - 좌하단
+    decos.frog = `<div style="position:fixed;bottom:68px;left:12px;font-size:80px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;animation:td-bounce 2.2s .4s ease-in-out infinite;">🐸</div>`;
 
-    // 🐰 토끼 - Twemoji, 상단에서 귀만 내려옴
-    decos.rabbit = `<div style="position:fixed;top:-30px;right:20px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3));">
-      <img src="${T}/1f430.svg" width="80" height="80" style="display:block;" /></div>`;
+    // 🐰 토끼 - 좌하단 (글자 안 겹치게)
+    decos.rabbit = `<div style="position:fixed;bottom:68px;left:12px;font-size:82px;line-height:1;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.5));user-select:none;animation:td-bounce 1.8s .2s ease-in-out infinite;">🐰</div>`;
 
     // 🍂 가을 - 낙엽
     decos.autumn = Array.from({length:10}, (_,i) => {
@@ -1893,12 +1899,19 @@
     let el = document.getElementById('custom-theme-style');
     if (!el) { el = document.createElement('style'); el.id = 'custom-theme-style'; document.head.appendChild(el); }
     el.textContent = `:root {
-      --bg1:${v.bg1}!important; --bg2:${v.bg2}!important; --bg3:${v.bg3}!important;
+      --bg1:${v.bg1}!important; --bg2:${v.bg2}!important; --bg3:${v.bg3}!important; --bg4:${v.bg3}!important;
       --text1:${v.t1}!important; --text2:${v.t2}!important; --text3:${v.t3}!important; --text4:${v.t4}!important;
       --border:${v.b}!important; --border2:${v.b2}!important; --pink:${v.pk}!important;
     }
-    .submit-btn, button.btn-submit { background:linear-gradient(135deg,${v.g1},${v.g2})!important; }`;
-    localStorage.setItem('custom_theme', id);
+    body { background:${v.bg1}!important; }
+    .note-unsorted-tag,.note-solution-tag,.student-status-badge,.note-retry-badge-s { background:${v.bg3}!important; color:${v.t2}!important; border:1px solid ${v.b2}!important; }
+    .weakness-card-s { background:${v.bg2}!important; border-color:${v.b2}!important; }
+    .weakness-item-s { background:${v.bg3}!important; color:${v.t1}!important; }
+    .status-msg.error { background:rgba(255,80,80,0.15)!important; color:#ff9090!important; }
+    .submit-btn,button.btn-submit { background:linear-gradient(135deg,${v.g1},${v.g2})!important; }`;
+    // 학생별 저장
+    const studentId = document.getElementById('student-select').value;
+    if (studentId) localStorage.setItem(`theme_${studentId}`, id);
     document.querySelectorAll('.theme-deco').forEach(el => el.style.display = 'none');
     const deco = document.getElementById(`deco-${id}`);
     if (deco) deco.style.display = 'block';
@@ -1924,11 +1937,9 @@
 
   function closeThemePanel() { document.getElementById('theme-overlay').classList.remove('show'); }
 
-  // 페이지 로드 시 저장된 테마 + 데코 초기화
+  // 페이지 로드 시 데코 초기화만 (테마는 로그인 후 학생별로 적용)
   (function() {
     initDecos();
-    const saved = localStorage.getItem('custom_theme');
-    if (saved) applyThemeById(saved);
   })();
 
     // ===== 출처/메모 수정 =====
