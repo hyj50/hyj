@@ -1714,35 +1714,218 @@
 
   // ===== 테마 팩 =====
   const THEMES = [
-    { id:'pink',    name:'핑크',    emoji:'🌸', dot:'#E8639A',
-      v:{ bg1:'#1a1a2e',bg2:'#16213e',bg3:'#0f3460', t1:'#F0F0F0',t2:'rgba(240,240,240,0.72)',t3:'rgba(240,240,240,0.5)',t4:'rgba(240,240,240,0.35)', b:'rgba(255,255,255,0.08)',b2:'rgba(255,255,255,0.15)', pk:'#E8639A',g1:'#E8639A',g2:'#C94080' } },
-    { id:'purple',  name:'퍼플',    emoji:'💜', dot:'#A78BFA',
-      v:{ bg1:'#13072e',bg2:'#1e1045',bg3:'#2a1760', t1:'#EDE9FE',t2:'rgba(237,233,254,0.72)',t3:'rgba(237,233,254,0.5)',t4:'rgba(237,233,254,0.35)', b:'rgba(167,139,250,0.12)',b2:'rgba(167,139,250,0.25)', pk:'#A78BFA',g1:'#A78BFA',g2:'#7C3AED' } },
-    { id:'mint',    name:'민트',    emoji:'🍃', dot:'#34D399',
-      v:{ bg1:'#071a18',bg2:'#0d2b28',bg3:'#153d39', t1:'#ECFDF5',t2:'rgba(236,253,245,0.72)',t3:'rgba(236,253,245,0.5)',t4:'rgba(236,253,245,0.35)', b:'rgba(52,211,153,0.12)',b2:'rgba(52,211,153,0.25)', pk:'#34D399',g1:'#34D399',g2:'#059669' } },
-    { id:'sky',     name:'하늘',    emoji:'🩵', dot:'#60A5FA',
-      v:{ bg1:'#07101a',bg2:'#0d1f35',bg3:'#132d50', t1:'#EFF6FF',t2:'rgba(239,246,255,0.72)',t3:'rgba(239,246,255,0.5)',t4:'rgba(239,246,255,0.35)', b:'rgba(96,165,250,0.12)',b2:'rgba(96,165,250,0.25)', pk:'#60A5FA',g1:'#60A5FA',g2:'#2563EB' } },
-    { id:'sunset',  name:'노을',    emoji:'🌅', dot:'#FB923C',
-      v:{ bg1:'#1a0f07',bg2:'#2a1a0a',bg3:'#3d2510', t1:'#FFF7ED',t2:'rgba(255,247,237,0.72)',t3:'rgba(255,247,237,0.5)',t4:'rgba(255,247,237,0.35)', b:'rgba(251,146,60,0.12)',b2:'rgba(251,146,60,0.25)', pk:'#FB923C',g1:'#FB923C',g2:'#EA580C' } },
-    { id:'light',   name:'라이트',   emoji:'☀️', dot:'#C026D3',
-      v:{ bg1:'#FAF5FF',bg2:'#FFFFFF',bg3:'#F3E8FF', t1:'#1a1a2e',t2:'rgba(26,26,46,0.65)',t3:'rgba(26,26,46,0.45)',t4:'rgba(26,26,46,0.3)', b:'rgba(0,0,0,0.08)',b2:'rgba(0,0,0,0.15)', pk:'#C026D3',g1:'#C026D3',g2:'#9333EA' } },
-    { id:'cat',     name:'고양이',   emoji:'🐱', dot:'#F9A8D4',
+    { id:'cat',    name:'고양이', emoji:'🐱', dot:'#F9A8D4',
       v:{ bg1:'#1e1618',bg2:'#2d2226',bg3:'#3d2e34', t1:'#FFF0F5',t2:'rgba(255,240,245,0.72)',t3:'rgba(255,240,245,0.5)',t4:'rgba(255,240,245,0.35)', b:'rgba(249,168,212,0.12)',b2:'rgba(249,168,212,0.25)', pk:'#F9A8D4',g1:'#F9A8D4',g2:'#EC4899' } },
-    { id:'dog',     name:'강아지',   emoji:'🐶', dot:'#FBBF24',
+    { id:'dog',    name:'강아지', emoji:'🐶', dot:'#FBBF24',
       v:{ bg1:'#1c1208',bg2:'#2d1f0e',bg3:'#3d2d16', t1:'#FFFBEB',t2:'rgba(255,251,235,0.72)',t3:'rgba(255,251,235,0.5)',t4:'rgba(255,251,235,0.35)', b:'rgba(251,191,36,0.12)',b2:'rgba(251,191,36,0.25)', pk:'#FBBF24',g1:'#FBBF24',g2:'#D97706' } },
-    { id:'frog',    name:'개구리',   emoji:'🐸', dot:'#86EFAC',
+    { id:'frog',   name:'개구리', emoji:'🐸', dot:'#86EFAC',
       v:{ bg1:'#071408',bg2:'#0e2410',bg3:'#163518', t1:'#DCFCE7',t2:'rgba(220,252,231,0.72)',t3:'rgba(220,252,231,0.5)',t4:'rgba(220,252,231,0.35)', b:'rgba(134,239,172,0.12)',b2:'rgba(134,239,172,0.25)', pk:'#86EFAC',g1:'#86EFAC',g2:'#16A34A' } },
-    { id:'fox',     name:'여우',     emoji:'🦊', dot:'#F97316',
-      v:{ bg1:'#1a0d04',bg2:'#2a1808',bg3:'#3a230e', t1:'#FFF7ED',t2:'rgba(255,247,237,0.72)',t3:'rgba(255,247,237,0.5)',t4:'rgba(255,247,237,0.35)', b:'rgba(249,115,22,0.12)',b2:'rgba(249,115,22,0.25)', pk:'#F97316',g1:'#F97316',g2:'#C2410C' } },
-    { id:'penguin', name:'펭귄',     emoji:'🐧', dot:'#67E8F9',
-      v:{ bg1:'#020912',bg2:'#06111f',bg3:'#0b1e35', t1:'#F0FAFF',t2:'rgba(240,250,255,0.72)',t3:'rgba(240,250,255,0.5)',t4:'rgba(240,250,255,0.35)', b:'rgba(103,232,249,0.12)',b2:'rgba(103,232,249,0.25)', pk:'#67E8F9',g1:'#67E8F9',g2:'#0891B2' } },
-    { id:'strawberry', name:'딸기',  emoji:'🍓', dot:'#FB7185',
-      v:{ bg1:'#1a0610',bg2:'#2a0a1c',bg3:'#3a1028', t1:'#FFF1F2',t2:'rgba(255,241,242,0.72)',t3:'rgba(255,241,242,0.5)',t4:'rgba(255,241,242,0.35)', b:'rgba(251,113,133,0.12)',b2:'rgba(251,113,133,0.25)', pk:'#FB7185',g1:'#FB7185',g2:'#E11D48' } },
-    { id:'moon',    name:'달빛',     emoji:'🌙', dot:'#FDE68A',
-      v:{ bg1:'#07050f',bg2:'#100d1f',bg3:'#1a1830', t1:'#FEFCE8',t2:'rgba(254,252,232,0.72)',t3:'rgba(254,252,232,0.5)',t4:'rgba(254,252,232,0.35)', b:'rgba(253,230,138,0.1)',b2:'rgba(253,230,138,0.2)', pk:'#FDE68A',g1:'#FDE68A',g2:'#F59E0B' } },
-    { id:'cherry',  name:'벚꽃',     emoji:'🌺', dot:'#F472B6',
-      v:{ bg1:'#FFF0F5',bg2:'#FFFFFF',bg3:'#FFE4EC', t1:'#1a0812',t2:'rgba(26,8,18,0.65)',t3:'rgba(26,8,18,0.45)',t4:'rgba(26,8,18,0.3)', b:'rgba(0,0,0,0.07)',b2:'rgba(0,0,0,0.13)', pk:'#F472B6',g1:'#F472B6',g2:'#BE185D' } },
+    { id:'rabbit', name:'토끼',   emoji:'🐰', dot:'#C4B5FD',
+      v:{ bg1:'#100c1f',bg2:'#1a1530',bg3:'#252040', t1:'#F5F0FF',t2:'rgba(245,240,255,0.72)',t3:'rgba(245,240,255,0.5)',t4:'rgba(245,240,255,0.35)', b:'rgba(196,181,253,0.12)',b2:'rgba(196,181,253,0.25)', pk:'#C4B5FD',g1:'#C4B5FD',g2:'#7C3AED' } },
+    { id:'autumn', name:'가을',   emoji:'🍂', dot:'#F59E0B',
+      v:{ bg1:'#150d04',bg2:'#231508',bg3:'#321e0c', t1:'#FEF3C7',t2:'rgba(254,243,199,0.72)',t3:'rgba(254,243,199,0.5)',t4:'rgba(254,243,199,0.35)', b:'rgba(245,158,11,0.12)',b2:'rgba(245,158,11,0.25)', pk:'#F59E0B',g1:'#F59E0B',g2:'#B45309' } },
+    { id:'winter', name:'겨울',   emoji:'❄️', dot:'#BAE6FD',
+      v:{ bg1:'#080f1a',bg2:'#0f1c2e',bg3:'#162840', t1:'#F0F9FF',t2:'rgba(240,249,255,0.72)',t3:'rgba(240,249,255,0.5)',t4:'rgba(240,249,255,0.35)', b:'rgba(186,230,253,0.12)',b2:'rgba(186,230,253,0.25)', pk:'#BAE6FD',g1:'#BAE6FD',g2:'#0284C7' } },
+    { id:'city',   name:'도시',   emoji:'🌆', dot:'#FDE68A',
+      v:{ bg1:'#080c10',bg2:'#101620',bg3:'#182030', t1:'#F8FAFC',t2:'rgba(248,250,252,0.72)',t3:'rgba(248,250,252,0.5)',t4:'rgba(248,250,252,0.35)', b:'rgba(253,230,138,0.12)',b2:'rgba(253,230,138,0.25)', pk:'#FDE68A',g1:'#FDE68A',g2:'#F59E0B' } },
+    { id:'space',  name:'우주',   emoji:'🌌', dot:'#A78BFA',
+      v:{ bg1:'#03000f',bg2:'#07021a',bg3:'#0c0525', t1:'#F5F0FF',t2:'rgba(245,240,255,0.72)',t3:'rgba(245,240,255,0.5)',t4:'rgba(245,240,255,0.35)', b:'rgba(167,139,250,0.12)',b2:'rgba(167,139,250,0.25)', pk:'#A78BFA',g1:'#A78BFA',g2:'#6D28D9' } },
+    { id:'sea',    name:'바다',   emoji:'🌊', dot:'#22D3EE',
+      v:{ bg1:'#020d1a',bg2:'#051828',bg3:'#082438', t1:'#ECFEFF',t2:'rgba(236,254,255,0.72)',t3:'rgba(236,254,255,0.5)',t4:'rgba(236,254,255,0.35)', b:'rgba(34,211,238,0.12)',b2:'rgba(34,211,238,0.25)', pk:'#22D3EE',g1:'#22D3EE',g2:'#0891B2' } },
+    { id:'spring', name:'봄',     emoji:'🌸', dot:'#F472B6',
+      v:{ bg1:'#1a0c14',bg2:'#2a1420',bg3:'#3a1e2e', t1:'#FFF0F8',t2:'rgba(255,240,248,0.72)',t3:'rgba(255,240,248,0.5)',t4:'rgba(255,240,248,0.35)', b:'rgba(244,114,182,0.12)',b2:'rgba(244,114,182,0.25)', pk:'#F472B6',g1:'#F9A8D4',g2:'#DB2777' } },
   ];
+
+  function initDecos() {
+    const animStyle = document.createElement('style');
+    animStyle.textContent = `
+      @keyframes td-slideup { 0%{bottom:-120px} 100%{bottom:0} }
+      @keyframes td-tailwag { 0%,100%{transform:rotate(-30deg)} 50%{transform:rotate(30deg)} }
+      @keyframes td-blink { 0%,88%,100%{transform:scaleY(1)} 90%,96%{transform:scaleY(0.05)} }
+      @keyframes td-earwig { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(4deg)} }
+      @keyframes td-leaf { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(-480deg) translateX(var(--tdx,-25px));opacity:.4} }
+      @keyframes td-snow { 0%{transform:translateY(0) translateX(0);opacity:.9} 100%{transform:translateY(110vh) translateX(var(--tdx,20px));opacity:.3} }
+      @keyframes td-petal { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(540deg) translateX(var(--tdx,30px));opacity:.4} }
+      @keyframes td-twinkle { 0%,100%{opacity:1} 50%{opacity:.1} }
+      @keyframes td-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+      @keyframes td-swim { 0%{left:-80px;opacity:0} 5%{opacity:1} 95%{opacity:1} 100%{left:110%;opacity:0} }
+      @keyframes td-wave { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-40px)} }
+      @keyframes td-citylight { 0%,100%{opacity:.9} 50%{opacity:.15} }
+      @keyframes td-redlight { 0%,60%,100%{opacity:1} 30%{opacity:.2} }
+    `;
+    document.head.appendChild(animStyle);
+
+    const leafColors = ['#D97706','#B45309','#DC2626','#EA580C','#CA8A04','#92400E'];
+    const leafSvg = c => `<svg viewBox="0 0 28 34" width="28" height="34" xmlns="http://www.w3.org/2000/svg"><path d="M14,2 Q26,8 24,19 Q20,29 14,32 Q8,29 4,19 Q2,8 14,2Z" fill="${c}" opacity=".85"/><line x1="14" y1="5" x2="14" y2="30" stroke="${c}" stroke-width="1" opacity=".5"/><line x1="14" y1="13" x2="7" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/><line x1="14" y1="13" x2="21" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/></svg>`;
+    const snowSvg = `<svg viewBox="0 0 22 22" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.4"/><line x1="1" y1="11" x2="21" y2="11" stroke="white" stroke-width="1.4"/><line x1="4" y1="4" x2="18" y2="18" stroke="white" stroke-width="1.4"/><line x1="18" y1="4" x2="4" y2="18" stroke="white" stroke-width="1.4"/><circle cx="11" cy="1" r="1.3" fill="white"/><circle cx="11" cy="21" r="1.3" fill="white"/><circle cx="1" cy="11" r="1.3" fill="white"/><circle cx="21" cy="11" r="1.3" fill="white"/></svg>`;
+    const petalSvg = `<svg viewBox="0 0 18 24" width="18" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M9,2 Q17,7 15,15 Q12,21 9,23 Q6,21 3,15 Q1,7 9,2Z" fill="#FDA4AF" opacity=".88"/><line x1="9" y1="4" x2="9" y2="21" stroke="#FB7185" stroke-width=".7" opacity=".4"/></svg>`;
+
+    const decos = {};
+
+    decos.cat = `<div style="position:fixed;bottom:-120px;right:16px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;">
+      <svg viewBox="0 0 90 78" width="90" height="78" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="16,36 8,12 28,32" fill="#c49ab0"/><polygon points="17,34 12,18 25,31" fill="#f9c6d4"/>
+        <polygon points="74,36 82,12 62,32" fill="#c49ab0"/><polygon points="73,34 78,18 65,31" fill="#f9c6d4"/>
+        <ellipse cx="45" cy="54" rx="30" ry="26" fill="#d4a8be"/>
+        <ellipse cx="27" cy="56" rx="9" ry="5.5" fill="#f0b8c8" opacity=".5"/><ellipse cx="63" cy="56" rx="9" ry="5.5" fill="#f0b8c8" opacity=".5"/>
+        <ellipse cx="32" cy="47" rx="6" ry="7" fill="#1a1220" style="animation:td-blink 4s 1s ease-in-out infinite;transform-origin:32px 47px;"/>
+        <circle cx="34" cy="45" r="2" fill="white"/>
+        <ellipse cx="58" cy="47" rx="6" ry="7" fill="#1a1220" style="animation:td-blink 4s 1.8s ease-in-out infinite;transform-origin:58px 47px;"/>
+        <circle cx="60" cy="45" r="2" fill="white"/>
+        <polygon points="45,56 42,59 48,59" fill="#F9A8D4"/>
+        <path d="M41,60 Q45,64 49,60" stroke="#a0607a" stroke-width="1.2" fill="none"/>
+        <line x1="12" y1="54" x2="35" y2="56" stroke="#b08898" stroke-width=".9" opacity=".7"/><line x1="12" y1="58" x2="35" y2="58" stroke="#b08898" stroke-width=".9" opacity=".7"/>
+        <line x1="55" y1="56" x2="78" y2="54" stroke="#b08898" stroke-width=".9" opacity=".7"/><line x1="55" y1="58" x2="78" y2="58" stroke="#b08898" stroke-width=".9" opacity=".7"/>
+      </svg></div>`;
+
+    decos.dog = `<div style="position:fixed;bottom:-120px;right:8px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;">
+      <svg viewBox="0 0 120 90" width="120" height="90" xmlns="http://www.w3.org/2000/svg">
+        <g style="transform-origin:12px 48px;animation:td-tailwag .55s ease-in-out infinite;">
+          <ellipse cx="12" cy="36" rx="7" ry="20" fill="#A07030" transform="rotate(-15,12,36)"/>
+        </g>
+        <ellipse cx="28" cy="46" rx="13" ry="20" fill="#7a5020" transform="rotate(-12,28,46)"/>
+        <ellipse cx="88" cy="46" rx="13" ry="20" fill="#7a5020" transform="rotate(12,88,46)"/>
+        <ellipse cx="58" cy="55" rx="34" ry="30" fill="#C4913A"/>
+        <ellipse cx="58" cy="40" rx="20" ry="15" fill="#9a7020"/>
+        <ellipse cx="40" cy="49" rx="7.5" ry="7.5" fill="#180f04"/><circle cx="42" cy="47" r="2.2" fill="white"/>
+        <ellipse cx="76" cy="49" rx="7.5" ry="7.5" fill="#180f04"/><circle cx="78" cy="47" r="2.2" fill="white"/>
+        <ellipse cx="58" cy="60" rx="9" ry="6.5" fill="#2d1808"/>
+        <ellipse cx="55" cy="58" rx="3.5" ry="2" fill="#5d3818" opacity=".6"/>
+        <path d="M50,66 Q58,73 66,66" stroke="#9a7020" stroke-width="1.8" fill="none"/>
+        <ellipse cx="38" cy="82" rx="15" ry="9" fill="#C4913A"/>
+        <ellipse cx="78" cy="82" rx="15" ry="9" fill="#C4913A"/>
+      </svg></div>`;
+
+    decos.frog = `<div style="position:fixed;bottom:0;left:6px;pointer-events:none;">
+      <svg viewBox="0 0 105 85" width="105" height="85" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="52" cy="76" rx="46" ry="10" fill="#15803d" opacity=".9"/>
+        <line x1="52" y1="76" x2="52" y2="66" stroke="#15803d" stroke-width="2.5"/>
+        <path d="M25,76 Q52,60 79,76" stroke="#166534" stroke-width="1.5" fill="none" opacity=".5"/>
+        <ellipse cx="52" cy="60" rx="23" ry="18" fill="#4ade80"/>
+        <ellipse cx="52" cy="64" rx="15" ry="12" fill="#86efac"/>
+        <ellipse cx="30" cy="70" rx="11" ry="6" fill="#4ade80" transform="rotate(-20,30,70)"/>
+        <ellipse cx="74" cy="70" rx="11" ry="6" fill="#4ade80" transform="rotate(20,74,70)"/>
+        <ellipse cx="34" cy="67" rx="8" ry="4.5" fill="#4ade80"/>
+        <ellipse cx="70" cy="67" rx="8" ry="4.5" fill="#4ade80"/>
+        <ellipse cx="38" cy="44" rx="10" ry="10" fill="#4ade80"/>
+        <ellipse cx="66" cy="44" rx="10" ry="10" fill="#4ade80"/>
+        <ellipse cx="38" cy="44" rx="8" ry="8" fill="#111" style="animation:td-blink 3.5s 1s ease-in-out infinite;transform-origin:38px 44px;"/>
+        <ellipse cx="66" cy="44" rx="8" ry="8" fill="#111" style="animation:td-blink 3.5s 2s ease-in-out infinite;transform-origin:66px 44px;"/>
+        <circle cx="40" cy="42" r="2.8" fill="white"/><circle cx="68" cy="42" r="2.8" fill="white"/>
+        <path d="M42,57 Q52,63 62,57" stroke="#16a34a" stroke-width="1.5" fill="none"/>
+        <circle cx="48" cy="54" r="1.8" fill="#166534"/><circle cx="56" cy="54" r="1.8" fill="#166534"/>
+      </svg></div>`;
+
+    decos.rabbit = `<div style="position:fixed;top:0;right:22px;pointer-events:none;">
+      <svg viewBox="0 0 64 95" width="64" height="95" xmlns="http://www.w3.org/2000/svg">
+        <g style="transform-origin:22px 2px;animation:td-earwig 2.2s ease-in-out infinite;">
+          <ellipse cx="22" cy="34" rx="10" ry="34" fill="#ddd0ee"/>
+          <ellipse cx="22" cy="34" rx="6" ry="28" fill="#f0c8e0"/>
+        </g>
+        <g style="transform-origin:42px 2px;animation:td-earwig 2.2s .6s ease-in-out infinite;">
+          <ellipse cx="42" cy="34" rx="10" ry="34" fill="#ddd0ee"/>
+          <ellipse cx="42" cy="34" rx="6" ry="28" fill="#f0c8e0"/>
+        </g>
+        <ellipse cx="32" cy="88" rx="26" ry="22" fill="#ddd0ee"/>
+        <ellipse cx="20" cy="86" rx="9" ry="5.5" fill="#f0c8e0" opacity=".5"/>
+        <ellipse cx="44" cy="86" rx="9" ry="5.5" fill="#f0c8e0" opacity=".5"/>
+        <ellipse cx="24" cy="79" rx="4.5" ry="5.5" fill="#18102a"/>
+        <ellipse cx="40" cy="79" rx="4.5" ry="5.5" fill="#18102a"/>
+        <circle cx="25.5" cy="77.5" r="1.8" fill="white"/><circle cx="41.5" cy="77.5" r="1.8" fill="white"/>
+        <polygon points="32,85 29,88 35,88" fill="#f9a8d4"/>
+        <path d="M28,89 Q32,93 36,89" stroke="#c084a8" stroke-width="1" fill="none"/>
+      </svg></div>`;
+
+    decos.autumn = Array.from({length:10}, (_,i) => {
+      const left = 4 + i*9 + (i%3)*3, delay = i*0.85, dur = 6 + (i%4)*1.5, px = (i%2===0?1:-1)*(14+i*3);
+      return `<div style="position:fixed;top:-60px;left:${left}%;--tdx:${px}px;animation:td-leaf ${dur}s ${delay}s linear infinite;">${leafSvg(leafColors[i%leafColors.length])}</div>`;
+    }).join('');
+
+    decos.winter = Array.from({length:12}, (_,i) => {
+      const left = 3 + i*8 + (i%3)*2, delay = i*0.65, dur = 5.5 + (i%4)*1.2, px = (i%2===0?1:-1)*(10+i*2), sc = 0.6 + (i%3)*0.2;
+      return `<div style="position:fixed;top:-40px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-snow ${dur}s ${delay}s linear infinite;">${snowSvg}</div>`;
+    }).join('') + `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 36" preserveAspectRatio="none" width="100%" height="36" xmlns="http://www.w3.org/2000/svg"><path d="M0,36 Q30,14 60,22 Q90,32 120,18 Q150,6 180,20 Q210,33 240,16 Q270,4 300,20 Q330,34 360,18 Q385,8 400,16 L400,36 Z" fill="rgba(255,255,255,0.18)"/><path d="M0,36 Q25,26 50,30 Q80,36 110,26 Q140,18 170,28 Q200,36 230,24 Q260,14 290,26 Q320,36 350,24 Q375,16 400,22 L400,36 Z" fill="rgba(255,255,255,0.3)"/></svg></div>`;
+
+    const wS = (d,s) => `style="animation:td-citylight ${s}s ${d}s ease-in-out infinite;" opacity=".85"`;
+    decos.city = `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 115" preserveAspectRatio="none" width="100%" height="115" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="55" width="38" height="60" fill="#0f1e30"/>
+        <rect x="6" y="64" width="9" height="6" fill="#FDE68A" ${wS(.3,2.1)}/><rect x="20" y="64" width="9" height="6" fill="#FDE68A" ${wS(1.1,3.2)}/><rect x="6" y="77" width="9" height="6" fill="#93C5FD" ${wS(.7,2.7)}/>
+        <rect x="32" y="28" width="48" height="87" fill="#162030"/>
+        <line x1="56" y1="10" x2="56" y2="28" stroke="#162030" stroke-width="4"/><circle cx="56" cy="10" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2s ease-in-out infinite;"/>
+        <rect x="40" y="40" width="10" height="7" fill="#FDE68A" ${wS(0,1.8)}/><rect x="57" y="40" width="10" height="7" fill="#FDE68A" ${wS(.5,2.5)}/><rect x="40" y="56" width="10" height="7" fill="#93C5FD" ${wS(1.3,3.1)}/><rect x="57" y="56" width="10" height="7" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="40" y="72" width="10" height="7" fill="#FDE68A" ${wS(1.6,3.3)}/>
+        <rect x="75" y="58" width="30" height="57" fill="#0f1e30"/>
+        <rect x="82" y="66" width="8" height="6" fill="#FDE68A" ${wS(.6,2.4)}/><rect x="93" y="66" width="8" height="6" fill="#93C5FD" ${wS(1.5,3.5)}/>
+        <rect x="102" y="38" width="55" height="77" fill="#162030"/>
+        <rect x="110" y="50" width="11" height="8" fill="#FDE68A" ${wS(.2,2.2)}/><rect x="128" y="50" width="11" height="8" fill="#FDE68A" ${wS(.8,1.6)}/><rect x="110" y="66" width="11" height="8" fill="#93C5FD" ${wS(1.2,2.8)}/><rect x="128" y="66" width="11" height="8" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="110" y="82" width="11" height="8" fill="#FDE68A" ${wS(1.6,3.3)}/>
+        <rect x="152" y="62" width="32" height="53" fill="#0f1e30"/>
+        <rect x="160" y="72" width="8" height="6" fill="#FDE68A" ${wS(.1,1.7)}/><rect x="172" y="72" width="8" height="6" fill="#FDE68A" ${wS(1.0,2.6)}/>
+        <rect x="178" y="46" width="62" height="69" fill="#162030"/>
+        <line x1="209" y1="18" x2="209" y2="46" stroke="#162030" stroke-width="4"/><circle cx="209" cy="18" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2.4s .8s ease-in-out infinite;"/>
+        <rect x="186" y="58" width="12" height="8" fill="#FDE68A" ${wS(0,2.0)}/><rect x="204" y="58" width="12" height="8" fill="#93C5FD" ${wS(.6,3.0)}/><rect x="222" y="58" width="12" height="8" fill="#FDE68A" ${wS(1.4,1.8)}/><rect x="186" y="74" width="12" height="8" fill="#93C5FD" ${wS(.3,2.4)}/><rect x="204" y="74" width="12" height="8" fill="#FDE68A" ${wS(1.0,2.0)}/><rect x="222" y="74" width="12" height="8" fill="#FDE68A" ${wS(1.6,3.1)}/>
+        <rect x="235" y="52" width="42" height="63" fill="#0f1e30"/>
+        <rect x="243" y="63" width="10" height="7" fill="#FDE68A" ${wS(.5,2.9)}/><rect x="258" y="63" width="10" height="7" fill="#FDE68A" ${wS(1.1,1.6)}/><rect x="243" y="78" width="10" height="7" fill="#93C5FD" ${wS(.7,2.3)}/>
+        <rect x="272" y="28" width="58" height="87" fill="#162030"/>
+        <rect x="280" y="42" width="12" height="8" fill="#FDE68A" ${wS(.2,2.1)}/><rect x="298" y="42" width="12" height="8" fill="#FDE68A" ${wS(1.0,3.4)}/><rect x="316" y="42" width="12" height="8" fill="#93C5FD" ${wS(.6,1.9)}/><rect x="280" y="58" width="12" height="8" fill="#FDE68A" ${wS(1.3,2.7)}/><rect x="298" y="58" width="12" height="8" fill="#FDE68A" ${wS(.4,1.4)}/><rect x="280" y="74" width="12" height="8" fill="#93C5FD" ${wS(1.5,2.2)}/>
+        <rect x="324" y="55" width="38" height="60" fill="#0f1e30"/>
+        <rect x="332" y="64" width="9" height="7" fill="#FDE68A" ${wS(.8,2.5)}/><rect x="346" y="64" width="9" height="7" fill="#93C5FD" ${wS(.3,1.7)}/><rect x="332" y="79" width="9" height="7" fill="#FDE68A" ${wS(1.2,3.1)}/>
+        <rect x="356" y="44" width="44" height="71" fill="#162030"/>
+        <line x1="378" y1="22" x2="378" y2="44" stroke="#162030" stroke-width="4"/><circle cx="378" cy="22" r="3.5" fill="#FF6B6B" style="animation:td-redlight 1.8s 1.2s ease-in-out infinite;"/>
+        <rect x="364" y="56" width="10" height="7" fill="#FDE68A" ${wS(.7,2.0)}/><rect x="379" y="56" width="10" height="7" fill="#93C5FD" ${wS(.2,1.8)}/><rect x="364" y="72" width="10" height="7" fill="#FDE68A" ${wS(1.4,2.8)}/><rect x="379" y="72" width="10" height="7" fill="#FDE68A" ${wS(.9,3.2)}/>
+        <rect x="0" y="113" width="400" height="3" fill="#1e3a5f" opacity=".5"/>
+        <line x1="0" y1="114" x2="400" y2="114" stroke="#FDE68A" stroke-width=".8" stroke-dasharray="18,14" opacity=".25"/>
+      </svg></div>`;
+
+    const stars = Array.from({length:28}, (_,i) => {
+      const x=(Math.random()*100).toFixed(1), y=(Math.random()*65).toFixed(1), s=(.4+Math.random()*1.8).toFixed(1), dur=(1.2+Math.random()*2.5).toFixed(1), delay=(Math.random()*3).toFixed(1);
+      return `<circle cx="${x}%" cy="${y}%" r="${s}" fill="white" style="animation:td-twinkle ${dur}s ${delay}s ease-in-out infinite;"/>`;
+    }).join('');
+    decos.space = `<svg style="position:fixed;top:0;left:0;width:100%;height:65%;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">${stars}</svg>
+      <div style="position:fixed;top:8%;right:10%;animation:td-float 4s ease-in-out infinite;pointer-events:none;">
+        <svg viewBox="0 0 52 52" width="52" height="52" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="26" cy="26" rx="38" ry="9" fill="none" stroke="#A78BFA" stroke-width="3.5" opacity=".55" transform="rotate(-20,26,26)"/>
+          <circle cx="26" cy="26" r="20" fill="#7C3AED"/>
+          <circle cx="18" cy="18" r="6" fill="#6D28D9" opacity=".45"/>
+          <circle cx="30" cy="30" r="3.5" fill="#5b21b6" opacity=".35"/>
+        </svg></div>
+      <div style="position:fixed;top:28%;left:7%;animation:td-float 7s 2.5s ease-in-out infinite;pointer-events:none;">
+        <svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="18" cy="18" r="15" fill="#DB2777"/>
+          <circle cx="11" cy="12" r="5" fill="#be185d" opacity=".38"/>
+        </svg></div>`;
+
+    decos.sea = `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;overflow:hidden;">
+      <svg viewBox="0 0 400 58" preserveAspectRatio="none" width="100%" height="58" xmlns="http://www.w3.org/2000/svg">
+        <g style="animation:td-wave 3.2s ease-in-out infinite;"><path d="M-50,28 Q0,8 50,28 Q100,48 150,28 Q200,8 250,28 Q300,48 350,28 Q400,8 450,28 L450,58 L-50,58 Z" fill="rgba(34,211,238,0.22)"/></g>
+        <g style="animation:td-wave 3.2s .6s ease-in-out infinite;"><path d="M-50,36 Q0,20 50,36 Q100,52 150,36 Q200,20 250,36 Q300,52 350,36 Q400,20 450,36 L450,58 L-50,58 Z" fill="rgba(34,211,238,0.32)"/></g>
+        <path d="M0,46 Q50,36 100,44 Q150,52 200,42 Q250,34 300,44 Q350,52 400,44 L400,58 L0,58 Z" fill="rgba(8,145,178,0.48)"/>
+      </svg></div>
+      <div style="position:fixed;bottom:18px;left:-80px;pointer-events:none;animation:td-swim 13s 1.5s linear infinite;">
+        <svg viewBox="0 0 64 32" width="64" height="32" xmlns="http://www.w3.org/2000/svg">
+          <path d="M54,16 Q40,4 20,10 Q4,14 6,16 Q4,18 20,22 Q40,28 54,16Z" fill="#22D3EE"/>
+          <path d="M58,16 L70,8 L70,24 Z" fill="#06B6D4"/>
+          <circle cx="22" cy="14.5" r="3.5" fill="#0e7490"/><circle cx="23.5" cy="13" r="1.2" fill="white"/>
+        </svg></div>
+      <div style="position:fixed;bottom:26px;left:-70px;pointer-events:none;animation:td-swim 20s 9s linear infinite;">
+        <svg viewBox="0 0 50 26" width="50" height="26" xmlns="http://www.w3.org/2000/svg">
+          <path d="M44,13 Q32,4 16,8 Q4,11 6,13 Q4,15 16,18 Q32,22 44,13Z" fill="#F472B6"/>
+          <path d="M48,13 L58,7 L58,19 Z" fill="#EC4899"/>
+          <circle cx="18" cy="11.5" r="2.8" fill="#be185d"/><circle cx="19.5" cy="10" r="1" fill="white"/>
+        </svg></div>`;
+
+    decos.spring = Array.from({length:12}, (_,i) => {
+      const left = 2 + i*8 + (i%4)*2, delay = i*0.7, dur = 5 + (i%5)*1.3, px = (i%2===0?1:-1)*(18+i*3), sc = (.65 + (i%4)*.15).toFixed(2);
+      return `<div style="position:fixed;top:-50px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-petal ${dur}s ${delay}s linear infinite;">${petalSvg}</div>`;
+    }).join('');
+
+    ['cat','dog','frog','rabbit','autumn','winter','city','space','sea','spring'].forEach(id => {
+      const div = document.createElement('div');
+      div.id = `deco-${id}`;
+      div.className = 'theme-deco';
+      div.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:8000;overflow:hidden;';
+      div.innerHTML = decos[id] || '';
+      document.body.appendChild(div);
+    });
+  }
 
   function applyThemeById(id) {
     const t = THEMES.find(t => t.id === id);
@@ -1757,10 +1940,13 @@
     }
     .submit-btn, button.btn-submit { background:linear-gradient(135deg,${v.g1},${v.g2})!important; }`;
     localStorage.setItem('custom_theme', id);
+    document.querySelectorAll('.theme-deco').forEach(el => el.style.display = 'none');
+    const deco = document.getElementById(`deco-${id}`);
+    if (deco) deco.style.display = 'block';
   }
 
   function openThemePanel() {
-    const saved = localStorage.getItem('custom_theme') || 'pink';
+    const saved = localStorage.getItem('custom_theme') || 'cat';
     const grid = document.getElementById('theme-grid');
     grid.innerHTML = THEMES.map(t => `
       <div class="theme-card ${saved===t.id?'active':''}" onclick="selectTheme('${t.id}')" style="background:${t.v.bg1};">
@@ -1773,19 +1959,20 @@
   function selectTheme(id) {
     applyThemeById(id);
     document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
-    document.querySelectorAll('.theme-card').forEach(c => { if(c.onclick.toString().includes(`'${id}'`)) c.classList.add('active'); });
+    event.currentTarget.classList.add('active');
     setTimeout(closeThemePanel, 300);
   }
 
   function closeThemePanel() { document.getElementById('theme-overlay').classList.remove('show'); }
 
-  // 페이지 로드 시 저장된 테마 적용
+  // 페이지 로드 시 저장된 테마 + 데코 초기화
   (function() {
+    initDecos();
     const saved = localStorage.getItem('custom_theme');
-    if (saved && saved !== 'pink') applyThemeById(saved);
+    if (saved) applyThemeById(saved);
   })();
 
-  // ===== 출처/메모 수정 =====
+    // ===== 출처/메모 수정 =====
   const _editCache = {};
 
   function openEditModal(id) {
