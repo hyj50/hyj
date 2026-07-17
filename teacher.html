@@ -1043,6 +1043,7 @@
         </div>
         <div style="font-size:11px;color:var(--text4);margin-bottom:12px;">👤 ${studentName} · ${date}</div>
         ${q.content ? `<div style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:1.6;">${q.content}</div>` : ''}
+        ${q.image_url ? `<img src="${q.image_url}" style="width:100%;border-radius:12px;margin-bottom:12px;cursor:pointer;" onclick="openModal('${q.image_url}')" />` : ''}
         <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
           <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;">✍️ 답변 달기</div>
           <div style="display:flex;gap:8px;">

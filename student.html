@@ -1771,7 +1771,7 @@
       if (withSolution.length > 0) msgs.push(`📖 모범풀이가 올라온 오답이 ${withSolution.length}개 있어요!`);
 
       if (msgs.length > 0) {
-        document.getElementById('notif-text').textContent = msgs[0];
+        document.getElementById('notif-text').textContent = msgs.join('  /  ');
         document.getElementById('notif-banner').classList.add('show');
         setTimeout(closeNotif, 5000);
       }
