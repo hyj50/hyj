@@ -1858,6 +1858,7 @@
               ${unitLabel ? `<span class="note-reason-tag">${unitLabel}</span>` : ''}
               ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
             </div>
+            ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
             ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
             ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
             <p class="note-date">${formatDate(e.entry_date)}</p>
