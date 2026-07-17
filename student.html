@@ -367,6 +367,9 @@
   .modal-label { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 13px; background: rgba(255,255,255,0.15); padding: 5px 14px; border-radius: 20px; white-space: nowrap; }
   .modal-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; z-index: 1; display: flex; align-items: center; justify-content: center; }
   .modal-zoom-hint { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.5); font-size: 11px; white-space: nowrap; }
+  .edit-note-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:5000; align-items:flex-end; justify-content:center; }
+  .edit-note-overlay.show { display:flex; }
+  .edit-note-sheet { background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
 </style>
 </head>
 <body>
@@ -515,6 +518,15 @@
             <div style="font-size:14px;font-weight:700;margin-bottom:10px;color:var(--text1);">✏️ 질문 올리기</div>
             <input type="text" id="qna-title" placeholder="제목" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;margin-bottom:8px;outline:none;background:var(--bg2);color:var(--text1);" />
             <textarea id="qna-content" placeholder="내용을 입력하세요" rows="3" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;resize:none;outline:none;margin-bottom:8px;background:var(--bg2);color:var(--text1);"></textarea>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <label for="qna-img-input" style="display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:10px;border:1px solid var(--border2);font-size:13px;color:var(--text3);cursor:pointer;background:var(--bg3);">📎 사진 첨부</label>
+              <input type="file" id="qna-img-input" class="file-input-hidden" accept="image/*" onchange="onQnaImgSelect(event)" />
+              <span id="qna-img-name" style="font-size:12px;color:var(--text4);"></span>
+            </div>
+            <div id="qna-img-preview" style="margin-bottom:8px;display:none;align-items:center;gap:8px;">
+              <img id="qna-img-thumb" style="max-width:100px;max-height:80px;border-radius:8px;border:1px solid var(--border);object-fit:cover;" />
+              <button onclick="clearQnaImg()" style="background:none;border:none;color:var(--text4);font-size:12px;cursor:pointer;">✕ 제거</button>
+            </div>
             <button onclick="submitQuestion()" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:14px;font-weight:700;cursor:pointer;">질문 올리기</button>
           </div>
           <div id="qna-list" style="display:flex;flex-direction:column;gap:0;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);">
@@ -552,6 +564,26 @@
     <div class="modal-label" id="modal-label"></div>
   </div>
   <button onclick="shareModalImage()" style="position:absolute;bottom:24px;right:20px;background:rgba(255,255,255,0.25);border:none;color:white;font-size:14px;font-weight:700;padding:10px 18px;border-radius:22px;cursor:pointer;backdrop-filter:blur(6px);z-index:2;">💾 저장</button>
+</div>
+
+<!-- 출처/메모 수정 바텀시트 -->
+<div class="edit-note-overlay" id="edit-note-overlay" onclick="if(event.target===this)closeEditModal()">
+  <div class="edit-note-sheet">
+    <div style="font-size:15px;font-weight:700;color:var(--text1);margin-bottom:16px;">✏️ 수정하기</div>
+    <input type="hidden" id="edit-note-id" />
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:6px;">출처</div>
+      <input type="text" id="edit-source" placeholder="예: 교과서 p.52, 2024 수능" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;outline:none;background:var(--bg3);color:var(--text1);box-sizing:border-box;" />
+    </div>
+    <div style="margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:6px;">메모</div>
+      <input type="text" id="edit-memo" placeholder="예: 3번 문제, 시간이 부족했어요" maxlength="60" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);font-size:14px;outline:none;background:var(--bg3);color:var(--text1);box-sizing:border-box;" />
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="closeEditModal()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:none;font-size:14px;font-weight:600;color:var(--text3);cursor:pointer;">취소</button>
+      <button onclick="saveEditNote()" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:14px;font-weight:700;cursor:pointer;">저장</button>
+    </div>
+  </div>
 </div>
 
 <!-- 업로드 액션시트 -->
@@ -680,17 +712,24 @@
     }
   }
 
+  let _notifInterval = null;
+
   function showMainContent() {
     document.getElementById('content-area').style.display = 'block';
     document.getElementById('no-student-msg').style.display = 'none';
     checkSubmitButton();
     loadMyEntries();
-    // 알림 체크
+    // 알림 체크 (최초 + 30초 폴링)
     const studentId = document.getElementById('student-select').value;
-    if (studentId) checkNotifications(studentId);
+    if (studentId) {
+      checkNotifications(studentId);
+      if (_notifInterval) clearInterval(_notifInterval);
+      _notifInterval = setInterval(() => checkNotifications(studentId), 30000);
+    }
   }
 
   function logout() {
+    if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
     sessionStorage.removeItem('my_student_id');
     sessionStorage.removeItem('my_student_name');
     document.getElementById('student-select').value = '';
@@ -1147,6 +1186,7 @@
   }
 
   function noteCardHtml(e) {
+    _editCache[e.id] = { source: e.source || '', memo: e.memo || '' };
     const hasSolution = !!e.image_solution_url;
     const hasMine = !!e.image_mine_url;
     const unitLabel = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' · ');
@@ -1191,7 +1231,10 @@
         ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
         ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
         ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
-        <p class="note-date">${formatDate(e.entry_date)}</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <p class="note-date" style="margin:0;">${formatDate(e.entry_date)}</p>
+          <button onclick="openEditModal('${e.id}')" style="background:none;border:1px solid var(--border2);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer;">✏️ 수정</button>
+        </div>
         ${addMineBtn}
       </div>
     `;
@@ -1409,6 +1452,7 @@
         <div style="font-size:16px;font-weight:700;color:var(--text1);margin-bottom:8px;">${q.title}</div>
         <div style="font-size:11px;color:var(--text4);margin-bottom:12px;">${date}</div>
         ${q.content ? `<div style="font-size:14px;color:var(--text2);margin-bottom:12px;line-height:1.6;">${q.content}</div>` : ''}
+        ${q.image_url ? `<img src="${q.image_url}" style="width:100%;border-radius:12px;margin-bottom:12px;cursor:pointer;" onclick="openModal('${q.image_url}','첨부 이미지')" />` : ''}
         ${q.answer ? `
           <div style="background:var(--green-light);border-radius:12px;padding:12px;border-left:3px solid var(--green);">
             <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;">✅ 선생님 답변</div>
@@ -1520,10 +1564,21 @@
     if (!title) { alert('제목을 입력해주세요!'); return; }
     if (!studentId) { alert('로그인 후 질문을 올릴 수 있어요!'); return; }
     try {
+      let imgUrl = '';
+      if (_qnaImgFile) {
+        const blob = await compressImage(_qnaImgFile, 1200, 0.85);
+        const fileName = `qna_${studentId}_${Date.now()}.jpg`;
+        const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+          method: 'POST',
+          headers: sbHeaders({ 'Content-Type': 'image/jpeg' }),
+          body: blob
+        });
+        if (uploadRes.ok) imgUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+      }
       const res = await fetch(`${SUPABASE_URL}/rest/v1/questions`, {
         method: 'POST',
         headers: sbHeaders({ 'Prefer': 'return=minimal', 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ student_id: studentId, title, content })
+        body: JSON.stringify({ student_id: studentId, title, content, ...(imgUrl ? { image_url: imgUrl } : {}) })
       });
       if (!res.ok) {
         const err = await res.text();
@@ -1533,6 +1588,7 @@
       }
       document.getElementById('qna-title').value = '';
       document.getElementById('qna-content').value = '';
+      clearQnaImg();
       alert('질문이 올라갔어요! 선생님이 답변해주실 거예요 😊');
       loadQnA();
     } catch(e) { alert('올리기 실패했어요 ㅠㅠ ' + e.message); }
@@ -1637,6 +1693,61 @@
 
   function closeNotif() {
     document.getElementById('notif-banner').classList.remove('show');
+  }
+
+  // ===== 출처/메모 수정 =====
+  const _editCache = {};
+
+  function openEditModal(id) {
+    const d = _editCache[id] || {};
+    document.getElementById('edit-note-id').value = id;
+    document.getElementById('edit-source').value = d.source || '';
+    document.getElementById('edit-memo').value = d.memo || '';
+    document.getElementById('edit-note-overlay').classList.add('show');
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-note-overlay').classList.remove('show');
+  }
+
+  async function saveEditNote() {
+    const id = document.getElementById('edit-note-id').value;
+    const source = document.getElementById('edit-source').value.trim();
+    const memo = document.getElementById('edit-memo').value.trim();
+    const studentId = document.getElementById('student-select').value;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${id}&student_id=eq.${studentId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ source, memo })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      closeEditModal();
+      loadMyEntries();
+    } catch(e) { alert('수정 실패: ' + e.message); }
+  }
+
+  // ===== 문의 게시판 사진 =====
+  let _qnaImgFile = null;
+
+  function onQnaImgSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    _qnaImgFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('qna-img-thumb').src = ev.target.result;
+      document.getElementById('qna-img-preview').style.display = 'flex';
+      document.getElementById('qna-img-name').textContent = file.name.length > 16 ? file.name.slice(0,14)+'...' : file.name;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearQnaImg() {
+    _qnaImgFile = null;
+    document.getElementById('qna-img-input').value = '';
+    document.getElementById('qna-img-preview').style.display = 'none';
+    document.getElementById('qna-img-name').textContent = '';
   }
 
   async function checkNotifications(studentId) {
