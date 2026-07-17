@@ -1899,11 +1899,17 @@
     let el = document.getElementById('custom-theme-style');
     if (!el) { el = document.createElement('style'); el.id = 'custom-theme-style'; document.head.appendChild(el); }
     el.textContent = `:root {
-      --bg1:${v.bg1}!important; --bg2:${v.bg2}!important; --bg3:${v.bg3}!important; --bg4:${v.bg3}!important;
+      --bg:${v.bg1}!important; --bg2:${v.bg2}!important; --bg3:${v.bg3}!important; --bg4:${v.bg3}!important;
+      --tab-bg:${v.bg2}!important; --page-btn-bg:${v.bg3}!important;
       --text1:${v.t1}!important; --text2:${v.t2}!important; --text3:${v.t3}!important; --text4:${v.t4}!important;
       --border:${v.b}!important; --border2:${v.b2}!important; --pink:${v.pk}!important;
+      --green:${v.pk}!important; --green-light:${v.bg3}!important; --green-text:${v.t2}!important;
+      --card-shadow:0 2px 12px rgba(0,0,0,0.4)!important;
     }
-    body { background:${v.bg1}!important; }
+    body { background:${v.bg1}!important; color:${v.t1}!important; }
+    .board, .wrap, .note-card, .qna-card, input, textarea, select, .tab-btn { color:${v.t1}!important; background-color:inherit; }
+    .note-card { background:${v.bg2}!important; }
+    .note-card.has-solution { background:${v.bg3}!important; }
     .note-unsorted-tag,.note-solution-tag,.student-status-badge,.note-retry-badge-s { background:${v.bg3}!important; color:${v.t2}!important; border:1px solid ${v.b2}!important; }
     .weakness-card-s { background:${v.bg2}!important; border-color:${v.b2}!important; }
     .weakness-item-s { background:${v.bg3}!important; color:${v.t1}!important; }
