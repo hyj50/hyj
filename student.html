@@ -1663,24 +1663,38 @@
     renderReviewModal();
   }
 
-  // 스플래시 음악 (10초 재생 후 페이드아웃)
+  // 스플래시 음악 (iOS 오토플레이 차단 대응)
   window.addEventListener('load', () => {
     const audio = new Audio('/splash.mp3');
     audio.volume = 0.8;
-    audio.play().catch(() => {});
 
-    // 7초 후부터 3초간 페이드아웃
-    setTimeout(() => {
-      const fadeInterval = setInterval(() => {
-        if (audio.volume > 0.05) {
-          audio.volume = Math.max(0, audio.volume - 0.05);
-        } else {
-          audio.volume = 0;
-          audio.pause();
-          clearInterval(fadeInterval);
-        }
-      }, 150);
-    }, 7000);
+    const fadeOut = () => {
+      setTimeout(() => {
+        const fadeInterval = setInterval(() => {
+          if (audio.volume > 0.05) {
+            audio.volume = Math.max(0, audio.volume - 0.05);
+          } else {
+            audio.volume = 0;
+            audio.pause();
+            clearInterval(fadeInterval);
+          }
+        }, 150);
+      }, 7000);
+    };
+
+    // 안드로이드/데스크탑: 바로 재생
+    audio.play().then(() => {
+      fadeOut();
+    }).catch(() => {
+      // iOS: 첫 터치 시 재생
+      const onFirstTouch = () => {
+        audio.play().then(fadeOut).catch(() => {});
+        document.removeEventListener('touchstart', onFirstTouch, true);
+        document.removeEventListener('click', onFirstTouch, true);
+      };
+      document.addEventListener('touchstart', onFirstTouch, { once: true, capture: true });
+      document.addEventListener('click', onFirstTouch, { once: true, capture: true });
+    });
   });
 
   // 당겨서 새로고침 막기 (스크롤은 유지)
@@ -1739,10 +1753,9 @@
   function initDecos() {
     const animStyle = document.createElement('style');
     animStyle.textContent = `
-      @keyframes td-slideup { 0%{bottom:-120px} 100%{bottom:0} }
-      @keyframes td-tailwag { 0%,100%{transform:rotate(-30deg)} 50%{transform:rotate(30deg)} }
-      @keyframes td-blink { 0%,88%,100%{transform:scaleY(1)} 90%,96%{transform:scaleY(0.05)} }
-      @keyframes td-earwig { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(4deg)} }
+      @keyframes td-slideup { 0%{bottom:-130px} 100%{bottom:65px} }
+      @keyframes td-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+      @keyframes td-earwig { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
       @keyframes td-leaf { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(-480deg) translateX(var(--tdx,-25px));opacity:.4} }
       @keyframes td-snow { 0%{transform:translateY(0) translateX(0);opacity:.9} 100%{transform:translateY(110vh) translateX(var(--tdx,20px));opacity:.3} }
       @keyframes td-petal { 0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:.9} 100%{transform:translateY(110vh) rotate(540deg) translateX(var(--tdx,30px));opacity:.4} }
@@ -1755,163 +1768,109 @@
     `;
     document.head.appendChild(animStyle);
 
+    const T = "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg";
     const leafColors = ['#D97706','#B45309','#DC2626','#EA580C','#CA8A04','#92400E'];
     const leafSvg = c => `<svg viewBox="0 0 28 34" width="28" height="34" xmlns="http://www.w3.org/2000/svg"><path d="M14,2 Q26,8 24,19 Q20,29 14,32 Q8,29 4,19 Q2,8 14,2Z" fill="${c}" opacity=".85"/><line x1="14" y1="5" x2="14" y2="30" stroke="${c}" stroke-width="1" opacity=".5"/><line x1="14" y1="13" x2="7" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/><line x1="14" y1="13" x2="21" y2="20" stroke="${c}" stroke-width=".7" opacity=".4"/></svg>`;
-    const snowSvg = `<svg viewBox="0 0 22 22" width="18" height="18" xmlns="http://www.w3.org/2000/svg"><line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.4"/><line x1="1" y1="11" x2="21" y2="11" stroke="white" stroke-width="1.4"/><line x1="4" y1="4" x2="18" y2="18" stroke="white" stroke-width="1.4"/><line x1="18" y1="4" x2="4" y2="18" stroke="white" stroke-width="1.4"/><circle cx="11" cy="1" r="1.3" fill="white"/><circle cx="11" cy="21" r="1.3" fill="white"/><circle cx="1" cy="11" r="1.3" fill="white"/><circle cx="21" cy="11" r="1.3" fill="white"/></svg>`;
-    const petalSvg = `<svg viewBox="0 0 18 24" width="18" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M9,2 Q17,7 15,15 Q12,21 9,23 Q6,21 3,15 Q1,7 9,2Z" fill="#FDA4AF" opacity=".88"/><line x1="9" y1="4" x2="9" y2="21" stroke="#FB7185" stroke-width=".7" opacity=".4"/></svg>`;
+    const snowSvg = `<svg viewBox="0 0 22 22" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.5"/><line x1="1" y1="11" x2="21" y2="11" stroke="white" stroke-width="1.5"/><line x1="4" y1="4" x2="18" y2="18" stroke="white" stroke-width="1.5"/><line x1="18" y1="4" x2="4" y2="18" stroke="white" stroke-width="1.5"/><circle cx="11" cy="1" r="1.5" fill="white"/><circle cx="11" cy="21" r="1.5" fill="white"/><circle cx="1" cy="11" r="1.5" fill="white"/><circle cx="21" cy="11" r="1.5" fill="white"/></svg>`;
+    const petalSvg = `<svg viewBox="0 0 18 24" width="18" height="24" xmlns="http://www.w3.org/2000/svg"><path d="M9,2 Q17,7 15,15 Q12,21 9,23 Q6,21 3,15 Q1,7 9,2Z" fill="#FDA4AF" opacity=".88"/></svg>`;
 
     const decos = {};
 
-    decos.cat = `<div style="position:fixed;bottom:-120px;right:16px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;">
-      <svg viewBox="0 0 90 78" width="90" height="78" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="16,36 8,12 28,32" fill="#c49ab0"/><polygon points="17,34 12,18 25,31" fill="#f9c6d4"/>
-        <polygon points="74,36 82,12 62,32" fill="#c49ab0"/><polygon points="73,34 78,18 65,31" fill="#f9c6d4"/>
-        <ellipse cx="45" cy="54" rx="30" ry="26" fill="#d4a8be"/>
-        <ellipse cx="27" cy="56" rx="9" ry="5.5" fill="#f0b8c8" opacity=".5"/><ellipse cx="63" cy="56" rx="9" ry="5.5" fill="#f0b8c8" opacity=".5"/>
-        <ellipse cx="32" cy="47" rx="6" ry="7" fill="#1a1220" style="animation:td-blink 4s 1s ease-in-out infinite;transform-origin:32px 47px;"/>
-        <circle cx="34" cy="45" r="2" fill="white"/>
-        <ellipse cx="58" cy="47" rx="6" ry="7" fill="#1a1220" style="animation:td-blink 4s 1.8s ease-in-out infinite;transform-origin:58px 47px;"/>
-        <circle cx="60" cy="45" r="2" fill="white"/>
-        <polygon points="45,56 42,59 48,59" fill="#F9A8D4"/>
-        <path d="M41,60 Q45,64 49,60" stroke="#a0607a" stroke-width="1.2" fill="none"/>
-        <line x1="12" y1="54" x2="35" y2="56" stroke="#b08898" stroke-width=".9" opacity=".7"/><line x1="12" y1="58" x2="35" y2="58" stroke="#b08898" stroke-width=".9" opacity=".7"/>
-        <line x1="55" y1="56" x2="78" y2="54" stroke="#b08898" stroke-width=".9" opacity=".7"/><line x1="55" y1="58" x2="78" y2="58" stroke="#b08898" stroke-width=".9" opacity=".7"/>
-      </svg></div>`;
+    // 🐱 고양이 - Twemoji, 우하단 빼꼼
+    decos.cat = `<div style="position:fixed;bottom:-130px;right:16px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
+      <img src="${T}/1f431.svg" width="88" height="88" style="display:block;" /></div>`;
 
-    decos.dog = `<div style="position:fixed;bottom:-120px;right:8px;animation:td-slideup .7s .3s cubic-bezier(.34,1.56,.64,1) forwards;">
-      <svg viewBox="0 0 120 90" width="120" height="90" xmlns="http://www.w3.org/2000/svg">
-        <g style="transform-origin:12px 48px;animation:td-tailwag .55s ease-in-out infinite;">
-          <ellipse cx="12" cy="36" rx="7" ry="20" fill="#A07030" transform="rotate(-15,12,36)"/>
-        </g>
-        <ellipse cx="28" cy="46" rx="13" ry="20" fill="#7a5020" transform="rotate(-12,28,46)"/>
-        <ellipse cx="88" cy="46" rx="13" ry="20" fill="#7a5020" transform="rotate(12,88,46)"/>
-        <ellipse cx="58" cy="55" rx="34" ry="30" fill="#C4913A"/>
-        <ellipse cx="58" cy="40" rx="20" ry="15" fill="#9a7020"/>
-        <ellipse cx="40" cy="49" rx="7.5" ry="7.5" fill="#180f04"/><circle cx="42" cy="47" r="2.2" fill="white"/>
-        <ellipse cx="76" cy="49" rx="7.5" ry="7.5" fill="#180f04"/><circle cx="78" cy="47" r="2.2" fill="white"/>
-        <ellipse cx="58" cy="60" rx="9" ry="6.5" fill="#2d1808"/>
-        <ellipse cx="55" cy="58" rx="3.5" ry="2" fill="#5d3818" opacity=".6"/>
-        <path d="M50,66 Q58,73 66,66" stroke="#9a7020" stroke-width="1.8" fill="none"/>
-        <ellipse cx="38" cy="82" rx="15" ry="9" fill="#C4913A"/>
-        <ellipse cx="78" cy="82" rx="15" ry="9" fill="#C4913A"/>
-      </svg></div>`;
+    // 🐶 강아지 - Twemoji, 우하단 빼꼼 + 바운스
+    decos.dog = `<div style="position:fixed;bottom:65px;right:14px;animation:td-bounce 1.2s ease-in-out infinite;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
+      <img src="${T}/1f436.svg" width="84" height="84" style="display:block;" /></div>`;
 
-    decos.frog = `<div style="position:fixed;bottom:0;left:6px;pointer-events:none;">
-      <svg viewBox="0 0 105 85" width="105" height="85" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="52" cy="76" rx="46" ry="10" fill="#15803d" opacity=".9"/>
-        <line x1="52" y1="76" x2="52" y2="66" stroke="#15803d" stroke-width="2.5"/>
-        <path d="M25,76 Q52,60 79,76" stroke="#166534" stroke-width="1.5" fill="none" opacity=".5"/>
-        <ellipse cx="52" cy="60" rx="23" ry="18" fill="#4ade80"/>
-        <ellipse cx="52" cy="64" rx="15" ry="12" fill="#86efac"/>
-        <ellipse cx="30" cy="70" rx="11" ry="6" fill="#4ade80" transform="rotate(-20,30,70)"/>
-        <ellipse cx="74" cy="70" rx="11" ry="6" fill="#4ade80" transform="rotate(20,74,70)"/>
-        <ellipse cx="34" cy="67" rx="8" ry="4.5" fill="#4ade80"/>
-        <ellipse cx="70" cy="67" rx="8" ry="4.5" fill="#4ade80"/>
-        <ellipse cx="38" cy="44" rx="10" ry="10" fill="#4ade80"/>
-        <ellipse cx="66" cy="44" rx="10" ry="10" fill="#4ade80"/>
-        <ellipse cx="38" cy="44" rx="8" ry="8" fill="#111" style="animation:td-blink 3.5s 1s ease-in-out infinite;transform-origin:38px 44px;"/>
-        <ellipse cx="66" cy="44" rx="8" ry="8" fill="#111" style="animation:td-blink 3.5s 2s ease-in-out infinite;transform-origin:66px 44px;"/>
-        <circle cx="40" cy="42" r="2.8" fill="white"/><circle cx="68" cy="42" r="2.8" fill="white"/>
-        <path d="M42,57 Q52,63 62,57" stroke="#16a34a" stroke-width="1.5" fill="none"/>
-        <circle cx="48" cy="54" r="1.8" fill="#166534"/><circle cx="56" cy="54" r="1.8" fill="#166534"/>
-      </svg></div>`;
+    // 🐸 개구리 - Twemoji, 좌하단
+    decos.frog = `<div style="position:fixed;bottom:65px;left:14px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
+      <img src="${T}/1f438.svg" width="78" height="78" style="display:block;" /></div>`;
 
-    decos.rabbit = `<div style="position:fixed;top:0;right:22px;pointer-events:none;">
-      <svg viewBox="0 0 64 95" width="64" height="95" xmlns="http://www.w3.org/2000/svg">
-        <g style="transform-origin:22px 2px;animation:td-earwig 2.2s ease-in-out infinite;">
-          <ellipse cx="22" cy="34" rx="10" ry="34" fill="#ddd0ee"/>
-          <ellipse cx="22" cy="34" rx="6" ry="28" fill="#f0c8e0"/>
-        </g>
-        <g style="transform-origin:42px 2px;animation:td-earwig 2.2s .6s ease-in-out infinite;">
-          <ellipse cx="42" cy="34" rx="10" ry="34" fill="#ddd0ee"/>
-          <ellipse cx="42" cy="34" rx="6" ry="28" fill="#f0c8e0"/>
-        </g>
-        <ellipse cx="32" cy="88" rx="26" ry="22" fill="#ddd0ee"/>
-        <ellipse cx="20" cy="86" rx="9" ry="5.5" fill="#f0c8e0" opacity=".5"/>
-        <ellipse cx="44" cy="86" rx="9" ry="5.5" fill="#f0c8e0" opacity=".5"/>
-        <ellipse cx="24" cy="79" rx="4.5" ry="5.5" fill="#18102a"/>
-        <ellipse cx="40" cy="79" rx="4.5" ry="5.5" fill="#18102a"/>
-        <circle cx="25.5" cy="77.5" r="1.8" fill="white"/><circle cx="41.5" cy="77.5" r="1.8" fill="white"/>
-        <polygon points="32,85 29,88 35,88" fill="#f9a8d4"/>
-        <path d="M28,89 Q32,93 36,89" stroke="#c084a8" stroke-width="1" fill="none"/>
-      </svg></div>`;
+    // 🐰 토끼 - Twemoji, 상단에서 귀만 내려옴
+    decos.rabbit = `<div style="position:fixed;top:-30px;right:20px;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3));">
+      <img src="${T}/1f430.svg" width="80" height="80" style="display:block;" /></div>`;
 
+    // 🍂 가을 - 낙엽
     decos.autumn = Array.from({length:10}, (_,i) => {
       const left = 4 + i*9 + (i%3)*3, delay = i*0.85, dur = 6 + (i%4)*1.5, px = (i%2===0?1:-1)*(14+i*3);
       return `<div style="position:fixed;top:-60px;left:${left}%;--tdx:${px}px;animation:td-leaf ${dur}s ${delay}s linear infinite;">${leafSvg(leafColors[i%leafColors.length])}</div>`;
     }).join('');
 
+    // ❄️ 겨울 - 눈송이 + 쌓인 눈 (nav 위까지만)
     decos.winter = Array.from({length:12}, (_,i) => {
-      const left = 3 + i*8 + (i%3)*2, delay = i*0.65, dur = 5.5 + (i%4)*1.2, px = (i%2===0?1:-1)*(10+i*2), sc = 0.6 + (i%3)*0.2;
+      const left = 3 + i*8 + (i%3)*2, delay = i*0.65, dur = 5.5 + (i%4)*1.2, px = (i%2===0?1:-1)*(10+i*2), sc = (0.6 + (i%3)*0.2).toFixed(1);
       return `<div style="position:fixed;top:-40px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-snow ${dur}s ${delay}s linear infinite;">${snowSvg}</div>`;
-    }).join('') + `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 36" preserveAspectRatio="none" width="100%" height="36" xmlns="http://www.w3.org/2000/svg"><path d="M0,36 Q30,14 60,22 Q90,32 120,18 Q150,6 180,20 Q210,33 240,16 Q270,4 300,20 Q330,34 360,18 Q385,8 400,16 L400,36 Z" fill="rgba(255,255,255,0.18)"/><path d="M0,36 Q25,26 50,30 Q80,36 110,26 Q140,18 170,28 Q200,36 230,24 Q260,14 290,26 Q320,36 350,24 Q375,16 400,22 L400,36 Z" fill="rgba(255,255,255,0.3)"/></svg></div>`;
+    }).join('') + `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 30" preserveAspectRatio="none" width="100%" height="30" xmlns="http://www.w3.org/2000/svg"><path d="M0,30 Q30,10 60,18 Q90,28 120,14 Q150,4 180,16 Q210,28 240,12 Q270,2 300,16 Q330,28 360,14 Q385,6 400,12 L400,30 Z" fill="rgba(255,255,255,0.18)"/><path d="M0,30 Q25,22 50,26 Q80,30 110,22 Q140,14 170,24 Q200,30 230,20 Q260,12 290,22 Q320,30 350,20 Q375,14 400,18 L400,30 Z" fill="rgba(255,255,255,0.3)"/></svg></div>`;
 
+    // 🌆 도시 - 빌딩 실루엣 (nav 바로 위)
     const wS = (d,s) => `style="animation:td-citylight ${s}s ${d}s ease-in-out infinite;" opacity=".85"`;
-    decos.city = `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 115" preserveAspectRatio="none" width="100%" height="115" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0" y="55" width="38" height="60" fill="#0f1e30"/>
+    decos.city = `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;"><svg viewBox="0 0 400 110" preserveAspectRatio="none" width="100%" height="110" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="55" width="38" height="55" fill="#0f1e30"/>
         <rect x="6" y="64" width="9" height="6" fill="#FDE68A" ${wS(.3,2.1)}/><rect x="20" y="64" width="9" height="6" fill="#FDE68A" ${wS(1.1,3.2)}/><rect x="6" y="77" width="9" height="6" fill="#93C5FD" ${wS(.7,2.7)}/>
-        <rect x="32" y="28" width="48" height="87" fill="#162030"/>
-        <line x1="56" y1="10" x2="56" y2="28" stroke="#162030" stroke-width="4"/><circle cx="56" cy="10" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2s ease-in-out infinite;"/>
-        <rect x="40" y="40" width="10" height="7" fill="#FDE68A" ${wS(0,1.8)}/><rect x="57" y="40" width="10" height="7" fill="#FDE68A" ${wS(.5,2.5)}/><rect x="40" y="56" width="10" height="7" fill="#93C5FD" ${wS(1.3,3.1)}/><rect x="57" y="56" width="10" height="7" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="40" y="72" width="10" height="7" fill="#FDE68A" ${wS(1.6,3.3)}/>
-        <rect x="75" y="58" width="30" height="57" fill="#0f1e30"/>
-        <rect x="82" y="66" width="8" height="6" fill="#FDE68A" ${wS(.6,2.4)}/><rect x="93" y="66" width="8" height="6" fill="#93C5FD" ${wS(1.5,3.5)}/>
-        <rect x="102" y="38" width="55" height="77" fill="#162030"/>
-        <rect x="110" y="50" width="11" height="8" fill="#FDE68A" ${wS(.2,2.2)}/><rect x="128" y="50" width="11" height="8" fill="#FDE68A" ${wS(.8,1.6)}/><rect x="110" y="66" width="11" height="8" fill="#93C5FD" ${wS(1.2,2.8)}/><rect x="128" y="66" width="11" height="8" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="110" y="82" width="11" height="8" fill="#FDE68A" ${wS(1.6,3.3)}/>
-        <rect x="152" y="62" width="32" height="53" fill="#0f1e30"/>
-        <rect x="160" y="72" width="8" height="6" fill="#FDE68A" ${wS(.1,1.7)}/><rect x="172" y="72" width="8" height="6" fill="#FDE68A" ${wS(1.0,2.6)}/>
-        <rect x="178" y="46" width="62" height="69" fill="#162030"/>
-        <line x1="209" y1="18" x2="209" y2="46" stroke="#162030" stroke-width="4"/><circle cx="209" cy="18" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2.4s .8s ease-in-out infinite;"/>
-        <rect x="186" y="58" width="12" height="8" fill="#FDE68A" ${wS(0,2.0)}/><rect x="204" y="58" width="12" height="8" fill="#93C5FD" ${wS(.6,3.0)}/><rect x="222" y="58" width="12" height="8" fill="#FDE68A" ${wS(1.4,1.8)}/><rect x="186" y="74" width="12" height="8" fill="#93C5FD" ${wS(.3,2.4)}/><rect x="204" y="74" width="12" height="8" fill="#FDE68A" ${wS(1.0,2.0)}/><rect x="222" y="74" width="12" height="8" fill="#FDE68A" ${wS(1.6,3.1)}/>
-        <rect x="235" y="52" width="42" height="63" fill="#0f1e30"/>
-        <rect x="243" y="63" width="10" height="7" fill="#FDE68A" ${wS(.5,2.9)}/><rect x="258" y="63" width="10" height="7" fill="#FDE68A" ${wS(1.1,1.6)}/><rect x="243" y="78" width="10" height="7" fill="#93C5FD" ${wS(.7,2.3)}/>
-        <rect x="272" y="28" width="58" height="87" fill="#162030"/>
-        <rect x="280" y="42" width="12" height="8" fill="#FDE68A" ${wS(.2,2.1)}/><rect x="298" y="42" width="12" height="8" fill="#FDE68A" ${wS(1.0,3.4)}/><rect x="316" y="42" width="12" height="8" fill="#93C5FD" ${wS(.6,1.9)}/><rect x="280" y="58" width="12" height="8" fill="#FDE68A" ${wS(1.3,2.7)}/><rect x="298" y="58" width="12" height="8" fill="#FDE68A" ${wS(.4,1.4)}/><rect x="280" y="74" width="12" height="8" fill="#93C5FD" ${wS(1.5,2.2)}/>
-        <rect x="324" y="55" width="38" height="60" fill="#0f1e30"/>
-        <rect x="332" y="64" width="9" height="7" fill="#FDE68A" ${wS(.8,2.5)}/><rect x="346" y="64" width="9" height="7" fill="#93C5FD" ${wS(.3,1.7)}/><rect x="332" y="79" width="9" height="7" fill="#FDE68A" ${wS(1.2,3.1)}/>
-        <rect x="356" y="44" width="44" height="71" fill="#162030"/>
-        <line x1="378" y1="22" x2="378" y2="44" stroke="#162030" stroke-width="4"/><circle cx="378" cy="22" r="3.5" fill="#FF6B6B" style="animation:td-redlight 1.8s 1.2s ease-in-out infinite;"/>
-        <rect x="364" y="56" width="10" height="7" fill="#FDE68A" ${wS(.7,2.0)}/><rect x="379" y="56" width="10" height="7" fill="#93C5FD" ${wS(.2,1.8)}/><rect x="364" y="72" width="10" height="7" fill="#FDE68A" ${wS(1.4,2.8)}/><rect x="379" y="72" width="10" height="7" fill="#FDE68A" ${wS(.9,3.2)}/>
-        <rect x="0" y="113" width="400" height="3" fill="#1e3a5f" opacity=".5"/>
-        <line x1="0" y1="114" x2="400" y2="114" stroke="#FDE68A" stroke-width=".8" stroke-dasharray="18,14" opacity=".25"/>
+        <rect x="32" y="25" width="48" height="85" fill="#162030"/>
+        <line x1="56" y1="8" x2="56" y2="25" stroke="#162030" stroke-width="4"/><circle cx="56" cy="8" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2s ease-in-out infinite;"/>
+        <rect x="40" y="38" width="10" height="7" fill="#FDE68A" ${wS(0,1.8)}/><rect x="57" y="38" width="10" height="7" fill="#FDE68A" ${wS(.5,2.5)}/><rect x="40" y="54" width="10" height="7" fill="#93C5FD" ${wS(1.3,3.1)}/><rect x="57" y="54" width="10" height="7" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="40" y="70" width="10" height="7" fill="#FDE68A" ${wS(1.6,3.3)}/>
+        <rect x="75" y="55" width="30" height="55" fill="#0f1e30"/>
+        <rect x="82" y="65" width="8" height="6" fill="#FDE68A" ${wS(.6,2.4)}/><rect x="93" y="65" width="8" height="6" fill="#93C5FD" ${wS(1.5,3.5)}/>
+        <rect x="102" y="35" width="55" height="75" fill="#162030"/>
+        <rect x="110" y="48" width="11" height="8" fill="#FDE68A" ${wS(.2,2.2)}/><rect x="128" y="48" width="11" height="8" fill="#FDE68A" ${wS(.8,1.6)}/><rect x="110" y="64" width="11" height="8" fill="#93C5FD" ${wS(1.2,2.8)}/><rect x="128" y="64" width="11" height="8" fill="#FDE68A" ${wS(.4,2.0)}/><rect x="110" y="80" width="11" height="8" fill="#FDE68A" ${wS(1.6,3.3)}/>
+        <rect x="152" y="60" width="32" height="50" fill="#0f1e30"/>
+        <rect x="160" y="70" width="8" height="6" fill="#FDE68A" ${wS(.1,1.7)}/><rect x="172" y="70" width="8" height="6" fill="#FDE68A" ${wS(1.0,2.6)}/>
+        <rect x="178" y="42" width="62" height="68" fill="#162030"/>
+        <line x1="209" y1="16" x2="209" y2="42" stroke="#162030" stroke-width="4"/><circle cx="209" cy="16" r="3.5" fill="#FF6B6B" style="animation:td-redlight 2.4s .8s ease-in-out infinite;"/>
+        <rect x="186" y="55" width="12" height="8" fill="#FDE68A" ${wS(0,2.0)}/><rect x="204" y="55" width="12" height="8" fill="#93C5FD" ${wS(.6,3.0)}/><rect x="222" y="55" width="12" height="8" fill="#FDE68A" ${wS(1.4,1.8)}/><rect x="186" y="71" width="12" height="8" fill="#93C5FD" ${wS(.3,2.4)}/><rect x="204" y="71" width="12" height="8" fill="#FDE68A" ${wS(1.0,2.0)}/><rect x="222" y="71" width="12" height="8" fill="#FDE68A" ${wS(1.6,3.1)}/>
+        <rect x="235" y="50" width="42" height="60" fill="#0f1e30"/>
+        <rect x="243" y="61" width="10" height="7" fill="#FDE68A" ${wS(.5,2.9)}/><rect x="258" y="61" width="10" height="7" fill="#FDE68A" ${wS(1.1,1.6)}/><rect x="243" y="76" width="10" height="7" fill="#93C5FD" ${wS(.7,2.3)}/>
+        <rect x="272" y="25" width="58" height="85" fill="#162030"/>
+        <rect x="280" y="40" width="12" height="8" fill="#FDE68A" ${wS(.2,2.1)}/><rect x="298" y="40" width="12" height="8" fill="#FDE68A" ${wS(1.0,3.4)}/><rect x="316" y="40" width="12" height="8" fill="#93C5FD" ${wS(.6,1.9)}/><rect x="280" y="56" width="12" height="8" fill="#FDE68A" ${wS(1.3,2.7)}/><rect x="298" y="56" width="12" height="8" fill="#FDE68A" ${wS(.4,1.4)}/><rect x="280" y="72" width="12" height="8" fill="#93C5FD" ${wS(1.5,2.2)}/>
+        <rect x="324" y="52" width="38" height="58" fill="#0f1e30"/>
+        <rect x="332" y="62" width="9" height="7" fill="#FDE68A" ${wS(.8,2.5)}/><rect x="346" y="62" width="9" height="7" fill="#93C5FD" ${wS(.3,1.7)}/><rect x="332" y="77" width="9" height="7" fill="#FDE68A" ${wS(1.2,3.1)}/>
+        <rect x="356" y="40" width="44" height="70" fill="#162030"/>
+        <line x1="378" y1="18" x2="378" y2="40" stroke="#162030" stroke-width="4"/><circle cx="378" cy="18" r="3.5" fill="#FF6B6B" style="animation:td-redlight 1.8s 1.2s ease-in-out infinite;"/>
+        <rect x="364" y="54" width="10" height="7" fill="#FDE68A" ${wS(.7,2.0)}/><rect x="379" y="54" width="10" height="7" fill="#93C5FD" ${wS(.2,1.8)}/><rect x="364" y="70" width="10" height="7" fill="#FDE68A" ${wS(1.4,2.8)}/><rect x="379" y="70" width="10" height="7" fill="#FDE68A" ${wS(.9,3.2)}/>
       </svg></div>`;
 
+    // 🌌 우주 - 별 + 행성 (nav 위까지)
     const stars = Array.from({length:28}, (_,i) => {
-      const x=(Math.random()*100).toFixed(1), y=(Math.random()*65).toFixed(1), s=(.4+Math.random()*1.8).toFixed(1), dur=(1.2+Math.random()*2.5).toFixed(1), delay=(Math.random()*3).toFixed(1);
+      const x=(Math.random()*100).toFixed(1), y=(Math.random()*60).toFixed(1), s=(.4+Math.random()*1.8).toFixed(1), dur=(1.2+Math.random()*2.5).toFixed(1), delay=(Math.random()*3).toFixed(1);
       return `<circle cx="${x}%" cy="${y}%" r="${s}" fill="white" style="animation:td-twinkle ${dur}s ${delay}s ease-in-out infinite;"/>`;
     }).join('');
-    decos.space = `<svg style="position:fixed;top:0;left:0;width:100%;height:65%;pointer-events:none;" xmlns="http://www.w3.org/2000/svg">${stars}</svg>
+    decos.space = `<svg style="position:fixed;top:0;left:0;width:100%;height:calc(100% - 65px);pointer-events:none;" xmlns="http://www.w3.org/2000/svg">${stars}</svg>
       <div style="position:fixed;top:8%;right:10%;animation:td-float 4s ease-in-out infinite;pointer-events:none;">
         <svg viewBox="0 0 52 52" width="52" height="52" xmlns="http://www.w3.org/2000/svg">
           <ellipse cx="26" cy="26" rx="38" ry="9" fill="none" stroke="#A78BFA" stroke-width="3.5" opacity=".55" transform="rotate(-20,26,26)"/>
           <circle cx="26" cy="26" r="20" fill="#7C3AED"/>
           <circle cx="18" cy="18" r="6" fill="#6D28D9" opacity=".45"/>
-          <circle cx="30" cy="30" r="3.5" fill="#5b21b6" opacity=".35"/>
         </svg></div>
-      <div style="position:fixed;top:28%;left:7%;animation:td-float 7s 2.5s ease-in-out infinite;pointer-events:none;">
+      <div style="position:fixed;top:30%;left:7%;animation:td-float 7s 2.5s ease-in-out infinite;pointer-events:none;">
         <svg viewBox="0 0 36 36" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
           <circle cx="18" cy="18" r="15" fill="#DB2777"/>
           <circle cx="11" cy="12" r="5" fill="#be185d" opacity=".38"/>
         </svg></div>`;
 
-    decos.sea = `<div style="position:fixed;bottom:0;left:0;width:100%;pointer-events:none;overflow:hidden;">
-      <svg viewBox="0 0 400 58" preserveAspectRatio="none" width="100%" height="58" xmlns="http://www.w3.org/2000/svg">
-        <g style="animation:td-wave 3.2s ease-in-out infinite;"><path d="M-50,28 Q0,8 50,28 Q100,48 150,28 Q200,8 250,28 Q300,48 350,28 Q400,8 450,28 L450,58 L-50,58 Z" fill="rgba(34,211,238,0.22)"/></g>
-        <g style="animation:td-wave 3.2s .6s ease-in-out infinite;"><path d="M-50,36 Q0,20 50,36 Q100,52 150,36 Q200,20 250,36 Q300,52 350,36 Q400,20 450,36 L450,58 L-50,58 Z" fill="rgba(34,211,238,0.32)"/></g>
-        <path d="M0,46 Q50,36 100,44 Q150,52 200,42 Q250,34 300,44 Q350,52 400,44 L400,58 L0,58 Z" fill="rgba(8,145,178,0.48)"/>
+    // 🌊 바다 - 파도 (nav 바로 위) + 물고기
+    decos.sea = `<div style="position:fixed;bottom:65px;left:0;width:100%;pointer-events:none;overflow:hidden;">
+      <svg viewBox="0 0 400 52" preserveAspectRatio="none" width="100%" height="52" xmlns="http://www.w3.org/2000/svg">
+        <g style="animation:td-wave 3.2s ease-in-out infinite;"><path d="M-50,24 Q0,6 50,24 Q100,42 150,24 Q200,6 250,24 Q300,42 350,24 Q400,6 450,24 L450,52 L-50,52 Z" fill="rgba(34,211,238,0.22)"/></g>
+        <g style="animation:td-wave 3.2s .6s ease-in-out infinite;"><path d="M-50,32 Q0,18 50,32 Q100,46 150,32 Q200,18 250,32 Q300,46 350,32 Q400,18 450,32 L450,52 L-50,52 Z" fill="rgba(34,211,238,0.32)"/></g>
+        <path d="M0,42 Q50,32 100,40 Q150,48 200,38 Q250,30 300,40 Q350,48 400,40 L400,52 L0,52 Z" fill="rgba(8,145,178,0.48)"/>
       </svg></div>
-      <div style="position:fixed;bottom:18px;left:-80px;pointer-events:none;animation:td-swim 13s 1.5s linear infinite;">
+      <div style="position:fixed;bottom:80px;left:-80px;pointer-events:none;animation:td-swim 13s 1.5s linear infinite;">
         <svg viewBox="0 0 64 32" width="64" height="32" xmlns="http://www.w3.org/2000/svg">
           <path d="M54,16 Q40,4 20,10 Q4,14 6,16 Q4,18 20,22 Q40,28 54,16Z" fill="#22D3EE"/>
           <path d="M58,16 L70,8 L70,24 Z" fill="#06B6D4"/>
           <circle cx="22" cy="14.5" r="3.5" fill="#0e7490"/><circle cx="23.5" cy="13" r="1.2" fill="white"/>
         </svg></div>
-      <div style="position:fixed;bottom:26px;left:-70px;pointer-events:none;animation:td-swim 20s 9s linear infinite;">
+      <div style="position:fixed;bottom:90px;left:-70px;pointer-events:none;animation:td-swim 20s 9s linear infinite;">
         <svg viewBox="0 0 50 26" width="50" height="26" xmlns="http://www.w3.org/2000/svg">
           <path d="M44,13 Q32,4 16,8 Q4,11 6,13 Q4,15 16,18 Q32,22 44,13Z" fill="#F472B6"/>
           <path d="M48,13 L58,7 L58,19 Z" fill="#EC4899"/>
           <circle cx="18" cy="11.5" r="2.8" fill="#be185d"/><circle cx="19.5" cy="10" r="1" fill="white"/>
         </svg></div>`;
 
+    // 🌸 봄 - 꽃잎
     decos.spring = Array.from({length:12}, (_,i) => {
       const left = 2 + i*8 + (i%4)*2, delay = i*0.7, dur = 5 + (i%5)*1.3, px = (i%2===0?1:-1)*(18+i*3), sc = (.65 + (i%4)*.15).toFixed(2);
       return `<div style="position:fixed;top:-50px;left:${left}%;--tdx:${px}px;transform:scale(${sc});animation:td-petal ${dur}s ${delay}s linear infinite;">${petalSvg}</div>`;
@@ -1921,7 +1880,7 @@
       const div = document.createElement('div');
       div.id = `deco-${id}`;
       div.className = 'theme-deco';
-      div.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:8000;overflow:hidden;';
+      div.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:90;overflow:hidden;';
       div.innerHTML = decos[id] || '';
       document.body.appendChild(div);
     });
