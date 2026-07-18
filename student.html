@@ -375,7 +375,7 @@
   .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; overflow-y:auto; }
   .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
   .bg-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-  .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:1; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#333; }
+  .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:4/3; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#1a1a2a; }
   .bg-card.active { border-color:#fff; }
   .bg-card img, .bg-card .bg-card-inner { width:100%; height:100%; object-fit:cover; display:block; }
   .bg-card-label { position:absolute; bottom:0; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:white; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:6px 2px 3px; }
@@ -384,8 +384,8 @@
   .palette-dot.active { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.4); }
   /* 테마 활성시 glassmorphism */
   body.theme-active { color:white !important; --text1:white!important; --text2:rgba(255,255,255,0.75)!important; --text3:rgba(255,255,255,0.55)!important; --text4:rgba(255,255,255,0.4)!important; background-color:#0a0a14!important; }
-  body.theme-active .note-card { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.13)!important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-  body.theme-active .note-card.has-solution { background:rgba(255,255,255,0.12)!important; }
+  body.theme-active .note-card { background:rgba(0,0,0,0.58)!important; border-color:rgba(255,255,255,0.13)!important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  body.theme-active .note-card.has-solution { background:rgba(0,0,0,0.62)!important; }
   body.theme-active .note-memo, body.theme-active .note-date, body.theme-active .note-unit-tag { color:rgba(255,255,255,0.7)!important; }
   body.theme-active input, body.theme-active textarea { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
   body.theme-active input::placeholder, body.theme-active textarea::placeholder { color:rgba(255,255,255,0.4)!important; }
@@ -1775,43 +1775,43 @@
     { id:'cat',    name:'고양이', emoji:'🐱', photos:[
       U+'1514888286974-6c03e2ca1dba', U+'1533743983955-94a2793a8b59',
       U+'1573865526182-6b0d2cfef098', U+'1592194996308-7b43878e84a6',
-      U+'1574158622682-e719b1cb9db2'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1574158622682-e719b1cb9db2'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'dog',    name:'강아지', emoji:'🐶', photos:[
       U+'1587300003388-59208cc962cb', U+'1552053831-71594a27632d',
       U+'1537151625747-768eb2767fd7', U+'1583337130417-3346a1be7dee',
-      U+'1477949753-fc0e698bfbb3'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1477949753-fc0e698bfbb3'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'rabbit', name:'토끼',   emoji:'🐰', photos:[
       U+'1585110396000-c9ffd4e4b308', U+'1618149811729-f3e1a2a81ad4',
       U+'1548550421-e1a1da0a4f0a', U+'1517849845537-4d257902454a',
-      U+'1425082661705-d834c62d78c9'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1425082661705-d834c62d78c9'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'autumn', name:'가을',   emoji:'🍂', photos:[
       U+'1477414348463-c0eb2f2de0c6', U+'1508739773434-c26b3d09e071',
       U+'1472214103451-9374769b5d21', U+'1506905925346-21bda4d32df4',
-      U+'1507003211169-0a1dd7228f2d'.replace('0a1dd7228f2d','b4f3e0c0e0b3')].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1507003211169-0a1dd7228f2d'.replace('0a1dd7228f2d','b4f3e0c0e0b3')].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'winter', name:'겨울',   emoji:'❄️', photos:[
       U+'1491002052546-bf38f186af56', U+'1518467853662-7b450d63cb51',
       U+'1531405727-f2de23e11e76', U+'1514905552197-0a12f4b98f7c',
-      U+'1548423566-d1f6d86fd673'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1548423566-d1f6d86fd673'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'city',   name:'도시',   emoji:'🌆', photos:[
       U+'1477959858617-67f85cf4f1df', U+'1480714454-39a4dfaac2ce',
       U+'1496588152823-86ff7695e68f', U+'1519501025264-65ba15a82390',
-      U+'1534430480872-a2f1e1e1b6f2'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1534430480872-a2f1e1e1b6f2'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'space',  name:'우주',   emoji:'🌌', photos:[
       U+'1462331940025-496dfbfc7564', U+'1444703686981-a3abbc4d4fe3',
       U+'1451187580459-43490279c0fa', U+'1419242902214-272b3f66ee7a',
-      U+'1446776811805-4ffd9dec8ffa'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1446776811805-4ffd9dec8ffa'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'sea',    name:'바다',   emoji:'🌊', photos:[
       U+'1505118380757-91f5f5632de0', U+'1507525428034-b723cf961d3e',
       U+'1519046904884-53b09ef3ae5a', U+'1439405326-5adb14a5e1d8',
-      U+'1468581264429-2548ef9eb732'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1468581264429-2548ef9eb732'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'spring', name:'봄',     emoji:'🌸', photos:[
       U+'1522383225653-ed111181a951', U+'1490750967868-88bc4c0e1b99',
       U+'1462275646964-a0e3386b89ae', U+'1554143091-c894752f3a7f',
-      U+'1500534314209-a157f7fc5eda'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1500534314209-a157f7fc5eda'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'forest', name:'숲',     emoji:'🌲', photos:[
       U+'1448375240586-882707db888b', U+'1440342213634-28140b9eb14a',
       U+'1542273917363-3b1817f69a2d', U+'1448690390575-d64a59f98e56',
-      U+'1425913397705-1d4e15f55d8c'].map(u=>u+'?w=800&q=70&auto=format&fit=crop') },
+      U+'1425913397705-1d4e15f55d8c'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
   ];
 
   const COLOR_PALETTES = [
