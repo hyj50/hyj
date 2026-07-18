@@ -383,7 +383,10 @@
   .palette-dot { width:34px; height:34px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; flex-shrink:0; }
   .palette-dot.active { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.4); }
   /* 테마 활성시 glassmorphism */
-  body.theme-active { color:white !important; --text1:white!important; --text2:rgba(255,255,255,0.75)!important; --text3:rgba(255,255,255,0.55)!important; --text4:rgba(255,255,255,0.4)!important; background-color:#0a0a14!important; }
+  body.theme-active { color:white !important; background-color:#0a0a14!important;
+    --bg:rgba(0,0,0,0.55)!important; --bg2:rgba(0,0,0,0.52)!important; --bg3:rgba(255,255,255,0.08)!important; --bg4:rgba(0,0,0,0.45)!important;
+    --text1:white!important; --text2:rgba(255,255,255,0.75)!important; --text3:rgba(255,255,255,0.55)!important; --text4:rgba(255,255,255,0.4)!important;
+    --border:rgba(255,255,255,0.14)!important; --border2:rgba(255,255,255,0.22)!important; --green-light:rgba(255,255,255,0.1)!important; }
   body.theme-active .note-card { background:rgba(0,0,0,0.58)!important; border-color:rgba(255,255,255,0.13)!important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
   body.theme-active .note-card.has-solution { background:rgba(0,0,0,0.62)!important; }
   body.theme-active .note-memo, body.theme-active .note-date { color:rgba(255,255,255,0.7)!important; }
