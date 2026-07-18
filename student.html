@@ -386,7 +386,8 @@
   body.theme-active { color:white !important; --text1:white!important; --text2:rgba(255,255,255,0.75)!important; --text3:rgba(255,255,255,0.55)!important; --text4:rgba(255,255,255,0.4)!important; background-color:#0a0a14!important; }
   body.theme-active .note-card { background:rgba(0,0,0,0.58)!important; border-color:rgba(255,255,255,0.13)!important; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
   body.theme-active .note-card.has-solution { background:rgba(0,0,0,0.62)!important; }
-  body.theme-active .note-memo, body.theme-active .note-date, body.theme-active .note-unit-tag { color:rgba(255,255,255,0.7)!important; }
+  body.theme-active .note-memo, body.theme-active .note-date { color:rgba(255,255,255,0.7)!important; }
+  body.theme-active .note-unit-tag { background:rgba(255,255,255,0.15)!important; color:white!important; }
   body.theme-active input, body.theme-active textarea { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
   body.theme-active input::placeholder, body.theme-active textarea::placeholder { color:rgba(255,255,255,0.4)!important; }
   body.theme-active .note-unsorted-tag, body.theme-active .student-status-badge, body.theme-active .note-solution-tag, body.theme-active .note-retry-badge-s { background:rgba(255,255,255,0.12)!important; color:rgba(255,255,255,0.85)!important; border-color:rgba(255,255,255,0.2)!important; }
@@ -1773,9 +1774,9 @@
   const U = 'https://images.unsplash.com/photo-';
   const BG_PRESETS = [
     { id:'cat',    name:'고양이', emoji:'🐱', photos:[
-      U+'1514888286974-6c03e2ca1dba', U+'1533743983955-94a2793a8b59',
-      U+'1573865526182-6b0d2cfef098', U+'1592194996308-7b43878e84a6',
-      U+'1574158622682-e719b1cb9db2'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
+      U+'1514888286974-6c03e2ca1dba', U+'1529778873921-d58dc2a95c92',
+      U+'1519052537078-66c779e9c8e8', U+'1592194996308-7b43878e84a6',
+      U+'1596231155032-c9c1f2a44c70'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'dog',    name:'강아지', emoji:'🐶', photos:[
       U+'1587300003388-59208cc962cb', U+'1552053831-71594a27632d',
       U+'1537151625747-768eb2767fd7', U+'1583337130417-3346a1be7dee',
@@ -1785,7 +1786,7 @@
       U+'1548550421-e1a1da0a4f0a', U+'1517849845537-4d257902454a',
       U+'1425082661705-d834c62d78c9'].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'autumn', name:'가을',   emoji:'🍂', photos:[
-      U+'1477414348463-c0eb2f2de0c6', U+'1508739773434-c26b3d09e071',
+      U+'1507003211169-0a1dd7228f2d', U+'1508739773434-c26b3d09e071',
       U+'1472214103451-9374769b5d21', U+'1506905925346-21bda4d32df4',
       U+'1507003211169-0a1dd7228f2d'.replace('0a1dd7228f2d','b4f3e0c0e0b3')].map(u=>u+'?w=800&h=560&q=72&auto=format&fit=crop&crop=center') },
     { id:'winter', name:'겨울',   emoji:'❄️', photos:[
