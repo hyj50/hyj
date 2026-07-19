@@ -403,6 +403,10 @@
   body.theme-active .filter-btn, body.theme-active .tab-btn, body.theme-active .page-btn { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
   body.theme-active .form-label, body.theme-active .sub, body.theme-active h1, body.theme-active p { color:white!important; }
 </style>
+<script>
+MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div id="splash-screen">
@@ -2181,6 +2185,7 @@
     if (!v) { alert('문제를 불러올 수 없어요'); return; }
     _missionCurrent = v;
     document.getElementById('mission-problem-text').textContent = v.problem_text;
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('mission-problem-text')]).catch(()=>{});
     document.getElementById('mission-answer-input').value = '';
     document.getElementById('mission-solve-overlay').style.display = 'flex';
 
