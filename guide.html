@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오답 너 뒤졌다 · 사용 가이드</title>
+<style>
+  :root {
+    --ink: #1a1024;
+    --paper: #17101f;
+    --card: #221830;
+    --card2: #2b1f3d;
+    --pink: #E8639A;
+    --pink-soft: #F9A8D4;
+    --violet: #A78BFA;
+    --gold: #FDE68A;
+    --mint: #6EE7B7;
+    --tx1: #F5F0FA;
+    --tx2: rgba(245,240,250,0.72);
+    --tx3: rgba(245,240,250,0.5);
+    --line: rgba(249,168,212,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--paper);
+    color: var(--tx1);
+    font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    line-height: 1.7;
+    padding-bottom: 80px;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 0 1.2rem; }
+
+  /* 헤더 */
+  .hero {
+    padding: 3.2rem 0 2.4rem;
+    text-align: center;
+    background:
+      radial-gradient(ellipse 500px 260px at 50% -60px, rgba(232,99,154,0.22), transparent),
+      radial-gradient(ellipse 300px 200px at 85% 30%, rgba(167,139,250,0.12), transparent);
+  }
+  .hero-badge {
+    display: inline-block;
+    font-size: 12px; font-weight: 700;
+    color: var(--pink-soft);
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    padding: 5px 14px;
+    margin-bottom: 14px;
+    letter-spacing: 0.06em;
+  }
+  .hero h1 {
+    font-size: 30px; font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+  .hero h1 .accent { color: var(--pink); }
+  .hero p { font-size: 14px; color: var(--tx3); }
+
+  /* 대상 전환 탭 */
+  .role-tabs {
+    display: flex; gap: 8px;
+    margin: 1.6rem 0 2rem;
+    background: var(--card);
+    border-radius: 14px;
+    padding: 6px;
+  }
+  .role-tab {
+    flex: 1; padding: 11px;
+    border-radius: 10px; border: none;
+    background: none;
+    font-size: 14px; font-weight: 700;
+    color: var(--tx3); cursor: pointer;
+    font-family: inherit;
+    transition: all .2s;
+  }
+  .role-tab.active {
+    background: linear-gradient(135deg, var(--pink), #C94080);
+    color: white;
+  }
+  .role-panel { display: none; }
+  .role-panel.active { display: block; animation: fadein .3s ease; }
+  @keyframes fadein { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* 목차 */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 2rem;
+  }
+  .toc-title { font-size: 12px; font-weight: 800; color: var(--tx3); letter-spacing: 0.1em; margin-bottom: 10px; }
+  .toc a {
+    display: block;
+    color: var(--tx2); text-decoration: none;
+    font-size: 14px; font-weight: 600;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .toc a:last-child { border-bottom: none; }
+  .toc a:active { color: var(--pink-soft); }
+  .toc .num { color: var(--pink); font-weight: 800; margin-right: 8px; font-size: 12px; }
+
+  /* 섹션 */
+  section { margin-bottom: 2.6rem; scroll-margin-top: 20px; }
+  .sec-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 1rem;
+  }
+  .sec-emoji {
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    background: var(--card2);
+    border-radius: 13px;
+    flex-shrink: 0;
+  }
+  .sec-head h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .sec-head .sub { font-size: 12px; color: var(--tx3); font-weight: 600; }
+
+  /* 스텝 카드 */
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex; gap: 14px;
+  }
+  .step-n {
+    width: 26px; height: 26px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--pink), #C94080);
+    color: white; font-size: 13px; font-weight: 800;
+    border-radius: 8px;
+    margin-top: 2px;
+  }
+  .step-body { font-size: 14px; color: var(--tx2); }
+  .step-body b { color: var(--tx1); font-weight: 700; }
+  .step-body .hl { color: var(--pink-soft); font-weight: 700; }
+
+  /* 팁 박스 */
+  .tip {
+    background: linear-gradient(135deg, rgba(253,230,138,0.08), rgba(253,230,138,0.03));
+    border: 1px solid rgba(253,230,138,0.25);
+    border-radius: 13px;
+    padding: 12px 15px;
+    font-size: 13px;
+    color: var(--tx2);
+    margin-top: 10px;
+  }
+  .tip b { color: var(--gold); }
+  .tip.mint {
+    background: linear-gradient(135deg, rgba(110,231,183,0.08), rgba(110,231,183,0.03));
+    border-color: rgba(110,231,183,0.25);
+  }
+  .tip.mint b { color: var(--mint); }
+
+  /* 포인트 표 */
+  .pt-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: 14px;
+    overflow: hidden;
+    font-size: 13.5px;
+  }
+  .pt-table th {
+    background: var(--card2);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 12px; font-weight: 800;
+    color: var(--tx3);
+    letter-spacing: 0.05em;
+  }
+  .pt-table td { padding: 11px 14px; border-top: 1px solid var(--line); color: var(--tx2); }
+  .pt-table .amt { font-weight: 800; text-align: right; white-space: nowrap; }
+  .pt-table .plus { color: var(--mint); }
+  .pt-table .minus { color: #FB7185; }
+
+  footer {
+    text-align: center;
+    padding-top: 2rem;
+    font-size: 12px;
+    color: var(--tx3);
+    border-top: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="hero-badge">USER GUIDE</div>
+    <h1>오답 너 <span class="accent">뒤졌다</span> 📖</h1>
+    <p>오답을 올리고, 미션으로 복수하고, 포인트로 보상받는 법</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="role-tabs">
+    <button class="role-tab active" onclick="switchRole('student', this)">🎒 학생용</button>
+    <button class="role-tab" onclick="switchRole('teacher', this)">👩‍🏫 선생님용</button>
+  </div>
+
+  <!-- ══════════ 학생용 ══════════ -->
+  <div class="role-panel active" id="panel-student">
+
+    <div class="toc">
+      <div class="toc-title">차례</div>
+      <a href="#s1"><span class="num">01</span>오답 올리기</a>
+      <a href="#s2"><span class="num">02</span>내 오답노트 확인하기</a>
+      <a href="#s3"><span class="num">03</span>미션 도전하기</a>
+      <a href="#s4"><span class="num">04</span>포인트와 상점</a>
+      <a href="#s5"><span class="num">05</span>문의 게시판</a>
+      <a href="#s6"><span class="num">06</span>테마 꾸미기</a>
+    </div>
+
+    <section id="s1">
+      <div class="sec-head">
+        <div class="sec-emoji">📷</div>
+        <div>
+          <h2>오답 올리기</h2>
+          <div class="sub">틀린 문제를 기록하는 것부터 시작!</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">하단 <b>오답 올리기</b> 탭에서 <b>문제 사진</b>을 찍거나 앨범에서 선택해요 (필수)</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>내 풀이</b> 사진도 올리면 선생님이 어디서 틀렸는지 봐줄 수 있어요 (선택)</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><b>출처</b>(교과서 p.52, 모의고사 등)와 <b>메모</b>를 적으면 나중에 찾기 편해요</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body"><span class="hl">올리기 버튼</span>을 누르면 끝! 선생님이 검수해줄 거예요</div></div>
+      </div>
+      <div class="tip">💡 <b>검수 OK를 받으면 +10P!</b> 오답을 올리는 것 자체가 포인트가 돼요</div>
+    </section>
+
+    <section id="s2">
+      <div class="sec-head">
+        <div class="sec-emoji">📖</div>
+        <div>
+          <h2>내 오답노트</h2>
+          <div class="sub">내가 올린 오답을 모아보는 곳</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">카드마다 <b>검수 상태</b>가 보여요: ✅ 완료 / 🔄 다시풀기 / ⏳ 대기중</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body">선생님이 <b>모범풀이</b>를 올리면 카드에서 바로 볼 수 있어요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">사진을 탭하면 크게 보기! <b>두 손가락으로 확대</b>도 돼요</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body"><b>✏️ 수정</b> 버튼으로 출처와 메모를 나중에 고칠 수 있어요</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-body">🎲 <b>오늘의 오답 3문제 랜덤 복습</b>으로 가볍게 복습해보세요</div></div>
+      </div>
+      <div class="tip mint">🔔 선생님이 검수하거나 모범풀이·문의답변을 올리면 <b>앱 위쪽에 알림</b>이 떠요</div>
+    </section>
+
+    <section id="s3">
+      <div class="sec-head">
+        <div class="sec-emoji">🎯</div>
+        <div>
+          <h2>미션 도전</h2>
+          <div class="sub">내가 틀린 문제의 쌍둥이 문제에 도전!</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">검수 OK를 받은 오답에는 <b>숫자만 바뀐 변형문제</b>가 자동으로 생겨요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>미션 탭</b>에서 <span class="hl">도전!</span>을 누르면 문제와 함께 <b>타이머</b>가 시작돼요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">답은 <b>숫자로 직접 입력</b>해요 (분수는 48/5처럼 쓰면 돼요)</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body">정답이면 <span class="hl">+10P</span>! 틀리거나 시간이 끝나면 <b>내일 다시</b> 도전할 수 있어요</div></div>
+      </div>
+      <div class="tip">⚠️ 하루에 <b>3문제</b>까지만 도전할 수 있어요. 포기해도 그날은 재도전 불가!</div>
+    </section>
+
+    <section id="s4">
+      <div class="sec-head">
+        <div class="sec-emoji">💎</div>
+        <div>
+          <h2>포인트 &amp; 상점</h2>
+          <div class="sub">모은 포인트로 진짜 선물 받기</div>
+        </div>
+      </div>
+      <table class="pt-table">
+        <tr><th>이렇게 하면</th><th style="text-align:right;">포인트</th></tr>
+        <tr><td>오답 올리고 검수 OK 받기</td><td class="amt plus">+10P</td></tr>
+        <tr><td>미션 변형문제 정답</td><td class="amt plus">+10P</td></tr>
+        <tr><td>선생님 보너스</td><td class="amt plus">+α</td></tr>
+        <tr><td>상점에서 구매</td><td class="amt minus">−가격</td></tr>
+      </table>
+      <div class="steps" style="margin-top:10px;">
+        <div class="step"><div class="step-n">1</div><div class="step-body">미션 탭 상단의 <b>🏪 상점</b> 버튼을 눌러요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body">갖고 싶은 아이템을 <b>구매</b>하면 포인트가 차감돼요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">선생님이 확인하고 <b>직접 전달</b>해줘요. 조금만 기다리기!</div></div>
+      </div>
+    </section>
+
+    <section id="s5">
+      <div class="sec-head">
+        <div class="sec-emoji">💬</div>
+        <div>
+          <h2>문의 게시판</h2>
+          <div class="sub">궁금한 건 언제든지</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">제목과 내용을 쓰고, 필요하면 <b>📎 사진도 첨부</b>할 수 있어요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body">선생님 답변이 달리면 <b>알림</b>으로 알려줘요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">댓글에 <b>답글</b>을 달면서 이어서 질문할 수도 있어요</div></div>
+      </div>
+    </section>
+
+    <section id="s6">
+      <div class="sec-head">
+        <div class="sec-emoji">🎨</div>
+        <div>
+          <h2>테마 꾸미기</h2>
+          <div class="sub">내 앱은 내 취향대로</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">앱 맨 위 <b>🎨 버튼</b>을 눌러요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>배경 사진</b>을 고르거나(테마 탭 → 5장 중 선택) <b>📷 내 사진</b>을 올려요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><b>포인트 색상</b>도 따로 고를 수 있어요 (10가지)</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body">한 번 정하면 다음에 들어와도 유지! <b>초기화</b>로 되돌릴 수 있어요</div></div>
+      </div>
+      <div class="tip mint">🖼️ 내 사진은 자동으로 압축되고, 어두운 필터가 깔려서 글씨는 항상 잘 보여요</div>
+    </section>
+
+  </div>
+
+  <!-- ══════════ 선생님용 ══════════ -->
+  <div class="role-panel" id="panel-teacher">
+
+    <div class="toc">
+      <div class="toc-title">차례</div>
+      <a href="#t1"><span class="num">01</span>오답 검수하기</a>
+      <a href="#t2"><span class="num">02</span>변형문제 검수 (AI)</a>
+      <a href="#t3"><span class="num">03</span>포인트 관리</a>
+      <a href="#t4"><span class="num">04</span>상점 운영</a>
+      <a href="#t5"><span class="num">05</span>문의 답변 · 순위</a>
+    </div>
+
+    <section id="t1">
+      <div class="sec-head">
+        <div class="sec-emoji">✅</div>
+        <div>
+          <h2>오답 검수</h2>
+          <div class="sub">학생 오답을 확인하고 처리하는 기본 흐름</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">학생을 선택하면 그 학생의 오답 목록이 보여요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>✅ OK</b> → 검수 완료 + 학생에게 <span class="hl">+10P 자동 지급</span> + <b>AI 변형문제 자동 생성</b></div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><b>🔄 다시풀기</b> → 학생 앱에 "다시 풀어야 함" 알림이 떠요</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body"><b>모범풀이 사진</b>을 올리면 학생 카드에서 바로 보여요</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-body">단원 분류를 해두면 학생의 <b>약점 단원 TOP 3</b>가 자동 집계돼요</div></div>
+      </div>
+    </section>
+
+    <section id="t2">
+      <div class="sec-head">
+        <div class="sec-emoji">🤖</div>
+        <div>
+          <h2>변형문제 검수</h2>
+          <div class="sub">AI가 만든 문제, 승인은 선생님이</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body">오답을 ✅ OK 하면 AI가 <b>숫자만 바꾼 변형문제 + 정답</b>을 만들어요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>🎯 미션 탭 → 변형문제 검수</b>에서 문제와 답을 확인해요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">답이 틀렸으면 <b>직접 수정</b>하고 <span class="hl">✅ 승인</span> — 승인해야 학생 미션에 나와요</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body">문제가 이상하면 <b>🔄 재생성</b>, 필요 없으면 <b>🗑️ 삭제</b></div></div>
+      </div>
+      <div class="tip">⚠️ AI 생성은 <b>하루 20회</b>까지예요. 한도를 넘으면 알림이 뜨고, 다음날 재생성 버튼으로 만들 수 있어요</div>
+      <div class="tip mint">🧮 수식은 자동으로 <b>교과서 스타일</b>로 예쁘게 표시돼요 (MathJax)</div>
+    </section>
+
+    <section id="t3">
+      <div class="sec-head">
+        <div class="sec-emoji">💎</div>
+        <div>
+          <h2>포인트 관리</h2>
+          <div class="sub">적립·차감·내역까지 한 곳에서</div>
+        </div>
+      </div>
+      <table class="pt-table">
+        <tr><th>적립/차감 항목</th><th style="text-align:right;">포인트</th></tr>
+        <tr><td>오답 검수 OK (자동)</td><td class="amt plus">+10P</td></tr>
+        <tr><td>미션 변형문제 정답 (자동)</td><td class="amt plus">+10P</td></tr>
+        <tr><td>보너스 점수 지급</td><td class="amt plus">+α</td></tr>
+        <tr><td>직접 지급/차감 (미션탭)</td><td class="amt plus">±α</td></tr>
+        <tr><td>학생 상점 구매 (자동)</td><td class="amt minus">−가격</td></tr>
+      </table>
+      <div class="steps" style="margin-top:10px;">
+        <div class="step"><div class="step-n">1</div><div class="step-body"><b>🎯 미션 탭 → 학생 포인트 현황</b>에서 전체 잔액을 한눈에</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body"><b>학생 이름을 탭</b>하면 적립/사용 내역이 전부 보여요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><b>✋ 직접 지급/차감</b>: 학생 선택 + 포인트 + 사유 입력. <span class="hl">음수를 넣으면 차감</span>돼요 (예: -20)</div></div>
+      </div>
+    </section>
+
+    <section id="t4">
+      <div class="sec-head">
+        <div class="sec-emoji">🏪</div>
+        <div>
+          <h2>상점 운영</h2>
+          <div class="sub">포인트를 진짜 보상으로</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body"><b>미션 탭 → 상점 관리</b>에서 이모지·이름·가격·재고를 넣고 <b>등록</b></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body">학생이 구매하면 <b>구매 내역</b>에 "OO이 → 아이템" 으로 떠요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body">실물을 전달하고 <span class="hl">지급하기</span>를 누르면 완료 처리돼요</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body">아이템 옆 <b>✕</b>를 누르면 상점에서 내려요 (재고는 구매 시 자동 감소)</div></div>
+      </div>
+    </section>
+
+    <section id="t5">
+      <div class="sec-head">
+        <div class="sec-emoji">💬</div>
+        <div>
+          <h2>문의 답변 · 순위</h2>
+          <div class="sub">소통과 동기부여</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-body"><b>문의 탭</b>에서 학생 질문에 답변을 달아요 — 학생 앱에 알림이 가요</div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-body">학생이 사진을 첨부했으면 탭해서 크게 볼 수 있어요</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-body"><b>🏆 순위 탭</b>은 이번 달 활동 순위예요 (검수 OK 1건 = 10점 + 보너스)</div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-body">순위 탭에서 <b>보너스 점수</b>를 주면 순위와 포인트에 동시 반영돼요</div></div>
+      </div>
+      <div class="tip mint">📊 순위는 <b>이번 달 활동량</b> 기준이라, 학생이 상점에서 포인트를 써도 순위는 안 떨어져요</div>
+    </section>
+
+  </div>
+
+  <footer>
+    오답 너 뒤졌다 · 채움수학학원<br>
+    궁금한 건 앱의 💬 문의 게시판으로!
+  </footer>
+
+</div>
+
+<script>
+  function switchRole(role, btn) {
+    document.querySelectorAll('.role-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + role).classList.add('active');
+    document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    window.scrollTo({ top: 0 });
+  }
+</script>
+</body>
+</html>
