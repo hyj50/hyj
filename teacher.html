@@ -2024,10 +2024,13 @@
       return;
     }
     box.innerHTML = students.map(s => `
-      <div onclick="openPointHistory('${s.id}','${s.name.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:10px 14px;cursor:pointer;">
+      <div class="pt-student-row" data-sid="${s.id}" data-sname="${s.name}" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:10px 14px;cursor:pointer;">
         <span style="font-size:13.5px;font-weight:700;color:var(--text1);">${s.name}</span>
         <span style="font-size:14px;font-weight:800;color:var(--pink);">💎 ${s.mission_points || 0}P</span>
       </div>`).join('');
+    box.querySelectorAll('.pt-student-row').forEach(el => {
+      el.addEventListener('click', () => openPointHistory(el.dataset.sid, el.dataset.sname));
+    });
     const sel = document.getElementById('pt-give-student');
     if (sel) sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   }
