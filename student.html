@@ -2235,6 +2235,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ mission_points: newPts })
       });
+      await fetch(`${SUPABASE_URL}/rest/v1/point_logs`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ student_id: studentId, amount: POINT_PER_PROBLEM, reason: '미션 변형문제 정답' })
+      });
       alert(`🎉 정답! +${POINT_PER_PROBLEM}P 획득! (현재 ${newPts}P)`);
     } else {
       alert('😢 아쉽게 오답이에요. 내일 다시 도전할 수 있어요!');
@@ -2310,6 +2314,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     await fetch(`${SUPABASE_URL}/rest/v1/purchases`, {
       method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
       body: JSON.stringify({ student_id: studentId, item_id: itemId, item_name: itemName, price })
+    });
+    await fetch(`${SUPABASE_URL}/rest/v1/point_logs`, {
+      method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+      body: JSON.stringify({ student_id: studentId, amount: -price, reason: `상점 구매: ${itemName}` })
     });
     alert('🎉 구매 완료! 선생님이 확인 후 전달해줄 거예요');
     openShop();

@@ -447,6 +447,13 @@
   <!-- 순위표 탭 -->
   <!-- 미션 관리 탭 -->
   <div class="main-tab-panel" id="main-tab-mission">
+    <!-- 학생 포인트 현황 -->
+    <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">💎 학생 포인트 현황</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">학생을 탭하면 적립/사용 내역을 볼 수 있어요</div>
+      <div id="point-overview-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+
     <!-- 변형문제 검수 대기 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🤖 변형문제 검수</div>
@@ -1538,6 +1545,8 @@
 
       const stu = getCurrentStudent();
       if (stu) grantScoreboardPoint(stu);
+      // 통합 포인트: 검수 OK +10P
+      grantPoints(e.student_id, 10, '오답 검수 완료');
       await refreshCurrentEntries();
       // 변형문제 자동생성 (백그라운드)
       generateVariation(e);
@@ -1977,6 +1986,65 @@
   }
 
   // ===== 점수판 연동 =====
+  // ===== 통합 포인트 시스템 =====
+  async function grantPoints(studentId, amount, reason) {
+    try {
+      const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${studentId}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
+      const cur = stu[0]?.mission_points || 0;
+      await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${studentId}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mission_points: cur + amount })
+      });
+      await fetch(`${SUPABASE_URL}/rest/v1/point_logs`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ student_id: studentId, amount, reason })
+      });
+    } catch(e) { console.error('grantPoints:', e); }
+  }
+
+  async function loadPointOverview() {
+    const box = document.getElementById('point-overview-list');
+    if (!box) return;
+    const students = await fetch(`${SUPABASE_URL}/rest/v1/students?select=id,name,mission_points&order=mission_points.desc`, { headers: sbHeaders() }).then(r => r.json());
+    if (!Array.isArray(students) || students.length === 0) {
+      box.innerHTML = '<div style="font-size:12.5px;color:var(--text4);text-align:center;padding:10px;">학생이 없어요</div>';
+      return;
+    }
+    box.innerHTML = students.map(s => `
+      <div onclick="openPointHistory('${s.id}','${s.name.replace(/'/g,"\\'")}')" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:10px 14px;cursor:pointer;">
+        <span style="font-size:13.5px;font-weight:700;color:var(--text1);">${s.name}</span>
+        <span style="font-size:14px;font-weight:800;color:var(--pink);">💎 ${s.mission_points || 0}P</span>
+      </div>`).join('');
+  }
+
+  async function openPointHistory(studentId, name) {
+    const logs = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${studentId}&order=created_at.desc&limit=50`, { headers: sbHeaders() }).then(r => r.json());
+    const listHtml = (Array.isArray(logs) && logs.length)
+      ? logs.map(l => {
+          const d = new Date(l.created_at).toLocaleDateString('ko-KR', {month:'numeric',day:'numeric'});
+          const plus = l.amount > 0;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+            <div>
+              <div style="font-size:13px;color:var(--text1);">${l.reason}</div>
+              <div style="font-size:11px;color:var(--text4);">${d}</div>
+            </div>
+            <span style="font-size:14px;font-weight:800;color:${plus?'#34D399':'#FB7185'};">${plus?'+':''}${l.amount}P</span>
+          </div>`;
+        }).join('')
+      : '<div style="font-size:12.5px;color:var(--text4);text-align:center;padding:14px;">내역이 없어요</div>';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'point-history-overlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9500;display:flex;align-items:flex-end;justify-content:center;';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `<div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:1.4rem 1.4rem 2rem;width:100%;max-width:480px;max-height:75vh;overflow-y:auto;">
+      <div style="font-size:15px;font-weight:800;color:var(--text1);margin-bottom:12px;">💎 ${name} 포인트 내역</div>
+      ${listHtml}
+      <button onclick="document.getElementById('point-history-overlay').remove()" style="width:100%;margin-top:14px;padding:11px;border-radius:10px;border:1.5px solid var(--border2);background:none;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;">닫기</button>
+    </div>`;
+    document.body.appendChild(overlay);
+  }
+
   function grantScoreboardPoint(stu) {
     try {
       const raw = localStorage.getItem('quest_students');
@@ -2685,9 +2753,8 @@
 
       notes.forEach(n => {
         if (!scores[n.student_id]) return;
-        scores[n.student_id].uploads += 1; // 올리기 1점
         if (n.review_status === 'approved' || (n.solved && !n.review_status)) {
-          scores[n.student_id].approved += 5; // OK 받으면 5점
+          scores[n.student_id].approved += 10; // 검수 OK 통합 10점
         }
       });
 
@@ -2789,6 +2856,9 @@
       });
       if (!res.ok) throw new Error(await res.text());
 
+      // 통합 포인트에도 적립
+      await grantPoints(studentId, points, memo ? `보너스: ${memo}` : '보너스 점수');
+
       alert(`✅ ${studentName}에게 보너스 ${points}점 지급 완료!`);
       document.getElementById('bonus-points').value = '';
       document.getElementById('bonus-memo').value = '';
@@ -2806,7 +2876,7 @@
     document.getElementById('main-tab-' + tab).classList.add('active');
     if (tab === 'qna') loadTeacherQnA(1);
     if (tab === 'rank') loadLeaderboard();
-    if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); }
+    if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); }
   }
 
   function showTeacherUploadOptions(entryId) {
