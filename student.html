@@ -558,6 +558,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
       <!-- 미션 탭 -->
       <div class="tab-panel" id="tab-mission">
+        <!-- 칭호 배지 -->
+        <div id="rank-badge"></div>
         <!-- 포인트 표시 -->
         <div style="background:linear-gradient(135deg,#7C3AED,#4C1D95);border-radius:16px;padding:1.1rem 1.3rem;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;color:white;">
           <div>
@@ -754,6 +756,76 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }, extra || {});
   }
 
+  // ===== 레벨 · 칭호 시스템 =====
+  // 누적 획득P(point_logs의 양수 amount 합계) ÷ 100 = 레벨
+  // 상점 구매(-P)는 누적 획득에서 안 빠짐 → 한번 오른 칭호는 안 내려감
+  const RANK_TITLES = [
+    { min: 0,  name: '이름없는' },
+    { min: 2,  name: '풋내기' },
+    { min: 4,  name: '성실한' },
+    { min: 7,  name: '노력하는' },
+    { min: 10, name: '재능있는' },
+    { min: 14, name: '명석한' },
+    { min: 18, name: '비범한' },
+    { min: 23, name: '천재적인' },
+    { min: 28, name: '경이로운' },
+    { min: 35, name: '전설의' },
+    { min: 45, name: '초월한' },
+  ];
+
+  function calcRank(total) {
+    const level = Math.floor(total / 100);
+    let idx = 0;
+    for (let i = 0; i < RANK_TITLES.length; i++) {
+      if (level >= RANK_TITLES[i].min) idx = i;
+    }
+    const cur = RANK_TITLES[idx];
+    const next = RANK_TITLES[idx + 1] || null;
+    return {
+      level,
+      title: cur.name,
+      nextTitle: next ? next.name : null,
+      levelsToNextTitle: next ? (next.min - level) : 0,
+      intoLevel: total % 100,       // 현재 레벨 진행도 (0~99) → 프로그레스바 %
+      toNextLevel: 100 - (total % 100),
+      total
+    };
+  }
+
+  async function updateRankUI(studentId) {
+    if (!studentId) return;
+    try {
+      const logs = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${studentId}&select=amount`, { headers: sbHeaders() }).then(r => r.json());
+      const total = (logs || []).reduce((s, l) => s + (l.amount > 0 ? l.amount : 0), 0);
+      const prog = calcRank(total);
+      const name = sessionStorage.getItem('my_student_name') || document.getElementById('logged-in-name')?.textContent?.replace(/^✅\s*/, '') || '';
+
+      // 상단 로그인 이름 → '초월한 수학자 오시윤' 형식
+      const nameLabel = document.getElementById('logged-in-name');
+      if (nameLabel) nameLabel.textContent = `✅ ${prog.title} 수학자 ${name}`;
+
+      // 미션 탭 칭호 배지
+      const badge = document.getElementById('rank-badge');
+      if (badge) {
+        const nextLine = prog.nextTitle
+          ? `다음 칭호 <b>${prog.nextTitle}</b>까지 ${prog.levelsToNextTitle}레벨`
+          : `최고 칭호 달성! 👑`;
+        badge.innerHTML = `
+          <div style="background:linear-gradient(135deg,#B45309,#7C2D12);border-radius:16px;padding:1.1rem 1.3rem;margin-bottom:14px;color:white;box-shadow:0 6px 20px rgba(180,83,9,0.35);">
+            <div style="font-size:12px;opacity:.8;font-weight:600;margin-bottom:2px;">🏅 나의 칭호</div>
+            <div style="font-size:20px;font-weight:800;margin-bottom:2px;">${prog.title} 수학자 ${name}</div>
+            <div style="font-size:12px;opacity:.85;font-weight:600;margin-bottom:10px;">Lv.${prog.level} · 누적 ${total}P</div>
+            <div style="height:7px;background:rgba(255,255,255,0.25);border-radius:7px;overflow:hidden;margin-bottom:6px;">
+              <div style="height:100%;width:${prog.intoLevel}%;background:white;border-radius:7px;transition:width .6s;"></div>
+            </div>
+            <div style="font-size:11px;opacity:.8;">${nextLine} · 다음 레벨까지 ${prog.toNextLevel}P</div>
+          </div>`;
+      }
+    } catch (e) {
+      console.error('updateRankUI error:', e);
+    }
+  }
+
   let pendingFiles = { problem: null, mine: null };
   let currentEntries = [];
   let viewFilter = 'all';
@@ -843,6 +915,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       if (_notifInterval) clearInterval(_notifInterval);
       _notifInterval = setInterval(() => checkNotifications(studentId), 30000);
       loadStudentTheme(studentId);
+      updateRankUI(studentId);
     }
   }
 
@@ -2181,6 +2254,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${studentId}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
     const pts = stu[0]?.mission_points || 0;
     document.getElementById('my-mission-points').textContent = `💎 ${pts}P`;
+    updateRankUI(studentId);
 
     const box = document.getElementById('mission-problem-list');
 
