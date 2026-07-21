@@ -407,6 +407,7 @@
     <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋<br>오답노트</button>
     <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬<br>문의</button>
     <button class="main-tab-btn" data-main-tab="mission" onclick="switchMainTab('mission')">🎯<br>미션</button>
+    <button class="main-tab-btn" data-main-tab="theme" onclick="switchMainTab('theme')">🎨<br>테마</button>
   </div>
 
   <!-- 오답노트 탭 -->
@@ -501,6 +502,18 @@
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:12px;">🛍️ 구매 내역 (지급 대기)</div>
       <div id="purchase-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </div>
+
+  <!-- 테마 관리 탭 -->
+  <div class="main-tab-panel" id="main-tab-theme">
+    <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="font-size:15px;font-weight:800;color:var(--text1);margin-bottom:4px;">🎨 배경 테마 관리</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px;">여기 올린 사진이 학생앱 테마 화면에서 <b>배경 선택지</b>로 나와요. 여러 장 한 번에 올릴 수 있어요.</div>
+      <input type="file" id="theme-bg-file" accept="image/*" multiple style="display:none;" onchange="uploadThemeBg(event)" />
+      <button onclick="document.getElementById('theme-bg-file').click()" id="theme-upload-btn" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">📷 배경 사진 올리기</button>
+      <div id="theme-bg-status" style="font-size:12px;color:var(--text3);margin-bottom:10px;display:none;"></div>
+      <div id="theme-bg-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
     </div>
   </div>
 
@@ -2756,6 +2769,69 @@
     document.getElementById('main-tab-' + tab).classList.add('active');
     if (tab === 'qna') loadTeacherQnA(1);
     if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
+    if (tab === 'theme') loadThemeBgs();
+  }
+
+  // ===== 배경 테마 관리 =====
+  async function loadThemeBgs() {
+    const list = document.getElementById('theme-bg-list');
+    list.innerHTML = '<div style="grid-column:1/-1;font-size:12px;color:var(--text4);text-align:center;padding:16px;">불러오는 중...</div>';
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds?select=*&order=sort_order.asc,created_at.asc`, { headers: sbHeaders() }).then(r => r.json());
+      if (!Array.isArray(rows) || rows.length === 0) {
+        list.innerHTML = '<div style="grid-column:1/-1;font-size:12px;color:var(--text4);text-align:center;padding:22px;">아직 올린 배경이 없어요.<br>위 버튼으로 사진을 올려보세요!</div>';
+        return;
+      }
+      list.innerHTML = rows.map(r => `
+        <div style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:3/4;background:var(--bg3);">
+          <img src="${r.image_url}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.opacity=.25" />
+          <button onclick="deleteThemeBg('${r.id}')" title="삭제" style="position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(0,0,0,0.62);color:white;font-size:12px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>`).join('');
+    } catch (e) {
+      console.error(e);
+      list.innerHTML = '<div style="grid-column:1/-1;font-size:12px;color:#e11d48;text-align:center;padding:16px;">불러오기 실패 — theme_backgrounds 테이블이 만들어졌는지 확인해주세요.</div>';
+    }
+  }
+
+  async function uploadThemeBg(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const status = document.getElementById('theme-bg-status');
+    const btn = document.getElementById('theme-upload-btn');
+    btn.disabled = true; btn.style.opacity = .6;
+    status.style.display = 'block';
+    let done = 0, fail = 0;
+    for (let i = 0; i < files.length; i++) {
+      try {
+        status.textContent = `업로드 중... (${i + 1}/${files.length})`;
+        const blob = await compressImage(files[i], 1400, 0.82);
+        const fileName = `theme_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.jpg`;
+        const up = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, {
+          method: 'POST', headers: sbHeaders({ 'Content-Type': 'image/jpeg' }), body: blob
+        });
+        if (!up.ok) throw new Error(await up.text());
+        const url = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
+        const ins = await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds`, {
+          method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+          body: JSON.stringify({ name: (files[i].name || '배경').replace(/\.[^.]+$/, ''), image_url: url, sort_order: Date.now() % 1000000 })
+        });
+        if (!ins.ok) throw new Error(await ins.text());
+        done++;
+      } catch (err) { console.error(err); fail++; }
+    }
+    btn.disabled = false; btn.style.opacity = 1;
+    e.target.value = '';
+    status.textContent = `✅ ${done}장 업로드 완료` + (fail ? ` · ⚠️ ${fail}장 실패` : '');
+    setTimeout(() => { status.style.display = 'none'; }, 3500);
+    loadThemeBgs();
+  }
+
+  async function deleteThemeBg(id) {
+    if (!confirm('이 배경을 삭제할까요? (이미 이 배경을 쓰고 있는 학생은 다음에 다른 걸 고르면 돼요)')) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+      loadThemeBgs();
+    } catch (e) { alert('삭제 실패. 다시 시도해주세요.'); }
   }
 
   function showTeacherUploadOptions(entryId) {

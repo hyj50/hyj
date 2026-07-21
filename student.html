@@ -2062,24 +2062,14 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     applyBg(src);
   }
 
-  function openThemePanel() {
+  let _themeBgs = [];
+  async function openThemePanel() {
     const studentId = document.getElementById('student-select').value;
-    const savedBg = localStorage.getItem(`bg_${studentId}`) || 'none';
     const savedPalette = localStorage.getItem(`palette_${studentId}`) || 'rose';
-
-    // 배경 사진 그리드
-    const bgGrid = document.getElementById('bg-grid');
     const savedPhotoUrl = localStorage.getItem(`bg_photo_url_${studentId}`) || '';
-    bgGrid.innerHTML = BG_PRESETS.map(p => `
-      <div class="bg-card ${savedBg===p.id?'active':''}" onclick="expandTheme('${p.id}')">
-        <img src="${p.photos[0].replace('w=800','w=120')}" alt="${p.name}" loading="lazy" onerror="this.style.display='none'" />
-        <div class="bg-card-label">${p.emoji} ${p.name}</div>
-      </div>`).join('') +
-      `<div class="bg-card ${savedBg==='custom'?'active':''}" onclick="document.getElementById('bg-custom-input').click()" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:rgba(255,255,255,0.08);border:1.5px dashed rgba(255,255,255,0.3);">
-        <span style="font-size:22px;">📷</span>
-        <span style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:600;">내 사진</span>
-      </div>
-      <input type="file" id="bg-custom-input" class="file-input-hidden" accept="image/*" onchange="onCustomBgSelect(event)" />`;
+
+    const bgGrid = document.getElementById('bg-grid');
+    bgGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:rgba(255,255,255,0.5);padding:14px;">배경 불러오는 중...</div>';
 
     // 색상 팔레트
     const paletteRow = document.getElementById('palette-row');
@@ -2089,42 +2079,40 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
            onclick="selectPalette('${p.id}')"></div>`).join('');
 
     document.getElementById('theme-overlay').classList.add('show');
+
+    // 내 사진 카드 (항상 있음)
+    const customActive = localStorage.getItem(`bg_${studentId}`) === 'custom';
+    const customCard = `
+      <div class="bg-card ${customActive?'active':''}" onclick="document.getElementById('bg-custom-input').click()" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:rgba(255,255,255,0.08);border:1.5px dashed rgba(255,255,255,0.3);">
+        <span style="font-size:22px;">📷</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:600;">내 사진</span>
+      </div>
+      <input type="file" id="bg-custom-input" class="file-input-hidden" accept="image/*" onchange="onCustomBgSelect(event)" />`;
+
+    // 선생님이 올린 배경 불러오기
+    try {
+      _themeBgs = await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds?select=*&order=sort_order.asc,created_at.asc`, { headers: sbHeaders() }).then(r => r.json());
+      if (!Array.isArray(_themeBgs)) _themeBgs = [];
+    } catch (e) { _themeBgs = []; }
+
+    if (_themeBgs.length === 0) {
+      bgGrid.innerHTML = customCard +
+        '<div style="grid-column:1/-1;font-size:11px;color:rgba(255,255,255,0.45);text-align:center;padding:10px;">선생님이 올린 배경이 아직 없어요 🙂</div>';
+    } else {
+      bgGrid.innerHTML = _themeBgs.map(b => `
+        <div class="bg-card ${savedPhotoUrl===b.image_url?'active':''}" onclick="selectBg('${b.image_url}')">
+          <img src="${b.image_url}" alt="${b.name||''}" loading="lazy" onerror="this.style.display='none'" />
+        </div>`).join('') + customCard;
+    }
   }
 
-  let _expandedTheme = null;
-  function expandTheme(id) {
-    const preset = BG_PRESETS.find(p => p.id === id);
-    if (!preset) return;
-    // 이미 열려있으면 닫기
-    const existing = document.getElementById('bg-sub-grid');
-    if (existing) existing.remove();
-    if (_expandedTheme === id) { _expandedTheme = null; return; }
-    _expandedTheme = id;
-    const sub = document.createElement('div');
-    sub.id = 'bg-sub-grid';
-    sub.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:2px;';
-    sub.innerHTML = preset.photos.map((url,i) => `
-      <div class="bg-card" onclick="selectBg('${id}','${url}')" style="border-radius:8px;">
-        <img src="${url.replace('w=800','w=100')}" loading="lazy" style="border-radius:6px;" />
-      </div>`).join('');
-    // bg-card 클릭한 카드 다음에 삽입
-    const bgGrid = document.getElementById('bg-grid');
-    bgGrid.appendChild(sub);
-    document.querySelectorAll('.bg-card').forEach(c => c.classList.remove('active'));
-    bgGrid.querySelectorAll('.bg-card')[BG_PRESETS.findIndex(p=>p.id===id)].classList.add('active');
-  }
-
-  function selectBg(id, url) {
+  function selectBg(url) {
     const studentId = document.getElementById('student-select').value;
-    localStorage.setItem(`bg_${studentId}`, id);
+    localStorage.setItem(`bg_${studentId}`, 'teacher');
     localStorage.setItem(`bg_photo_url_${studentId}`, url);
     applyBg(url);
-    document.querySelectorAll('#bg-grid .bg-card:not(#bg-sub-grid .bg-card)').forEach(c => c.classList.remove('active'));
-    const idx = BG_PRESETS.findIndex(p => p.id === id);
-    if (idx >= 0) document.querySelectorAll('#bg-grid > .bg-card')[idx]?.classList.add('active');
-    // 하위 그리드도 닫기
-    const sub = document.getElementById('bg-sub-grid');
-    if (sub) { _expandedTheme = null; setTimeout(() => sub.remove(), 300); }
+    document.querySelectorAll('#bg-grid .bg-card').forEach(c => c.classList.remove('active'));
+    if (typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('active');
   }
 
   function onCustomBgSelect(e) {
