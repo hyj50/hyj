@@ -252,7 +252,12 @@
     background: var(--green-light);
   }
   .note-card.rejected-card {
-    border-left: 4px solid #FF453A;
+    border: 2.5px solid #FF453A !important;
+    animation: rejectPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes rejectPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,69,58,0.45); }
+    50% { box-shadow: 0 0 0 6px rgba(255,69,58,0); }
   }
 
   .note-thumbs-row { display: flex; gap: 6px; margin-bottom: 8px; }
@@ -436,7 +441,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
 <div class="wrap" style="position:relative;z-index:1;">
   <div class="board">
-    <h1 style="display:flex;align-items:center;justify-content:space-between;"><span><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />오답 너 뒤졌다</span><span style="display:flex;gap:2px;"><button onclick="window.open('/guide','_blank')" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px;" title="사용법">📖</button><button onclick="openThemePanel()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px;" title="테마 꾸미기">🎨</button></span></h1>
+    <h1 style="display:flex;align-items:center;justify-content:space-between;"><span><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />오답 너 뒤졌다</span><span style="display:flex;gap:6px;"><button onclick="window.open('/guide','_blank')" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">📖</span><span style="font-size:9px;font-weight:700;color:var(--text3);">사용법</span></button><button onclick="openThemePanel()" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">🎨</span><span style="font-size:9px;font-weight:700;color:var(--text3);">테마</span></button></span></h1>
     <p class="sub">사진을 올리고, 선생님이 정리해주신 풀이를 확인해보세요</p>
 
     <!-- 로그인 영역 -->
@@ -1435,27 +1440,53 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     document.getElementById('note-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function renderWeaknessStudent(allRows) {
+  async function renderWeaknessStudent(allRows) {
     const container = document.getElementById('weakness-list-s');
     if (!container) return;
-    const withRetry = allRows.filter(e => (e.retry_count || 0) > 0 && e.minor_unit);
-    if (withRetry.length === 0) {
-      container.innerHTML = '<p class="weakness-empty-s">아직 틀린 횟수 데이터가 없어요 🎉</p>';
+    const classified = allRows.filter(e => e.minor_unit);
+    if (classified.length === 0) {
+      container.innerHTML = '<p class="weakness-empty-s">아직 분류된 오답이 없어요 🎉</p>';
       return;
     }
-    const counts = {};
-    withRetry.forEach(e => {
+
+    // 1) 기본: 중단원별 오답 개수
+    const stats = {}; // key → { wrongs, missionFails, score }
+    const noteUnit = {}; // note_id → key
+    classified.forEach(e => {
       const key = [e.subject, e.major_unit, e.minor_unit].filter(Boolean).join(' > ');
-      counts[key] = (counts[key] || 0) + (e.retry_count || 0);
+      if (!stats[key]) stats[key] = { wrongs: 0, missionFails: 0 };
+      stats[key].wrongs += 1;
+      noteUnit[e.id] = key;
     });
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+    // 2) 가중: 미션에서 틀린 변형문제(+2)
+    try {
+      const studentId = document.getElementById('student-select').value;
+      const fails = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?student_id=eq.${studentId}&correct=eq.false&select=variation_id,variations(note_id)`, { headers: sbHeaders() }).then(r => r.json());
+      if (Array.isArray(fails)) {
+        fails.forEach(f => {
+          const nid = f.variations?.note_id;
+          const key = nid && noteUnit[nid];
+          if (key && stats[key]) stats[key].missionFails += 1;
+        });
+      }
+    } catch(e) { console.error('weakness mission join:', e); }
+
+    // 3) 점수 = 오답수 + 미션오답×2
+    const sorted = Object.entries(stats)
+      .map(([key, s]) => [key, s.wrongs + s.missionFails * 2, s])
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
     const medals = ['🥇', '🥈', '🥉'];
-    container.innerHTML = sorted.map((item, i) =>
-      `<div class="weakness-item-s">
+    container.innerHTML = sorted.map((item, i) => {
+      const s = item[2];
+      const detail = `오답 ${s.wrongs}개` + (s.missionFails > 0 ? ` · 미션 ${s.missionFails}패` : '');
+      return `<div class="weakness-item-s">
         <span>${medals[i]} ${item[0]}</span>
-        <span class="weakness-count-s">총 ${item[1]}회 틀림</span>
-      </div>`
-    ).join('');
+        <span class="weakness-count-s">${detail}</span>
+      </div>`;
+    }).join('');
   }
 
   // 단원 검색

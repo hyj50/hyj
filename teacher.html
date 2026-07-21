@@ -406,7 +406,6 @@
   <div class="main-tab-bar">
     <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋<br>오답노트</button>
     <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬<br>문의</button>
-    <button class="main-tab-btn" data-main-tab="rank" onclick="switchMainTab('rank')">🏆<br>순위</button>
     <button class="main-tab-btn" data-main-tab="mission" onclick="switchMainTab('mission')">🎯<br>미션</button>
   </div>
 
@@ -447,6 +446,13 @@
   <!-- 순위표 탭 -->
   <!-- 미션 관리 탭 -->
   <div class="main-tab-panel" id="main-tab-mission">
+    <!-- 학생별 약점 단원 -->
+    <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">📊 학생별 약점 단원</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">오답 개수 + 미션 오답(×2 가중) 기준 TOP 3 — 수업 준비에 활용하세요</div>
+      <div id="weakness-teacher-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+
     <!-- 학생 포인트 현황 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">💎 학생 포인트 현황</div>
@@ -495,35 +501,6 @@
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:12px;">🛍️ 구매 내역 (지급 대기)</div>
       <div id="purchase-list" style="display:flex;flex-direction:column;gap:8px;"></div>
-    </div>
-  </div>
-
-  <div class="main-tab-panel" id="main-tab-rank">
-    <div class="leaderboard" id="leaderboard">
-      <div class="lb-header">
-        <span class="lb-title">🏆 월별 오답노트 순위</span>
-        <div class="lb-month-nav">
-          <button onclick="changeMonth(-1)">◀</button>
-          <span class="lb-month-label" id="lb-month-label"></span>
-          <button onclick="changeMonth(1)">▶</button>
-        </div>
-      </div>
-      <table class="lb-table">
-        <thead>
-          <tr><th>순위</th><th>이름</th><th>업로드</th><th>합격</th><th>보너스</th><th>총점</th></tr>
-        </thead>
-        <tbody id="lb-body"></tbody>
-      </table>
-      <div class="bonus-section">
-        <p style="font-size:12px;color:var(--text3);margin-bottom:8px;">🎁 보너스 점수 주기</p>
-        <div class="bonus-row">
-          <select id="bonus-student-select"></select>
-          <input type="number" id="bonus-points" placeholder="점수" min="1" max="100" />
-          <input type="text" id="bonus-memo" placeholder="사유 (선택)" maxlength="30" />
-          <button class="btn-bonus" onclick="giveBonus()">지급</button>
-        </div>
-        <div id="bonus-history" style="margin-top:12px;display:flex;flex-direction:column;gap:6px;"></div>
-      </div>
     </div>
   </div>
 
@@ -730,7 +707,6 @@
   };
 
   const STRUGGLE_THRESHOLD = 2; // 틀린 횟수(NO 받은 횟수) 2 이상이면 별표
-  const SCOREBOARD_POINT_PER_SOLVE = 5;
 
   // ===== 상태 =====
   let students = [];
@@ -1241,7 +1217,6 @@
   async function init() {
     await loadStudentsFromDB();
     renderSelect();
-    populateBonusSelect();
     if (!currentId && students.length > 0) currentId = students[0].id;
     await renderBoard();
     initLbMonth();
@@ -1361,13 +1336,11 @@
     const sel = document.getElementById('student-select');
     if (students.length === 0) {
       sel.innerHTML = '<option value="">학생을 추가해주세요</option>';
-      populateBonusSelect();
       return;
     }
     sel.innerHTML = students.map(s =>
       `<option value="${s.id}" ${s.id === currentId ? 'selected' : ''}>${s.name}${s.school ? ' · ' + s.school : ''}${s.grade ? ' · ' + s.grade : ''}${s.password ? ' 🔑' + s.password : ' (비번없음)'}</option>`
     ).join('');
-    populateBonusSelect();
   }
 
   // ===== 오답 데이터 로드 =====
@@ -1535,7 +1508,6 @@
     if (!currentId) return;
     currentEntries = await loadEntriesForStudent(currentId);
     renderStudentDetails();
-    loadLeaderboard();
   }
 
   // 다시풀기 체크 토글
@@ -1557,7 +1529,6 @@
       if (!res.ok) throw new Error(await res.text());
 
       const stu = getCurrentStudent();
-      if (stu) grantScoreboardPoint(stu);
       // 통합 포인트: 검수 OK +10P
       grantPoints(e.student_id, 10, '오답 검수 완료');
       await refreshCurrentEntries();
@@ -1584,6 +1555,10 @@
       });
       if (res.status === 429) {
         alert('⚠️ 오늘 AI 변형문제 생성 한도(20회)를 모두 썼어요.\n이 오답의 변형문제는 내일 미션탭에서 🔄 재생성으로 만들 수 있어요.');
+        return;
+      }
+      if (res.status === 503) {
+        alert('⚠️ AI 서버가 잠시 혼잡해요. 잠시 후 미션탭에서 🔄 재생성을 눌러주세요.');
         return;
       }
       if (!res.ok) { console.error('변형문제 생성 실패:', await res.text()); return; }
@@ -1618,7 +1593,7 @@
         return `<div style="background:var(--bg3);border-radius:12px;padding:12px;border:1px solid var(--border);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <span style="font-size:12px;font-weight:700;color:var(--pink);">${sname}</span>
-            <span style="font-size:11px;color:var(--text4);">제한 ${Math.round((v.time_limit_sec||300)/60)}분</span>
+            <span style="font-size:11px;color:var(--text4);">⏱ <input type="number" id="var-time-${v.id}" value="${Math.round((v.time_limit_sec||300)/60)}" min="1" max="60" style="width:44px;padding:3px 6px;border-radius:6px;border:1px solid var(--border2);font-size:12px;font-weight:700;background:var(--bg2);color:var(--text1);text-align:center;" />분</span>
           </div>
           ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="max-width:100%;max-height:110px;border-radius:8px;object-fit:contain;margin-bottom:8px;cursor:pointer;" onclick="openModal('${v.wrong_notes.image_url}')" />` : ''}
           <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${v.problem_text}</div>
@@ -1643,10 +1618,11 @@
   async function approveVariation(id) {
     const answer = document.getElementById(`var-answer-${id}`).value.trim();
     if (!answer) { alert('정답을 입력해주세요'); return; }
+    const mins = parseInt(document.getElementById(`var-time-${id}`)?.value) || 5;
     await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
       method: 'PATCH',
       headers: sbHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ approved: true, answer })
+      body: JSON.stringify({ approved: true, answer, time_limit_sec: mins * 60 })
     });
     loadVariationReviews();
   }
@@ -1663,6 +1639,7 @@
         body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id })
       });
       if (res.status === 429) { alert('⚠️ 오늘 AI 한도(20회)를 다 썼어요. 내일 다시 시도해주세요.'); return; }
+      if (res.status === 503) { alert('⚠️ AI 서버가 잠시 혼잡해요. 조금 있다 다시 눌러주세요.'); return; }
       const nv = await res.json();
       if (nv.error) { alert('재생성 실패: ' + nv.error); return; }
       await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
@@ -1762,7 +1739,7 @@
   async function rejectEntry(entryId) {
     const e = currentEntries.find(x => x.id === entryId);
     if (!e) return;
-    if (!confirm('다시 풀게 할까요? (틀린 횟수가 1 올라가요)')) return;
+    if (!confirm('다시 풀게 할까요? (틀린 횟수 +1, 기존 풀이 사진은 삭제돼요)')) return;
 
     const newRetry = (e.retry_count || 0) + 1;
 
@@ -1774,7 +1751,8 @@
           solved: false,
           review_status: 'rejected',
           retry_count: newRetry,
-          last_reviewed_date: todayStr()
+          last_reviewed_date: todayStr(),
+          image_mine_url: null
         })
       });
       if (!res.ok) throw new Error(await res.text());
@@ -2015,6 +1993,62 @@
     } catch(e) { console.error('grantPoints:', e); }
   }
 
+  // ===== 학생별 약점 단원 (오답수 + 미션오답×2) =====
+  async function loadWeaknessTeacher() {
+    const box = document.getElementById('weakness-teacher-list');
+    if (!box) return;
+    box.innerHTML = '<div style="font-size:12.5px;color:var(--text4);text-align:center;padding:10px;">계산 중...</div>';
+    try {
+      const [students, notes, fails] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/students?select=id,name&order=name.asc`, { headers: sbHeaders() }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?minor_unit=not.is.null&select=id,student_id,subject,major_unit,minor_unit`, { headers: sbHeaders() }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?correct=eq.false&select=student_id,variations(note_id)`, { headers: sbHeaders() }).then(r => r.json()),
+      ]);
+
+      // note_id → 단원 key
+      const noteUnit = {};
+      const perStudent = {}; // student_id → { key → {wrongs, missionFails} }
+      (Array.isArray(notes) ? notes : []).forEach(n => {
+        const key = [n.subject, n.major_unit, n.minor_unit].filter(Boolean).join(' > ');
+        noteUnit[n.id] = key;
+        if (!perStudent[n.student_id]) perStudent[n.student_id] = {};
+        if (!perStudent[n.student_id][key]) perStudent[n.student_id][key] = { wrongs: 0, missionFails: 0 };
+        perStudent[n.student_id][key].wrongs += 1;
+      });
+      (Array.isArray(fails) ? fails : []).forEach(f => {
+        const key = f.variations?.note_id && noteUnit[f.variations.note_id];
+        if (key && perStudent[f.student_id]?.[key]) perStudent[f.student_id][key].missionFails += 1;
+      });
+
+      const medals = ['🥇','🥈','🥉'];
+      const cards = (Array.isArray(students) ? students : []).map(s => {
+        const stats = perStudent[s.id];
+        if (!stats) return '';
+        const top3 = Object.entries(stats)
+          .map(([key, v]) => [key, v.wrongs + v.missionFails * 2, v])
+          .sort((a,b) => b[1] - a[1]).slice(0, 3);
+        if (top3.length === 0) return '';
+        const rows = top3.map((t, i) => {
+          const v = t[2];
+          const detail = `오답 ${v.wrongs}` + (v.missionFails > 0 ? ` · 미션 ${v.missionFails}패` : '');
+          return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--text2);padding:4px 0;">
+            <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${medals[i]} ${t[0]}</span>
+            <span style="flex-shrink:0;font-weight:700;color:var(--pink);">${detail}</span>
+          </div>`;
+        }).join('');
+        return `<div style="background:var(--bg3);border-radius:12px;padding:10px 14px;">
+          <div style="font-size:13px;font-weight:800;color:var(--text1);margin-bottom:4px;">${s.name}</div>
+          ${rows}
+        </div>`;
+      }).filter(Boolean).join('');
+
+      box.innerHTML = cards || '<div style="font-size:12.5px;color:var(--text4);text-align:center;padding:10px;">분류된 오답이 아직 없어요</div>';
+    } catch(e) {
+      console.error(e);
+      box.innerHTML = '<div style="font-size:12.5px;color:var(--text4);text-align:center;padding:10px;">불러오기 실패</div>';
+    }
+  }
+
   async function loadPointOverview() {
     const box = document.getElementById('point-overview-list');
     if (!box) return;
@@ -2076,44 +2110,7 @@
     document.body.appendChild(overlay);
   }
 
-  function grantScoreboardPoint(stu) {
-    try {
-      const raw = localStorage.getItem('quest_students');
-      if (!raw) return;
-      let qStudents = JSON.parse(raw);
-      const match = qStudents.find(q => q.name === stu.name);
-      if (!match) return;
 
-      const prevEarned = match.earnedTotal || 0;
-      match.score = (match.score || 0) + SCOREBOARD_POINT_PER_SOLVE;
-      match.earnedTotal = prevEarned + SCOREBOARD_POINT_PER_SOLVE;
-
-      const prevTickets = Math.floor(prevEarned / 20);
-      const newTickets = Math.floor(match.earnedTotal / 20);
-      const gained = newTickets - prevTickets;
-      if (gained > 0) {
-        match.tickets = (match.tickets || 0) + gained;
-      }
-
-      match.logs = match.logs || [];
-      match.logIdCounter = (match.logIdCounter || 0) + 1;
-      match.logs.push({
-        id: match.logIdCounter,
-        label: '오답노트 다시풀기 완료',
-        delta: SCOREBOARD_POINT_PER_SOLVE,
-        date: todayStr(),
-        time: new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }),
-        type: 'add'
-      });
-
-      localStorage.setItem('quest_students', JSON.stringify(qStudents));
-      if (gained > 0) {
-        setTimeout(() => alert(`🎟️ ${stu.name} 학생이 점수판에서 뽑기권 ${gained}장을 획득했어요!`), 100);
-      }
-    } catch (err) {
-      console.log('점수판 연동 스킵:', err);
-    }
-  }
 
   // ===== 카드 HTML (분류 폼 포함) =====
   function noteCardHtml(e) {
@@ -2738,167 +2735,19 @@
   }
   initLbMonth();
 
-  function changeMonth(delta) {
-    lbMonth += delta;
-    if (lbMonth > 12) { lbMonth = 1; lbYear++; }
-    if (lbMonth < 1) { lbMonth = 12; lbYear--; }
-    loadLeaderboard();
-  }
+
 
   function getMonthStr() {
     return `${lbYear}-${String(lbMonth).padStart(2, '0')}`;
   }
 
-  async function loadLeaderboard() {
-    const monthStr = getMonthStr();
-    document.getElementById('lb-month-label').textContent = `${lbYear}년 ${lbMonth}월`;
 
-    try {
-      // 해당 월의 모든 오답 데이터 가져오기
-      const nextMonth = lbMonth === 12 ? 1 : lbMonth + 1;
-      const nextYear = lbMonth === 12 ? lbYear + 1 : lbYear;
-      const dateFrom = `${monthStr}-01`;
-      const dateTo = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 
-      // entry_date 기준 + created_at 기준 둘 다 가져오기
-      const [notesRes1, notesRes2] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=gte.${dateFrom}&entry_date=lt.${dateTo}`, { headers: sbHeaders() }),
-        fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?select=student_id,entry_date,review_status,solved,created_at&entry_date=is.null&created_at=gte.${dateFrom}T00:00:00&created_at=lt.${dateTo}T00:00:00`, { headers: sbHeaders() })
-      ]);
-      const notes1 = await notesRes1.json();
-      const notes2 = await notesRes2.json();
-      const notes = [...(Array.isArray(notes1) ? notes1 : []), ...(Array.isArray(notes2) ? notes2 : [])];
 
-      // 해당 월의 보너스 포인트
-      const bonusRes = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=student_id,points&month=eq.${monthStr}`, {
-        headers: sbHeaders()
-      });
-      let bonuses = [];
-      try { bonuses = await bonusRes.json(); } catch(e) { bonuses = []; }
 
-      // 학생별 점수 계산
-      const scores = {};
-      students.forEach(s => {
-        scores[s.id] = { name: s.name, uploads: 0, approved: 0, bonus: 0, total: 0 };
-      });
 
-      notes.forEach(n => {
-        if (!scores[n.student_id]) return;
-        if (n.review_status === 'approved' || (n.solved && !n.review_status)) {
-          scores[n.student_id].approved += 10; // 검수 OK 통합 10점
-        }
-      });
 
-      if (Array.isArray(bonuses)) {
-        bonuses.forEach(b => {
-          if (!scores[b.student_id]) return;
-          scores[b.student_id].bonus += b.points;
-        });
-      }
 
-      // 총점 계산 & 정렬
-      const ranked = Object.values(scores).map(s => {
-        s.total = s.uploads + s.approved + s.bonus;
-        return s;
-      }).sort((a, b) => b.total - a.total);
-
-      const medals = ['🥇', '🥈', '🥉'];
-      const tbody = document.getElementById('lb-body');
-
-      if (ranked.length === 0 || ranked.every(r => r.total === 0)) {
-        tbody.innerHTML = `<tr><td colspan="6" class="lb-empty">이번 달 데이터가 아직 없어요</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = ranked.map((r, i) => `
-        <tr>
-          <td class="lb-rank">${i < 3 ? `<span class="lb-medal">${medals[i]}</span>` : (i + 1)}</td>
-          <td class="lb-name">${r.name}</td>
-          <td class="lb-detail">${r.uploads}점</td>
-          <td class="lb-detail">${r.approved}점</td>
-          <td class="lb-detail">${r.bonus > 0 ? '+' + r.bonus : '-'}</td>
-          <td class="lb-score">${r.total}점</td>
-        </tr>
-      `).join('');
-
-      // 보너스 내역 렌더링
-      const historyEl = document.getElementById('bonus-history');
-      if (historyEl) {
-        if (!Array.isArray(bonuses) || bonuses.length === 0) {
-          historyEl.innerHTML = '';
-        } else {
-          const bonusDetail = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?select=*&month=eq.${monthStr}&order=created_at.desc`, { headers: sbHeaders() });
-          const bonusData = await bonusDetail.json();
-          historyEl.innerHTML = `
-            <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px;">📋 이번 달 보너스 내역</div>
-            ${bonusData.map(b => {
-              const sName = students.find(s => s.id === b.student_id)?.name || '알 수 없음';
-              return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border-radius:10px;padding:8px 12px;font-size:13px;">
-                <span style="color:var(--text1);font-weight:600;">${sName}</span>
-                <span style="color:#854F0B;font-weight:700;">+${b.points}점 ${b.memo ? `(${b.memo})` : ''}</span>
-                <button onclick="cancelBonus('${b.id}')" style="background:none;border:none;color:#FF453A;font-size:13px;cursor:pointer;font-weight:600;">취소</button>
-              </div>`;
-            }).join('')}`;
-        }
-      }
-
-    } catch (err) {
-      console.error('순위표 로드 실패:', err);
-    }
-  }
-
-  async function cancelBonus(bonusId) {
-    if (!confirm('이 보너스 점수를 취소할까요?')) return;
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/bonus_points?id=eq.${bonusId}`, {
-        method: 'DELETE', headers: sbHeaders()
-      });
-      loadLeaderboard();
-    } catch { alert('취소 실패했어요 ㅠㅠ'); }
-  }
-
-  function populateBonusSelect() {
-    const sel = document.getElementById('bonus-student-select');
-    sel.innerHTML = '<option value="">학생 선택</option>' +
-      students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  }
-
-  async function giveBonus() {
-    const studentId = document.getElementById('bonus-student-select').value;
-    const points = parseInt(document.getElementById('bonus-points').value);
-    const memo = document.getElementById('bonus-memo').value.trim();
-
-    if (!studentId) { alert('학생을 선택해주세요.'); return; }
-    if (!points || points <= 0) { alert('점수를 입력해주세요.'); return; }
-
-    const monthStr = getMonthStr();
-    const studentName = students.find(s => s.id === studentId)?.name || '';
-
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/bonus_points`, {
-        method: 'POST',
-        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
-        body: JSON.stringify({
-          student_id: studentId,
-          points: points,
-          memo: memo || null,
-          month: monthStr
-        })
-      });
-      if (!res.ok) throw new Error(await res.text());
-
-      // 통합 포인트에도 적립
-      await grantPoints(studentId, points, memo ? `보너스: ${memo}` : '보너스 점수');
-
-      alert(`✅ ${studentName}에게 보너스 ${points}점 지급 완료!`);
-      document.getElementById('bonus-points').value = '';
-      document.getElementById('bonus-memo').value = '';
-      loadLeaderboard();
-    } catch (err) {
-      console.error(err);
-      alert('보너스 지급에 실패했어요.');
-    }
-  }
 
   // ===== 학생 업로드 페이지 링크 표시 =====
   function switchMainTab(tab) {
@@ -2906,8 +2755,7 @@
     document.querySelectorAll('.main-tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('main-tab-' + tab).classList.add('active');
     if (tab === 'qna') loadTeacherQnA(1);
-    if (tab === 'rank') loadLeaderboard();
-    if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); }
+    if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
   }
 
   function showTeacherUploadOptions(entryId) {
