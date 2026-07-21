@@ -709,6 +709,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   </div>
 </div>
 
+<!-- 다시 푼 풀이 업로드 액션시트 -->
+<div id="mine-action-sheet" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:flex-end;justify-content:center;">
+  <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:1.2rem;width:100%;max-width:480px;">
+    <div style="font-size:13px;color:var(--text3);text-align:center;margin-bottom:12px;">풀이 사진 올리기</div>
+    <button onclick="mineSheetSelect('camera')" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;">📷 카메라로 찍기</button>
+    <button onclick="mineSheetSelect('gallery')" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text1);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px;">🖼️ 사진첩에서 선택</button>
+    <button onclick="hideMineSheet()" style="width:100%;padding:15px;border-radius:12px;border:none;background:var(--bg3);color:var(--text3);font-size:15px;cursor:pointer;">취소</button>
+  </div>
+</div>
+
 
 
 <!-- 바텀 네비게이션 -->
@@ -883,6 +893,24 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       document.getElementById(`file-input-${kind}-cam`).click();
     } else {
       document.getElementById(`file-input-${kind}`).click();
+    }
+  }
+
+  function showMineUploadOptions(entryId) {
+    const sheet = document.getElementById('mine-action-sheet');
+    sheet.style.display = 'flex';
+    sheet.dataset.entryId = entryId;
+  }
+  function hideMineSheet() {
+    document.getElementById('mine-action-sheet').style.display = 'none';
+  }
+  function mineSheetSelect(type) {
+    const entryId = document.getElementById('mine-action-sheet').dataset.entryId;
+    hideMineSheet();
+    if (type === 'camera') {
+      document.getElementById(`mine-file-cam-${entryId}`).click();
+    } else {
+      document.getElementById(`mine-file-${entryId}`).click();
     }
   }
 
@@ -1326,8 +1354,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const showMineBtn = !hasMine || reviewStatusForBtn === 'rejected';
     const addMineBtn = showMineBtn ? `
       <div style="margin-top:8px;">
-        <button class="btn-add-mine" onclick="document.getElementById('mine-file-${e.id}').click()">${reviewStatusForBtn === 'rejected' ? '🔄 다시 푼 풀이 올리기' : '✏️ 내 풀이 올리기'}</button>
+        <button class="btn-add-mine" onclick="showMineUploadOptions('${e.id}')">${reviewStatusForBtn === 'rejected' ? '🔄 다시 푼 풀이 올리기' : '✏️ 내 풀이 올리기'}</button>
         <input type="file" id="mine-file-${e.id}" class="file-input-hidden" accept="image/*" onchange="uploadMinePhoto(event, '${e.id}')" />
+        <input type="file" id="mine-file-cam-${e.id}" class="file-input-hidden" accept="image/*" capture="environment" onchange="uploadMinePhoto(event, '${e.id}')" />
         <div class="uploading-mine" id="mine-status-${e.id}"></div>
       </div>
     ` : '';
