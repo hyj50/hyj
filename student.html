@@ -377,7 +377,7 @@
   .edit-note-sheet { margin-top:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
   .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:5000; justify-content:center; }
   .theme-overlay.show { display:flex; }
-  .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; margin-top:auto; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+  .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; margin-top:auto; overflow-y:auto; touch-action:pan-y; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
   .bg-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:4/3; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#1a1a2a; }
@@ -2440,6 +2440,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     renderCustomColor();
     renderFontPicker();
     document.getElementById('theme-overlay').classList.add('show');
+    lockBodyScroll();
 
     // 내 사진 카드 (항상 있음)
     const customActive = localStorage.getItem(`bg_${studentId}`) === 'custom';
@@ -2528,7 +2529,36 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     event.currentTarget.classList.add('active');
   }
 
-  function closeThemePanel() { document.getElementById('theme-overlay').classList.remove('show'); }
+  // 시트가 열려 있는 동안 뒤쪽 본문 스크롤을 완전히 잠금
+  // (안 잠그면 터치를 본문이 가로채서 "여러 번 밀어야 올라가는" 현상이 생김)
+  let _lockedScrollY = 0;
+  function lockBodyScroll() {
+    if (document.body.dataset.scrollLocked === '1') return;
+    _lockedScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.dataset.scrollLocked = '1';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${_lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+  }
+  function unlockBodyScroll() {
+    if (document.body.dataset.scrollLocked !== '1') return;
+    delete document.body.dataset.scrollLocked;
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    window.scrollTo(0, _lockedScrollY);
+  }
+
+  function closeThemePanel() {
+    document.getElementById('theme-overlay').classList.remove('show');
+    unlockBodyScroll();
+  }
 
   function resetTheme() {
     const studentId = document.getElementById('student-select').value;
