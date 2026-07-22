@@ -375,10 +375,11 @@
   .edit-note-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:5000; justify-content:center; }
   .edit-note-overlay.show { display:flex; }
   .edit-note-sheet { margin-top:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
-  .theme-overlay { display:none; }
-  .wrap.theme-mode > *:not(#theme-overlay) { display:none !important; }
+  /* 테마는 팝업이 아니라 일반 화면. body 직속이므로 배경레이어(z-index:0)보다 위로 올려야 함 */
+  .theme-overlay { display:none; position:relative; z-index:1; max-width:480px; margin:0 auto; padding-bottom:90px; }
   .theme-overlay.show { display:block; }
-  .theme-sheet { background:#1a1a2a; border-radius:16px; padding:1.3rem 1.2rem 1.6rem; width:100%; max-width:480px; margin:0 auto 90px; box-sizing:border-box; }
+  body.theme-mode > .wrap { display:none !important; }
+  .theme-sheet { background:#1a1a2a; border-radius:16px; padding:1.3rem 1.2rem 1.6rem; width:100%; box-sizing:border-box; }
   .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
   .bg-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:4/3; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#1a1a2a; }
@@ -969,7 +970,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   function switchTab(tab) {
-    if (document.querySelector('.wrap').classList.contains('theme-mode')) closeThemePanel();
+    if (document.body.classList.contains('theme-mode')) closeThemePanel();
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -2441,7 +2442,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     renderFontScale();
     renderCustomColor();
     renderFontPicker();
-    document.querySelector('.wrap').classList.add('theme-mode');
+    document.body.classList.add('theme-mode');
     document.getElementById('theme-overlay').classList.add('show');
     window.scrollTo(0, 0);
 
@@ -2550,7 +2551,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
   function closeThemePanel() {
     document.getElementById('theme-overlay').classList.remove('show');
-    document.querySelector('.wrap').classList.remove('theme-mode');
+    document.body.classList.remove('theme-mode');
     window.scrollTo(0, 0);
   }
 
