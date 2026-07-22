@@ -377,7 +377,7 @@
   .edit-note-sheet { margin-top:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
   .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:5000; justify-content:center; }
   .theme-overlay.show { display:flex; }
-  .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; margin-top:auto; overflow-y:auto; touch-action:pan-y; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+  .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2rem; width:100%; max-width:480px; max-height:85vh; margin-top:auto; overflow-y:auto; touch-action:pan-y; overscroll-behavior:contain; }
   .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
   .bg-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
   .bg-card { border-radius:10px; overflow:hidden; aspect-ratio:4/3; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; position:relative; background:#1a1a2a; }
@@ -2299,11 +2299,11 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <div ${click ? `onclick="${click}"` : ''} style="padding:11px 13px;border-radius:11px;cursor:${click ? 'pointer' : 'default'};
         border:${on ? '2px solid rgba(255,255,255,0.85)' : '1px solid rgba(255,255,255,0.15)'};
         background:${on ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'};opacity:${dim ? '.5' : '1'};">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;">
-          <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);">${name}</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;height:18px;">
+          <span style="font-size:12px;line-height:18px;font-weight:700;color:rgba(255,255,255,0.7);">${name}</span>
           ${btn || (on ? '<span style="font-size:11px;font-weight:800;color:#fff;">✓ 사용중</span>' : '')}
         </div>
-        <div style="font-size:19px;line-height:1.4;color:white;${fam ? `font-family:'${fam}',sans-serif;` : ''}">${SAMPLE}</div>
+        <div style="font-size:19px;line-height:27px;height:27px;overflow:hidden;color:white;${fam ? `font-family:'${fam}',sans-serif;` : ''}">${SAMPLE}</div>
       </div>`;
 
     box.innerHTML = head +
@@ -2439,6 +2439,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     renderFontScale();
     renderCustomColor();
     renderFontPicker();
+    const _sheet = document.querySelector('.theme-sheet');
+    if (_sheet) _sheet.scrollTop = 0;
     document.getElementById('theme-overlay').classList.add('show');
     lockBodyScroll();
 
