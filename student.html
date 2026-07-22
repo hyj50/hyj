@@ -121,7 +121,7 @@
     }
   }
 
-  html, body { width: 100%; overflow-x: hidden; background: var(--bg); color: var(--text1); overscroll-behavior: none; overscroll-behavior-y: none; }
+  html, body { width: 100%; overflow-x: hidden; background: var(--bg); color: var(--text1); }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 1rem; }
   /* 바텀 네비게이션 */
   .bottom-nav {
@@ -375,7 +375,7 @@
   .edit-note-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:5000; justify-content:center; }
   .edit-note-overlay.show { display:flex; }
   .edit-note-sheet { margin-top:auto; background:var(--bg2); border-radius:20px 20px 0 0; padding:1.5rem 1.5rem 2.2rem; width:100%; max-width:480px; }
-  .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:5000; overflow-y:auto; overscroll-behavior:none; touch-action:pan-y; -webkit-tap-highlight-color:transparent; }
+  .theme-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:5000; overflow-y:auto; overscroll-behavior:contain; -webkit-tap-highlight-color:transparent; }
   .theme-overlay.show { display:block; }
   .theme-sheet { background:#1a1a2a; border-radius:20px 20px 0 0; padding:1.4rem 1.4rem 2.5rem; width:100%; max-width:480px; margin:14vh auto 0; min-height:86vh; box-sizing:border-box; }
   .theme-section-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:.05em; text-transform:uppercase; margin-bottom:10px; margin-top:16px; }
@@ -2531,31 +2531,21 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     event.currentTarget.classList.add('active');
   }
 
-  // 시트가 열려 있는 동안 뒤쪽 본문 스크롤을 완전히 잠금
-  // (안 잠그면 터치를 본문이 가로채서 "여러 번 밀어야 올라가는" 현상이 생김)
-  let _lockedScrollY = 0;
-  function lockBodyScroll() {
-    if (document.body.dataset.scrollLocked === '1') return;
-    _lockedScrollY = window.scrollY || window.pageYOffset || 0;
-    document.body.dataset.scrollLocked = '1';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${_lockedScrollY}px`;
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
-    document.body.style.overflow = 'hidden';
+  // body 를 fixed 로 잠그는 방식은 안드로이드에서 스크롤을 망가뜨려서 폐기함.
+  // 혹시 이전 버전에서 잠긴 채로 남았을 수 있으니 해제만 해준다.
+  function clearBodyScrollLock() {
+    const b = document.body;
+    if (b.dataset.scrollLocked) delete b.dataset.scrollLocked;
+    b.style.position = '';
+    b.style.top = '';
+    b.style.left = '';
+    b.style.right = '';
+    b.style.width = '';
+    b.style.overflow = '';
   }
-  function unlockBodyScroll() {
-    if (document.body.dataset.scrollLocked !== '1') return;
-    delete document.body.dataset.scrollLocked;
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    document.body.style.overflow = '';
-    window.scrollTo(0, _lockedScrollY);
-  }
+  clearBodyScrollLock();
+  function lockBodyScroll() {}
+  function unlockBodyScroll() { clearBodyScrollLock(); }
 
   function closeThemePanel() {
     document.getElementById('theme-overlay').classList.remove('show');
