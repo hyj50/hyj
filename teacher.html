@@ -2857,7 +2857,12 @@
           method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
           body: JSON.stringify({ theme: meta.theme, emoji: meta.emoji, name: (files[i].name || '배경').replace(/\.[^.]+$/, ''), image_url: url, sort_order: Date.now() % 1000000 })
         });
-        if (!ins.ok) throw new Error('목록 저장 실패(RLS?): ' + (await ins.text()));
+        if (!ins.ok) {
+          const t = await ins.text();
+          // 기록 저장이 실패하면 방금 올린 사진도 지워서 '사진만 떠도는' 상태 방지
+          fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${fileName}`, { method: 'DELETE', headers: sbHeaders() }).catch(() => {});
+          throw new Error(`목록 저장 실패 (${ins.status}) — ${t.slice(0, 90)}`);
+        }
         done++;
       } catch (err) { console.error(err); fail++; lastErr = (err && err.message) ? err.message : String(err); }
     }
