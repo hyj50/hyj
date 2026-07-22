@@ -2062,11 +2062,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     applyBg(src);
   }
 
-  let _themeBgs = [];
+  let _themeGroups = [];
   async function openThemePanel() {
     const studentId = document.getElementById('student-select').value;
     const savedPalette = localStorage.getItem(`palette_${studentId}`) || 'rose';
-    const savedPhotoUrl = localStorage.getItem(`bg_photo_url_${studentId}`) || '';
 
     const bgGrid = document.getElementById('bg-grid');
     bgGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:rgba(255,255,255,0.5);padding:14px;">배경 불러오는 중...</div>';
@@ -2089,21 +2088,49 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       </div>
       <input type="file" id="bg-custom-input" class="file-input-hidden" accept="image/*" onchange="onCustomBgSelect(event)" />`;
 
-    // 선생님이 올린 배경 불러오기
+    // 선생님이 올린 배경 불러와서 테마별로 그룹핑
+    let rows = [];
     try {
-      _themeBgs = await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds?select=*&order=sort_order.asc,created_at.asc`, { headers: sbHeaders() }).then(r => r.json());
-      if (!Array.isArray(_themeBgs)) _themeBgs = [];
-    } catch (e) { _themeBgs = []; }
+      rows = await fetch(`${SUPABASE_URL}/rest/v1/theme_backgrounds?select=*&order=sort_order.asc,created_at.asc`, { headers: sbHeaders() }).then(r => r.json());
+      if (!Array.isArray(rows)) rows = [];
+    } catch (e) { rows = []; }
 
-    if (_themeBgs.length === 0) {
+    const map = {};
+    rows.forEach(r => {
+      const key = r.theme || '기본';
+      if (!map[key]) map[key] = { theme: key, emoji: r.emoji || '🎨', photos: [] };
+      map[key].photos.push(r.image_url);
+    });
+    _themeGroups = Object.values(map);
+
+    if (_themeGroups.length === 0) {
       bgGrid.innerHTML = customCard +
         '<div style="grid-column:1/-1;font-size:11px;color:rgba(255,255,255,0.45);text-align:center;padding:10px;">선생님이 올린 배경이 아직 없어요 🙂</div>';
     } else {
-      bgGrid.innerHTML = _themeBgs.map(b => `
-        <div class="bg-card ${savedPhotoUrl===b.image_url?'active':''}" onclick="selectBg('${b.image_url}')">
-          <img src="${b.image_url}" alt="${b.name||''}" loading="lazy" onerror="this.style.display='none'" />
+      bgGrid.innerHTML = _themeGroups.map((g, i) => `
+        <div class="bg-card" onclick="expandTheme(${i})">
+          <img src="${g.photos[0]}" alt="${g.theme}" loading="lazy" onerror="this.style.display='none'" />
+          <div class="bg-card-label">${g.emoji} ${g.theme}</div>
         </div>`).join('') + customCard;
     }
+  }
+
+  let _expandedTheme = null;
+  function expandTheme(i) {
+    const g = _themeGroups[i];
+    if (!g) return;
+    const existing = document.getElementById('bg-sub-grid');
+    if (existing) existing.remove();
+    if (_expandedTheme === i) { _expandedTheme = null; return; }
+    _expandedTheme = i;
+    const sub = document.createElement('div');
+    sub.id = 'bg-sub-grid';
+    sub.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:2px;';
+    sub.innerHTML = g.photos.map(url => `
+      <div class="bg-card" onclick="selectBg('${url}')" style="border-radius:8px;">
+        <img src="${url}" loading="lazy" style="border-radius:6px;" onerror="this.style.display='none'" />
+      </div>`).join('');
+    document.getElementById('bg-grid').appendChild(sub);
   }
 
   function selectBg(url) {
@@ -2111,8 +2138,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     localStorage.setItem(`bg_${studentId}`, 'teacher');
     localStorage.setItem(`bg_photo_url_${studentId}`, url);
     applyBg(url);
-    document.querySelectorAll('#bg-grid .bg-card').forEach(c => c.classList.remove('active'));
-    if (typeof event !== 'undefined' && event && event.currentTarget) event.currentTarget.classList.add('active');
+    const sub = document.getElementById('bg-sub-grid');
+    if (sub) { _expandedTheme = null; setTimeout(() => sub.remove(), 300); }
   }
 
   function onCustomBgSelect(e) {
