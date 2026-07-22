@@ -558,7 +558,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
       <!-- 미션 탭 -->
       <div class="tab-panel" id="tab-mission">
-        <!-- 칭호 배지 -->
+        <!-- 명성 배지 -->
         <div id="rank-badge"></div>
         <!-- 포인트 표시 -->
         <div style="background:linear-gradient(135deg,#7C3AED,#4C1D95);border-radius:16px;padding:1.1rem 1.3rem;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;color:white;">
@@ -673,6 +673,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
     <div class="theme-section-title">포인트 색상</div>
     <div class="palette-row" id="palette-row"></div>
+    <div id="custom-color-box" style="margin-top:10px;"></div>
+
+    <div class="theme-section-title" style="margin-top:16px;">글꼴 <span style="font-size:10px;opacity:.55;font-weight:600;">레벨 5마다 하나씩 해금</span></div>
+    <div id="font-list" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
 
     <div style="display:flex;gap:8px;margin-top:20px;">
       <button onclick="resetTheme()" style="flex:1;padding:11px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);cursor:pointer;">초기화</button>
@@ -756,9 +760,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }, extra || {});
   }
 
-  // ===== 레벨 · 칭호 시스템 =====
+  // ===== 레벨 · 명성 시스템 =====
   // 누적 획득P(point_logs의 양수 amount 합계) ÷ 100 = 레벨
-  // 상점 구매(-P)는 누적 획득에서 안 빠짐 → 한번 오른 칭호는 안 내려감
+  // 상점 구매(-P)는 누적 획득에서 안 빠짐 → 한번 오른 명성은 안 내려감
   const RANK_TITLES = [
     { min: 0,   name: '이름없는' },
     { min: 2,   name: '평범한' },
@@ -817,21 +821,22 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const logs = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${studentId}&select=amount`, { headers: sbHeaders() }).then(r => r.json());
       const total = (logs || []).reduce((s, l) => s + (l.amount > 0 ? l.amount : 0), 0);
       const prog = calcRank(total);
+      localStorage.setItem(`level_${studentId}`, prog.level);   // 글꼴·색상 해금 판정용
       const name = sessionStorage.getItem('my_student_name') || document.getElementById('logged-in-name')?.textContent?.replace(/^✅\s*/, '') || '';
 
       // 상단 로그인 이름 → '초월한 수학자 오시윤' 형식
       const nameLabel = document.getElementById('logged-in-name');
       if (nameLabel) nameLabel.textContent = `✅ ${prog.title} 수학자 ${name}`;
 
-      // 미션 탭 칭호 배지
+      // 미션 탭 명성 배지
       const badge = document.getElementById('rank-badge');
       if (badge) {
         const nextLine = prog.nextTitle
-          ? `다음 칭호 <b>${prog.nextTitle}</b>까지 ${prog.levelsToNextTitle}레벨`
-          : `최고 칭호 달성! 👑`;
+          ? `다음 명성 <b>${prog.nextTitle}</b>까지 ${prog.levelsToNextTitle}레벨`
+          : `최고 명성 달성! 👑`;
         badge.innerHTML = `
           <div style="background:linear-gradient(135deg,#B45309,#7C2D12);border-radius:16px;padding:1.1rem 1.3rem;margin-bottom:14px;color:white;box-shadow:0 6px 20px rgba(180,83,9,0.35);">
-            <div style="font-size:12px;opacity:.8;font-weight:600;margin-bottom:2px;">🏅 나의 칭호</div>
+            <div style="font-size:12px;opacity:.8;font-weight:600;margin-bottom:2px;">🏅 나의 명성</div>
             <div style="font-size:20px;font-weight:800;margin-bottom:2px;">${prog.title} 수학자 ${name}</div>
             <div style="font-size:12px;opacity:.85;font-weight:600;margin-bottom:10px;">Lv.${prog.level} · 누적 ${total}P</div>
             <div style="height:7px;background:rgba(255,255,255,0.25);border-radius:7px;overflow:hidden;margin-bottom:6px;">
@@ -2138,6 +2143,165 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     { id:'white',    name:'화이트',  dot:'#F8FAFC', accent:'#F8FAFC', g2:'#94A3B8' },
   ];
 
+  // ===== 레벨 보상: 글꼴 20종 (레벨 5마다 해금권 1장, 원하는 걸 골라서 해금) =====
+  const UNLOCK_FONTS = [
+    { ko:'본고딕',        family:'Noto Sans KR' },
+    { ko:'고딕 A1',       family:'Gothic A1' },
+    { ko:'나눔고딕',      family:'Nanum Gothic' },
+    { ko:'고운돋움',      family:'Gowun Dodum' },
+    { ko:'플렉스산스',    family:'IBM Plex Sans KR' },
+    { ko:'코딩체',        family:'Nanum Gothic Coding' },
+    { ko:'고운바탕',      family:'Gowun Batang' },
+    { ko:'나눔명조',      family:'Nanum Myeongjo' },
+    { ko:'송명',          family:'Song Myung' },
+    { ko:'함렛',          family:'Hahmlet' },
+    { ko:'도현',          family:'Do Hyeon' },
+    { ko:'주아',          family:'Jua' },
+    { ko:'검은고딕',      family:'Black Han Sans' },
+    { ko:'동글',          family:'Dongle' },
+    { ko:'나눔손글씨 펜', family:'Nanum Pen Script' },
+    { ko:'개구',          family:'Gaegu' },
+    { ko:'감자꽃',        family:'Gamja Flower' },
+    { ko:'연성',          family:'Yeon Sung' },
+    { ko:'베이글팻',      family:'Bagel Fat One' },
+    { ko:'모이라이',      family:'Moirai One' },
+  ];
+  const FONT_PICK_EVERY = 5;    // 몇 레벨마다 해금권 1장인지
+  const CUSTOM_COLOR_LV = 10;   // 색상 직접 고르기 해금 레벨
+
+  function _myLevel() {
+    const sid = document.getElementById('student-select')?.value;
+    return parseInt(localStorage.getItem(`level_${sid}`) || '0', 10) || 0;
+  }
+  function _fontPicks() {
+    return Math.min(UNLOCK_FONTS.length, Math.floor(_myLevel() / FONT_PICK_EVERY));
+  }
+  function _ownedFonts() {
+    const sid = document.getElementById('student-select')?.value;
+    try { return JSON.parse(localStorage.getItem(`fonts_owned_${sid}`) || '[]'); } catch (e) { return []; }
+  }
+
+  function _gfUrl(families) {
+    return 'https://fonts.googleapis.com/css2?' +
+      families.map(f => 'family=' + f.replace(/ /g, '+')).join('&') + '&display=swap';
+  }
+
+  // 선택한 글꼴을 앱 전체에 적용
+  function applyFont(family) {
+    let st = document.getElementById('app-font-style');
+    if (!st) { st = document.createElement('style'); st.id = 'app-font-style'; document.head.appendChild(st); }
+    if (!family) { st.textContent = ''; return; }
+    let link = document.getElementById('app-font-link');
+    if (!link) { link = document.createElement('link'); link.id = 'app-font-link'; link.rel = 'stylesheet'; document.head.appendChild(link); }
+    const href = _gfUrl([family]);
+    if (link.href !== href) link.href = href;
+    st.textContent = `body, button, input, textarea, select, .dashboard, .bottom-nav-btn {
+      font-family:'${family}', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }`;
+  }
+
+  // 해금권 1장 사용해서 원하는 글꼴 해금
+  function unlockFont(i) {
+    const sid = document.getElementById('student-select').value;
+    const f = UNLOCK_FONTS[i];
+    const owned = _ownedFonts();
+    const left = _fontPicks() - owned.length;
+    if (owned.includes(f.family) || left <= 0) return;
+    if (!confirm(`「${f.ko}」 글꼴을 해금할까요?\n\n남은 해금권 ${left}장 중 1장을 사용해요.\n(해금한 글꼴은 계속 쓸 수 있어요)`)) return;
+    owned.push(f.family);
+    localStorage.setItem(`fonts_owned_${sid}`, JSON.stringify(owned));
+    localStorage.setItem(`font_${sid}`, f.family);
+    applyFont(f.family);
+    renderFontPicker();
+  }
+
+  function selectFont(i) {
+    const sid = document.getElementById('student-select').value;
+    const f = (i < 0) ? null : UNLOCK_FONTS[i];
+    if (f && !_ownedFonts().includes(f.family)) return;
+    localStorage.setItem(`font_${sid}`, f ? f.family : '');
+    applyFont(f ? f.family : '');
+    renderFontPicker();
+  }
+
+  function renderFontPicker() {
+    const box = document.getElementById('font-list');
+    if (!box) return;
+    const sid = document.getElementById('student-select').value;
+    const cur = localStorage.getItem(`font_${sid}`) || '';
+    const owned = _ownedFonts();
+    const picks = _fontPicks();
+    const left = Math.max(0, picks - owned.length);
+    const lv = _myLevel();
+
+    // 고르려면 다 보여야 하니 20종 전부 미리보기 로딩 (미리보기 글자만 받아와서 가벼움)
+    let pl = document.getElementById('font-preview-link');
+    if (!pl) { pl = document.createElement('link'); pl.id = 'font-preview-link'; pl.rel = 'stylesheet'; document.head.appendChild(pl); }
+    const href = _gfUrl(UNLOCK_FONTS.map(f => f.family));
+    if (pl.href !== href) pl.href = href;
+
+    // 상단 안내
+    const nextAt = (owned.length + 1) * FONT_PICK_EVERY;
+    const head = left > 0
+      ? `<div style="padding:8px 11px;border-radius:9px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.3);font-size:12px;font-weight:800;color:white;margin-bottom:3px;">🎁 해금권 ${left}장 보유 — 원하는 글꼴을 골라보세요!</div>`
+      : (owned.length >= UNLOCK_FONTS.length
+          ? `<div style="padding:7px 11px;border-radius:9px;background:rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:3px;">👑 모든 글꼴을 모았어요!</div>`
+          : `<div style="padding:7px 11px;border-radius:9px;background:rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:3px;">🔒 Lv.${nextAt} 달성하면 해금권 1장을 받아요 (현재 Lv.${lv})</div>`);
+
+    const row = (label, right, on, click, dim, fam, btn) => `
+      <div ${click ? `onclick="${click}"` : ''} style="display:flex;align-items:center;justify-content:space-between;gap:8px;
+        padding:9px 12px;border-radius:10px;cursor:${click ? 'pointer' : 'default'};
+        border:${on ? '2px solid rgba(255,255,255,0.85)' : '1px solid rgba(255,255,255,0.15)'};
+        background:${on ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'};opacity:${dim ? '.5' : '1'};">
+        <span style="font-size:13px;font-weight:700;color:white;${fam ? `font-family:'${fam}',sans-serif;` : ''}">${label}</span>
+        ${btn || `<span style="font-size:11px;color:rgba(255,255,255,0.65);${fam ? `font-family:'${fam}',sans-serif;` : ''}">${right}</span>`}
+      </div>`;
+
+    box.innerHTML = head +
+      row('기본 글꼴', '가나다 ABC 123', cur === '', 'selectFont(-1)', false, '', '') +
+      UNLOCK_FONTS.map((f, i) => {
+        const has = owned.includes(f.family);
+        if (has) return row(f.ko, '가나다 ABC 123', cur === f.family, `selectFont(${i})`, false, f.family, '');
+        const btn = left > 0
+          ? `<span style="font-size:11px;font-weight:800;color:#fff;background:rgba(255,255,255,0.28);padding:4px 10px;border-radius:7px;white-space:nowrap;">🎁 해금</span>`
+          : `<span style="font-size:11px;color:rgba(255,255,255,0.5);">🔒</span>`;
+        return row(f.ko, '', false, left > 0 ? `unlockFont(${i})` : '', left <= 0, f.family, btn);
+      }).join('');
+  }
+
+  function _darken(hex, amt) {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const r = Math.round(((n >> 16) & 255) * (1 - amt));
+    const g = Math.round(((n >> 8) & 255) * (1 - amt));
+    const b = Math.round((n & 255) * (1 - amt));
+    return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+  }
+
+  function selectCustomColor(hex) {
+    const sid = document.getElementById('student-select').value;
+    localStorage.setItem(`palette_${sid}`, 'custom');
+    localStorage.setItem(`customcolor_${sid}`, hex);
+    _writeThemeCSS(hex, _darken(hex, 0.35));
+    document.querySelectorAll('.palette-dot').forEach(d => d.classList.remove('active'));
+  }
+
+  function renderCustomColor() {
+    const box = document.getElementById('custom-color-box');
+    if (!box) return;
+    const sid = document.getElementById('student-select').value;
+    const lv = _myLevel();
+    if (lv < CUSTOM_COLOR_LV) {
+      box.innerHTML = `<div style="font-size:11px;color:rgba(255,255,255,0.45);padding:8px 10px;border-radius:9px;border:1px dashed rgba(255,255,255,0.2);">
+        🔒 Lv.${CUSTOM_COLOR_LV} 달성하면 색을 직접 고를 수 있어요</div>`;
+      return;
+    }
+    const cur = localStorage.getItem(`customcolor_${sid}`) || '#F9A8D4';
+    box.innerHTML = `<label style="display:flex;align-items:center;gap:9px;font-size:12px;color:rgba(255,255,255,0.8);font-weight:700;cursor:pointer;">
+      🎨 내 색 직접 고르기
+      <input type="color" value="${cur}" oninput="selectCustomColor(this.value)"
+        style="width:44px;height:30px;border:none;border-radius:8px;background:none;cursor:pointer;padding:0;" />
+    </label>`;
+  }
+
   function applyBg(src) {
     const wrap = document.getElementById('theme-bg-wrap');
     const img  = document.getElementById('theme-bg-image');
@@ -2151,21 +2315,30 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }
   }
 
-  function applyPalette(id) {
-    const p = COLOR_PALETTES.find(x => x.id === id) || COLOR_PALETTES[0];
+  function _writeThemeCSS(accent, g2) {
     let el = document.getElementById('custom-theme-style');
     if (!el) { el = document.createElement('style'); el.id = 'custom-theme-style'; document.head.appendChild(el); }
     el.textContent = `
-    :root { --pink:${p.accent}!important; --green:${p.accent}!important; }
-    .dashboard { background:linear-gradient(135deg,${p.accent},${p.g2})!important; box-shadow:0 6px 24px ${p.accent}55!important; }
-    .btn-submit, button.btn-submit, .submit-btn { background:linear-gradient(135deg,${p.accent},${p.g2})!important; }
-    .bottom-nav-btn.active { color:${p.accent}!important; }
-    .notif-banner { background:linear-gradient(135deg,${p.accent},${p.g2})!important; }
-    button[style*="E8639A"], button[style*="C94080"], button[style*="e8639a"] { background:linear-gradient(135deg,${p.accent},${p.g2})!important; }
-    [style*="color:#E8639A"], [style*="color:#e8639a"] { color:${p.accent}!important; }
-    [style*="color:var(--pink)"] { color:${p.accent}!important; }
-    [style*="color:var(--green)"] { color:${p.accent}!important; }
+    :root { --pink:${accent}!important; --green:${accent}!important; }
+    .dashboard { background:linear-gradient(135deg,${accent},${g2})!important; box-shadow:0 6px 24px ${accent}55!important; }
+    .btn-submit, button.btn-submit, .submit-btn { background:linear-gradient(135deg,${accent},${g2})!important; }
+    .bottom-nav-btn.active { color:${accent}!important; }
+    .notif-banner { background:linear-gradient(135deg,${accent},${g2})!important; }
+    button[style*="E8639A"], button[style*="C94080"], button[style*="e8639a"] { background:linear-gradient(135deg,${accent},${g2})!important; }
+    [style*="color:#E8639A"], [style*="color:#e8639a"] { color:${accent}!important; }
+    [style*="color:var(--pink)"] { color:${accent}!important; }
+    [style*="color:var(--green)"] { color:${accent}!important; }
     .theme-overlay .theme-sheet button:last-child { background:rgba(255,255,255,0.15)!important; }`;
+  }
+
+  function applyPalette(id) {
+    if (id === 'custom') {
+      const sid = document.getElementById('student-select')?.value;
+      const hex = localStorage.getItem(`customcolor_${sid}`);
+      if (hex) { _writeThemeCSS(hex, _darken(hex, 0.35)); return; }
+    }
+    const p = COLOR_PALETTES.find(x => x.id === id) || COLOR_PALETTES[0];
+    _writeThemeCSS(p.accent, p.g2);
   }
 
   function compressBgPhoto(file, cb) {
@@ -2213,6 +2386,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
            style="background:linear-gradient(135deg,${p.accent},${p.g2});"
            onclick="selectPalette('${p.id}')"></div>`).join('');
 
+    renderCustomColor();
+    renderFontPicker();
     document.getElementById('theme-overlay').classList.add('show');
 
     // 내 사진 카드 (항상 있음)
@@ -2308,6 +2483,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const studentId = document.getElementById('student-select').value;
     localStorage.removeItem(`bg_${studentId}`);
     localStorage.removeItem(`palette_${studentId}`);
+    localStorage.removeItem(`font_${studentId}`);
+    localStorage.removeItem(`fonts_owned_${studentId}`);
+    localStorage.removeItem(`customcolor_${studentId}`);
+    applyFont('');
     applyBg(null);
     const el = document.getElementById('custom-theme-style');
     if (el) el.textContent = '';
@@ -2329,7 +2508,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         else if (preset) applyBg(preset.photos[0]);
       }
     }
-    if (bgId) applyPalette(paletteId);
+    applyPalette(paletteId);
+    const savedFont = localStorage.getItem(`font_${studentId}`);
+    if (savedFont) applyFont(savedFont);
   }
 
   // 페이지 로드 시 초기화
