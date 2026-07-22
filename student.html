@@ -386,6 +386,17 @@
   .bg-card.active { border-color:#fff; }
   .bg-card img, .bg-card .bg-card-inner { width:100%; height:100%; object-fit:cover; display:block; }
   .bg-card-label { position:absolute; bottom:0; left:0; right:0; text-align:center; font-size:10px; font-weight:700; color:white; background:linear-gradient(transparent,rgba(0,0,0,0.7)); padding:6px 2px 3px; }
+  /* 글씨 크기를 키웠을 때 어색한 줄바꿈 방지 */
+  button { white-space: nowrap; }
+  .filter-btn { white-space: nowrap; flex-shrink: 0; }
+  .logged-in-label { flex-wrap: wrap; gap: 2px 10px; }
+  .btn-logout-small { white-space: nowrap; flex-shrink: 0; margin-top: 0; }
+  .bottom-nav-btn { white-space: nowrap; }
+  .theme-section-title { white-space: nowrap; }
+  .bg-card-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  h1 { gap: 8px; }
+  h1 > span:first-child { white-space: nowrap; }
+  h1 > span:last-child { flex-shrink: 0; }
   .palette-row { display:flex; gap:10px; flex-wrap:wrap; }
   .palette-dot { width:34px; height:34px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; flex-shrink:0; }
   .palette-dot.active { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.4); }
@@ -443,7 +454,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
 <div class="wrap" style="position:relative;z-index:1;">
   <div class="board">
-    <h1 style="display:flex;align-items:center;justify-content:space-between;"><span><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />오답 너 뒤졌다</span><span style="display:flex;gap:6px;"><button onclick="window.open('/guide','_blank')" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">📖</span><span style="font-size:9px;font-weight:700;color:var(--text3);">사용법</span></button><button onclick="openThemePanel()" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">🎨</span><span style="font-size:9px;font-weight:700;color:var(--text3);">테마</span></button></span></h1>
+    <h1 style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span><img src="/apple-touch-icon.png" style="width:28px;height:28px;border-radius:7px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'" />오답 너 뒤졌다</span><span style="display:flex;gap:6px;"><button onclick="window.open('/guide','_blank')" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">📖</span><span style="font-size:9px;font-weight:700;color:var(--text3);">사용법</span></button><button onclick="openThemePanel()" style="background:none;border:none;cursor:pointer;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;"><span style="font-size:19px;">🎨</span><span style="font-size:9px;font-weight:700;color:var(--text3);">테마</span></button></span></h1>
     <p class="sub">사진을 올리고, 선생님이 정리해주신 풀이를 확인해보세요</p>
 
     <!-- 로그인 영역 -->
@@ -640,7 +651,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 <!-- 미션 풀이 모달 -->
 <div id="mission-solve-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:6000;align-items:center;justify-content:center;padding:1.2rem;">
   <div style="background:#1a1a2a;border-radius:20px;padding:1.5rem;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;">
       <div style="font-size:15px;font-weight:800;color:white;">🎯 변형문제 도전</div>
       <div id="mission-timer" style="font-size:18px;font-weight:800;color:#F9A8D4;">5:00</div>
     </div>
@@ -656,7 +667,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 <!-- 상점 모달 -->
 <div id="shop-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:5500;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeShop()">
   <div style="background:#1a1a2a;border-radius:20px 20px 0 0;padding:1.4rem 1.4rem 2rem;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px;">
       <div style="font-size:16px;font-weight:800;color:white;">🏪 미션 상점</div>
       <div id="shop-my-points" style="font-size:14px;font-weight:700;color:#C4B5FD;">💎 0P</div>
     </div>
@@ -843,7 +854,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           <div style="background:linear-gradient(135deg,#B45309,#7C2D12);border-radius:16px;padding:1.1rem 1.3rem;margin-bottom:14px;color:white;box-shadow:0 6px 20px rgba(180,83,9,0.35);">
             <div style="font-size:12px;opacity:.8;font-weight:600;margin-bottom:2px;">🏅 나의 명성</div>
             <div style="font-size:20px;font-weight:800;margin-bottom:2px;">${prog.title} 수학자 ${name}</div>
-            <div style="font-size:12px;opacity:.85;font-weight:600;margin-bottom:10px;">Lv.${prog.level} · 누적 ${total}P</div>
+            <div style="font-size:12px;opacity:.85;font-weight:600;margin-bottom:10px;white-space:nowrap;">Lv.${prog.level} · 누적 ${total}P</div>
             <div style="height:7px;background:rgba(255,255,255,0.25);border-radius:7px;overflow:hidden;margin-bottom:6px;">
               <div style="height:100%;width:${prog.intoLevel}%;background:white;border-radius:7px;transition:width .6s;"></div>
             </div>
@@ -1599,7 +1610,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
         ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
         ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
-        <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <p class="note-date" style="margin:0;">${formatDate(e.entry_date)}</p>
           <button onclick="openEditModal('${e.id}')" style="background:none;border:1px solid var(--border2);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--text3);cursor:pointer;">✏️ 수정</button>
         </div>
@@ -1881,16 +1892,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         return `
           <div>
             <div style="background:var(--bg3);border-radius:12px;padding:10px 12px;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+              <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">
                 <span style="font-size:12px;font-weight:700;color:var(--text1);">${c.author_name}</span>
-                <span style="font-size:11px;color:var(--text4);">${date}</span>
+                <span style="font-size:11px;color:var(--text4);white-space:nowrap;">${date}</span>
               </div>
               <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">${c.content}</div>
               <button onclick="showReplyInput('${c.id}')" style="background:none;border:none;font-size:11px;color:var(--pink);font-weight:600;cursor:pointer;">↩ 답글</button>
             </div>
             ${myReplies.map(r => `
               <div style="margin-left:16px;margin-top:6px;background:var(--bg4);border-radius:10px;padding:9px 12px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:3px;">
                   <span style="font-size:12px;font-weight:700;color:var(--text1);">↩ ${r.author_name}</span>
                   <span style="font-size:11px;color:var(--text4);">${new Date(r.created_at).toLocaleDateString('ko-KR')}</span>
                 </div>
@@ -2560,7 +2571,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     localStorage.removeItem(`bg_${studentId}`);
     localStorage.removeItem(`palette_${studentId}`);
     localStorage.removeItem(`font_${studentId}`);
-    localStorage.removeItem(`fonts_owned_${studentId}`);
     localStorage.removeItem(`customcolor_${studentId}`);
     applyFont('');
     localStorage.removeItem('app_font_scale');
