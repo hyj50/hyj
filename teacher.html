@@ -1557,13 +1557,36 @@
     }
   }
 
+  // 화면 하단에 잠깐 뜨는 알림 (작업 결과를 놓치지 않게)
+  function showToast(msg, type) {
+    let t = document.getElementById('app-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'app-toast';
+      t.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:9999;'
+        + 'max-width:88%;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;'
+        + 'color:#fff;box-shadow:0 6px 22px rgba(0,0,0,.3);opacity:0;transition:opacity .25s;'
+        + 'white-space:pre-line;text-align:center;line-height:1.5;';
+      document.body.appendChild(t);
+    }
+    t.style.background = type === 'error' ? '#DC2626' : (type === 'warn' ? '#B45309' : '#15803D');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.style.opacity = '0'; }, type === 'ok' ? 3000 : 6000);
+  }
+
   // ===== 미션: 변형문제 생성 =====
   async function generateVariation(entry) {
-    if (!entry.image_url) return;
+    if (!entry.image_url) { showToast('문제 사진이 없어서 변형문제를 만들 수 없어요.', 'warn'); return; }
     try {
       // 이미 변형문제 있으면 스킵
       const existing = await fetch(`${SUPABASE_URL}/rest/v1/variations?note_id=eq.${entry.id}&select=id`, { headers: sbHeaders() }).then(r => r.json());
-      if (existing.length > 0) return;
+      if (existing.length > 0) {
+        showToast('이 오답은 이미 변형문제가 있어요.\n새로 만들려면 미션탭에서 🔄 재생성을 눌러주세요.', 'warn');
+        return;
+      }
+      showToast('🤖 변형문제 만드는 중...', 'ok');
 
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
@@ -1578,9 +1601,21 @@
         alert('⚠️ AI 서버가 잠시 혼잡해요. 잠시 후 미션탭에서 🔄 재생성을 눌러주세요.');
         return;
       }
-      if (!res.ok) { console.error('변형문제 생성 실패:', await res.text()); return; }
+      if (!res.ok) {
+        let reason = '';
+        try { reason = (await res.json()).error || ''; } catch (e) {}
+        console.error('변형문제 생성 실패:', res.status, reason);
+        showToast(res.status === 422
+          ? '❌ 사진에서 문제를 읽지 못했어요.\n문제가 잘 보이게 다시 찍어 올리면 미션탭에서 🔄 재생성으로 만들 수 있어요.'
+          : `❌ 변형문제 생성 실패 (${res.status})\n${reason.slice(0, 60)}`, 'error');
+        return;
+      }
       const v = await res.json();
-      if (v.error) { console.error('변형문제 생성 오류:', v.error); return; }
+      if (v.error) {
+        console.error('변형문제 생성 오류:', v.error);
+        showToast('❌ 변형문제 생성 실패\n' + String(v.error).slice(0, 70), 'error');
+        return;
+      }
 
       await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
         method: 'POST',
@@ -1593,7 +1628,8 @@
           approved: false
         })
       });
-      console.log('변형문제 생성 완료 (검수 대기)');
+      showToast('✅ 변형문제 생성 완료!\n미션탭 → 🤖 변형문제 검수에서 승인해주세요.', 'ok');
+      loadVariationReviews();
     } catch(e) { console.error('generateVariation:', e); }
   }
 
