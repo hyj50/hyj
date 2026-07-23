@@ -3026,6 +3026,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     v = v.replace(/\s*(?:cm|mm|km|m|kg|g|ml|l)\s*(?:\^?\{?[23]\}?|²|³)?\s*$/g, '');
     v = v.replace(/[{}^]/g, '');
     v = v.replace(/\s+/g, '').replace(/^\+/, '');
+    // 보기 고르기(ㄱ,ㄷ)는 순서가 달라도 정답 처리
+    if (/^[ㄱ-ㅎ][ㄱ-ㅎ,·\s]*$/.test(v)) {
+      v = (v.match(/[ㄱ-ㅎ]/g) || []).sort().join(',');   // ㄱㄷ = ㄷ,ㄱ = ㄱ, ㄷ
+    }
     return v;
   }
 
