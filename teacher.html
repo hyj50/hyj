@@ -1625,9 +1625,10 @@
         headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
           note_id: entry.id,
-          problem_text: v.problem,
+          problem_text: v.problem_text || v.problem,
           answer: v.answer,
           time_limit_sec: v.time_limit_sec || 300,
+          figure: v.figure || null,
           approved: false
         })
       });
@@ -1940,7 +1941,7 @@
       await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
         method: 'PATCH',
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ problem_text: nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300 })
+        body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null })
       });
       loadVariationReviews();
     } catch(e) { alert('재생성 실패'); }
