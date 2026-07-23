@@ -1609,8 +1609,8 @@
         try { reason = (await res.json()).error || ''; } catch (e) {}
         console.error('변형문제 생성 실패:', res.status, reason);
         showToast(res.status === 422
-          ? '❌ 사진에서 문제를 읽지 못했어요.\n문제가 잘 보이게 다시 찍어 올리면 미션탭에서 🔄 재생성으로 만들 수 있어요.'
-          : `❌ 변형문제 생성 실패 (${res.status})\n${reason.slice(0, 60)}`, 'error');
+          ? '❌ ' + (reason || '사진에서 문제를 읽지 못했어요. 문제가 잘 보이게 다시 찍어 올려주세요.')
+          : `❌ 변형문제 생성 실패 (${res.status})\n${reason.slice(0, 80)}`, 'error');
         return;
       }
       const v = await res.json();
