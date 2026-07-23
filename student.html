@@ -2979,10 +2979,11 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     else { fig.style.display = 'none'; fig.removeAttribute('src'); }
 
     // 원본 오답 사진 (어떤 문제의 변형인지 확인용)
+    // 원본 재출제는 위에 이미 같은 사진이 나오므로 생략
     const oimg = document.getElementById('mission-origin-img');
     const obox = document.getElementById('mission-origin-box');
     const ourl = v.wrong_notes?.image_url;
-    if (ourl) { oimg.src = ourl; obox.style.display = 'flex'; }
+    if (ourl && !v.is_original) { oimg.src = ourl; obox.style.display = 'flex'; }
     else { obox.style.display = 'none'; }
     document.getElementById('mission-answer-input').value = '';
     document.getElementById('mission-solve-overlay').style.display = 'flex';
@@ -3013,6 +3014,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     let v = String(s ?? '').trim().toLowerCase();
     v = v.replace(/\$/g, '').replace(/\\(?:mathrm|text|rm)\{([^}]*)\}/g, '$1');
     v = v.replace(/\\(?:d?frac|tfrac)\s*\{([^}]*)\}\s*\{([^}]*)\}/g, '$1/$2');   // \frac{3}{4} -> 3/4
+    v = v.replace(/\\pi|π/g, 'pi');                                   // 6\pi = 6π = 6pi
+    v = v.replace(/\\sqrt\s*\{?([^}\s]*)\}?/g, 'sqrt$1').replace(/√/g, 'sqrt');
+    v = v.replace(/\\(?:times|cdot)/g, '*');
+    v = v.replace(/\\/g, '');
     v = v.replace(/^(?:답|정답)\s*[:：]?\s*/, '');
     v = v.replace(/^[a-z]\s*=\s*/, '');
     v = v.replace(/\^\s*\{?\s*\\?(?:circ|degree)\s*\}?/g, '');   // ^\circ 먼저

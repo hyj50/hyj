@@ -523,6 +523,12 @@
         </select>
       </div>
       <div id="vm-count" style="font-size:11.5px;color:var(--text4);margin-top:8px;"></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);">
+        <button onclick="vmSelectPage()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">이 쪽 전체선택</button>
+        <button onclick="vmClearSel()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">선택해제</button>
+        <span id="vm-selcount" style="font-size:11.5px;color:var(--text3);font-weight:700;">0개 선택</span>
+        <button onclick="vmPrint()" style="flex:1;min-width:130px;padding:8px 12px;border-radius:9px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;">🖨 선택 문제로 시험지 만들기</button>
+      </div>
     </div>
     <div id="vm-list"></div>
   </div>
@@ -1648,6 +1654,8 @@
           answer: v.answer,
           time_limit_sec: v.time_limit_sec || 300,
           figure: v.figure || null,
+          is_original: v.is_variation === false,
+          image_url: v.is_variation === false ? entry.image_url : null,
           approved: false
         })
       });
@@ -1962,7 +1970,7 @@
       await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
         method: 'PATCH',
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null })
+        body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null, is_original: nv.is_variation === false, image_url: nv.is_variation === false ? v.wrong_notes.image_url : null })
       });
       if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
       if (nv.warning) showToast('⚠️ 주의: ' + nv.warning, 'warn');
@@ -3092,14 +3100,17 @@
     await loadVManage();
   }
 
-  async function loadVManage() {
+  let _vmPage = 1;
+  const VM_PER_PAGE = 10;
+
+  async function loadVManage(keepPage) {
+    if (!keepPage) _vmPage = 1;
     const box = document.getElementById('vm-list');
     box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
     try {
       const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?select=*,wrong_notes!inner(id,student_id,subject,major_unit,minor_unit,image_url,students(name))&order=created_at.desc`, { headers: sbHeaders() }).then(r => r.json());
       _vmData = Array.isArray(rows) ? rows : [];
 
-      // 단원 목록 채우기
       const uSel = document.getElementById('vm-unit');
       if (!uSel.options.length) {
         const units = [...new Set(_vmData.map(v => v.wrong_notes?.major_unit).filter(Boolean))].sort();
@@ -3109,7 +3120,7 @@
       const fs = document.getElementById('vm-student').value;
       const fu = document.getElementById('vm-unit').value;
       const fa = document.getElementById('vm-status').value;
-      let list = _vmData.filter(v => {
+      const list = _vmData.filter(v => {
         const n = v.wrong_notes || {};
         if (fs && n.student_id !== fs) return false;
         if (fu && n.major_unit !== fu) return false;
@@ -3118,19 +3129,23 @@
         return true;
       });
 
-      document.getElementById('vm-count').textContent =
-        `변형문제 ${list.length}개 · 원본 오답 ${new Set(list.map(v => v.note_id)).size}개`;
+      // 원본 오답별로 묶고, 그룹 단위로 페이지 나누기
+      const g = {};
+      list.forEach(v => { (g[v.note_id] = g[v.note_id] || []).push(v); });
+      const groups = Object.keys(g);
+      const pages = Math.max(1, Math.ceil(groups.length / VM_PER_PAGE));
+      if (_vmPage > pages) _vmPage = pages;
+      const slice = groups.slice((_vmPage - 1) * VM_PER_PAGE, _vmPage * VM_PER_PAGE);
 
-      if (!list.length) {
+      document.getElementById('vm-count').textContent =
+        `변형문제 ${list.length}개 · 원본 오답 ${groups.length}개` + (pages > 1 ? ` · ${_vmPage}/${pages}쪽` : '');
+
+      if (!groups.length) {
         box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:24px;">조건에 맞는 변형문제가 없어요.</div>';
         return;
       }
 
-      // 원본 오답별로 묶기
-      const g = {};
-      list.forEach(v => { (g[v.note_id] = g[v.note_id] || []).push(v); });
-
-      box.innerHTML = Object.keys(g).map(nid => {
+      box.innerHTML = slice.map(nid => {
         const vs = g[nid], n = vs[0].wrong_notes || {};
         const who = n.students?.name || '?';
         const unit = [n.subject, n.major_unit, n.minor_unit].filter(Boolean).join(' › ') || '단원 미분류';
@@ -3146,31 +3161,60 @@
           </div>
           ${vs.map(v => vmCard(v)).join('')}
         </div>`;
-      }).join('');
+      }).join('') + vmPager(pages);
+
+      vmUpdateSelCount();
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]).catch(() => {});
     } catch (e) {
       console.error(e);
       box.innerHTML = '<div style="text-align:center;color:#e11d48;font-size:12.5px;padding:20px;">불러오기 실패</div>';
     }
   }
 
+  function vmPager(pages) {
+    if (pages <= 1) return '';
+    let btns = '';
+    const from = Math.max(1, _vmPage - 2), to = Math.min(pages, from + 4);
+    for (let i = from; i <= to; i++) {
+      btns += `<button onclick="vmGo(${i})" style="min-width:32px;padding:7px 9px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;
+        border:${i === _vmPage ? '2px solid #E8639A' : '1px solid var(--border2)'};
+        background:${i === _vmPage ? 'rgba(232,99,154,0.12)' : 'var(--bg3)'};color:var(--text1);">${i}</button>`;
+    }
+    const nav = (label, to2, on) => `<button ${on ? `onclick="vmGo(${to2})"` : 'disabled'} style="padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text${on ? '2' : '4'});font-size:12px;font-weight:700;cursor:${on ? 'pointer' : 'default'};opacity:${on ? 1 : .4};">${label}</button>`;
+    return `<div style="display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;padding:6px 0 20px;">
+      ${nav('◀', _vmPage - 1, _vmPage > 1)}${btns}${nav('▶', _vmPage + 1, _vmPage < pages)}</div>`;
+  }
+
+  function vmGo(p) {
+    _vmPage = p;
+    loadVManage(true);
+    document.getElementById('main-tab-vmanage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function vmCard(v) {
     let sp = v.figure;
     if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
     const svg = sp ? renderFigure(sp) : '';
+    const orig = v.is_original;
+    const sel = _vmSel.has(v.id);
     return `
-      <div style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-          <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;${v.approved ? 'background:#DCFCE7;color:#166534;' : 'background:#FEF3C7;color:#92400E;'}">${v.approved ? '✅ 승인됨' : '⏳ 검수대기'}</span>
+      <div style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;${orig ? 'border-left:3px solid #7C3AED;' : ''}${sel ? 'outline:2px solid #E8639A;' : ''}">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:800;color:var(--text2);">
+            <input type="checkbox" ${sel ? 'checked' : ''} onchange="vmToggleSel('${v.id}')" style="width:15px;height:15px;cursor:pointer;accent-color:#E8639A;" />시험지
+          </label>
+          <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;${v.approved ? 'background:#DCFCE7;color:#166534;' : 'background:#FEF3C7;color:#92400E;'}">${v.approved ? '✅ 학생에게 나감' : '⏳ 검수대기'}</span>
+          ${orig ? '<span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:#EDE9FE;color:#5B21B6;">📷 원본 재출제</span>' : ''}
           <span style="font-size:10.5px;color:var(--text4);">정답 ${v.answer ?? '-'} · ${Math.round((v.time_limit_sec || 180) / 60)}분</span>
         </div>
         <div style="font-size:12.5px;color:var(--text1);line-height:1.55;white-space:pre-wrap;margin-bottom:6px;">${renderProblemHtml(v.problem_text || '')}</div>
         ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
-        ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:130px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;" />` : ''}
+        ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:150px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;display:block;" />` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <button onclick="vmToggle('${v.id}',${v.approved})" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">${v.approved ? '↩ 승인취소' : '✅ 승인'}</button>
+          <button onclick="vmToggle('${v.id}',${!!v.approved})" title="${v.approved ? '학생 미션에서 잠시 내립니다(문제는 남아요)' : '학생 미션에 내보냅니다'}" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">${v.approved ? '🙈 숨기기' : '✅ 내보내기'}</button>
           <button onclick="vmEdit('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>
-          <button onclick="regenVariation('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">🔄 재생성</button>
-          <button onclick="vmDelete('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:#e11d48;font-size:11px;font-weight:700;cursor:pointer;">🗑 삭제</button>
+          <button onclick="regenVariation('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">🔄 새로 만들기</button>
+          <button onclick="vmDelete('${v.id}')" title="완전히 없앱니다(되돌릴 수 없음)" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:#e11d48;font-size:11px;font-weight:700;cursor:pointer;">🗑 삭제</button>
         </div>
       </div>`;
   }
@@ -3198,6 +3242,8 @@
           answer: nv.answer,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
+          is_original: nv.is_variation === false,
+          image_url: nv.is_variation === false ? img : null,
           approved: false
         })
       });
@@ -3219,10 +3265,31 @@
   }
 
   async function vmDelete(id) {
-    if (!confirm('이 변형문제를 삭제할까요?')) return;
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
-    if (!r.ok) { showToast('❌ 삭제 실패 (학생이 이미 푼 문제는 지울 수 없어요)', 'error'); return; }
-    loadVManage();
+    // 학생 풀이 기록이 있으면 함께 지워야 삭제된다
+    let tried = 0;
+    try {
+      const at = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?variation_id=eq.${id}&select=id`, { headers: sbHeaders() }).then(r => r.json());
+      tried = Array.isArray(at) ? at.length : 0;
+    } catch (e) {}
+
+    const msg = tried
+      ? `이 변형문제를 삭제할까요?\n\n⚠️ 학생 풀이 기록 ${tried}건도 함께 지워집니다.\n(이미 지급된 포인트는 그대로 유지돼요)`
+      : '이 변형문제를 삭제할까요?';
+    if (!confirm(msg)) return;
+
+    try {
+      if (tried) {
+        const d1 = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?variation_id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+        if (!d1.ok) throw new Error(await d1.text());
+      }
+      const d2 = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+      if (!d2.ok) throw new Error(await d2.text());
+      showToast('🗑 삭제했어요' + (tried ? ` (풀이기록 ${tried}건 포함)` : ''), 'ok');
+      loadVManage(true);
+    } catch (e) {
+      console.error(e);
+      showToast('❌ 삭제 실패\n' + String(e.message || e).slice(0, 90), 'error');
+    }
   }
 
   async function vmEdit(id) {
@@ -3240,6 +3307,124 @@
     });
     showToast('✅ 수정 완료', 'ok');
     loadVManage();
+  }
+
+  // ===== 시험지 만들기(인쇄 → PDF) =====
+  const _vmSel = new Set();
+
+  function vmToggleSel(id) {
+    if (_vmSel.has(id)) _vmSel.delete(id); else _vmSel.add(id);
+    vmUpdateSelCount();
+    loadVManage(true);
+  }
+  function vmUpdateSelCount() {
+    const el = document.getElementById('vm-selcount');
+    if (el) el.textContent = `${_vmSel.size}개 선택`;
+  }
+  function vmSelectPage() {
+    document.querySelectorAll('#vm-list input[type=checkbox]').forEach(cb => {
+      const m = cb.getAttribute('onchange')?.match(/vmToggleSel\('([^']+)'\)/);
+      if (m) _vmSel.add(m[1]);
+    });
+    vmUpdateSelCount();
+    loadVManage(true);
+  }
+  function vmClearSel() { _vmSel.clear(); vmUpdateSelCount(); loadVManage(true); }
+
+  function vmPrint() {
+    const picked = _vmData.filter(v => _vmSel.has(v.id));
+    if (!picked.length) { showToast('시험지에 넣을 문제를 먼저 선택해주세요.', 'warn'); return; }
+
+    const title = prompt('시험지 제목', '오답 변형문제') ;
+    if (title === null) return;
+    const sub = prompt('부제 (단원명 등, 비워도 됨)',
+      [...new Set(picked.map(v => v.wrong_notes?.major_unit).filter(Boolean))].join(' · ')) ?? '';
+
+    const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const body = picked.map((v, i) => {
+      let sp = v.figure;
+      if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
+      const svg = sp ? renderFigure(sp) : '';
+      const photo = v.image_url || (v.is_original ? v.wrong_notes?.image_url : '');
+      const pts = Math.max(2, Math.round((v.time_limit_sec || 180) / 60) + 1);
+      return `
+        <div class="q">
+          <div class="qh"><span class="qn">${String(i + 1).padStart(2, '0')}</span><span class="qp">[${pts}점]</span></div>
+          <div class="qt">${renderProblemHtml(v.problem_text || '')}</div>
+          ${svg ? `<div class="qfig">${svg}</div>` : ''}
+          ${photo ? `<div class="qimg"><img src="${photo}" /></div>` : ''}
+          <div class="qspace"></div>
+        </div>`;
+    }).join('');
+
+    const keys = picked.map((v, i) =>
+      `<tr><td>${String(i + 1).padStart(2, '0')}</td><td>${esc(v.answer)}</td><td>${esc(v.wrong_notes?.students?.name || '')}</td></tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<title>${esc(title)}</title>
+<script>MathJax={tex:{inlineMath:[['$','$']]},options:{enableMenu:false}};<\/script>
+<script id="mjx" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"><\/script>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; color:#111; margin:0; font-size:11.5pt; line-height:1.65; }
+  .head { border-bottom:2px solid #111; padding-bottom:6px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:flex-end; }
+  .head .l { font-size:10pt; color:#444; }
+  .head .r { font-size:9.5pt; color:#444; }
+  h1 { font-size:16pt; margin:14px 0 4px; }
+  .sub { font-size:10pt; color:#555; margin-bottom:14px; }
+  .q { break-inside: avoid; page-break-inside: avoid; margin-bottom:18px; }
+  .qh { display:flex; align-items:baseline; gap:8px; margin-bottom:5px; }
+  .qn { font-weight:800; font-size:12pt; }
+  .qp { font-size:9pt; color:#666; }
+  .qt { margin-bottom:6px; white-space:pre-wrap; }
+  .qfig { max-width:260px; margin:6px 0; }
+  .qfig svg { width:100%; height:auto; }
+  .qimg img { max-width:78%; max-height:250px; border:1px solid #ddd; border-radius:4px; }
+  .qspace { height:52px; border-bottom:1px dashed #e5e5e5; }
+  table.prob-table { border-collapse:collapse; margin:8px 0; }
+  table.prob-table th, table.prob-table td { border:1px solid #999; padding:4px 10px; font-size:10.5pt; text-align:center; }
+  table.prob-table th { background:#f2f2f2; }
+  .ans { page-break-before: always; }
+  .ans h2 { font-size:13pt; border-bottom:1.5px solid #111; padding-bottom:5px; }
+  .ans table { border-collapse:collapse; width:100%; margin-top:10px; }
+  .ans th, .ans td { border:1px solid #bbb; padding:5px 8px; font-size:10.5pt; text-align:center; }
+  .ans th { background:#f2f2f2; }
+  /* 그래프는 인쇄용으로 검은 선 */
+  .qfig svg text { fill:#333 !important; }
+  .qfig svg line { stroke:#888 !important; }
+  .qfig svg path { stroke:#111 !important; }
+  .qfig svg circle[fill="#fff"], .qfig svg circle[r="3.5"] { fill:#111 !important; }
+  .qfig svg rect { fill:#666 !important; }
+</style></head><body>
+  <div class="head"><div class="l">${esc(sub || '수학')}</div><div class="r">이름 ______________ &nbsp; 날짜 ___ . ___ .</div></div>
+  <h1>${esc(title)}</h1>
+  <div class="sub">총 ${picked.length}문항 · 답만 쓰지 말고 풀이 과정을 함께 적을 것</div>
+  ${body}
+  <div class="ans">
+    <h2>정답</h2>
+    <table><tr><th style="width:70px;">번호</th><th>정답</th><th style="width:90px;">출처(학생)</th></tr>${keys}</table>
+  </div>
+<script>
+  function go(){ setTimeout(function(){ window.print(); }, 400); }
+  var imgs = Array.prototype.slice.call(document.images);
+  var left = imgs.length;
+  function ready(){ if(--left <= 0) waitMath(); }
+  function waitMath(){
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise().then(go).catch(go);
+    else setTimeout(waitMath, 200);
+  }
+  if(!imgs.length) waitMath();
+  else imgs.forEach(function(im){ if(im.complete) ready(); else { im.onload=ready; im.onerror=ready; } });
+<\/script>
+</body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { showToast('팝업이 차단됐어요. 주소창 오른쪽에서 팝업을 허용해주세요.', 'error'); return; }
+    w.document.write(html);
+    w.document.close();
+    showToast('🖨 인쇄창이 열리면 "대상"을 PDF로 저장 선택하세요.', 'ok');
   }
 
   // ===== 배경 테마 관리 =====
