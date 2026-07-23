@@ -3227,7 +3227,7 @@
     const orig = v.is_original;
     const sel = _vmSel.has(v.id);
     return `
-      <div style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;${orig ? 'border-left:3px solid #7C3AED;' : ''}${sel ? 'outline:2px solid #E8639A;' : ''}">
+      <div id="vmc-${v.id}" style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;${orig ? 'border-left:3px solid #7C3AED;' : ''}${sel ? 'outline:2px solid #E8639A;' : ''}">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap;">
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:800;color:var(--text2);">
             <input type="checkbox" ${sel ? 'checked' : ''} onchange="vmToggleSel('${v.id}')" style="width:15px;height:15px;cursor:pointer;accent-color:#E8639A;" />시험지
@@ -3321,7 +3321,9 @@
   function vmToggleSel(id) {
     if (_vmSel.has(id)) _vmSel.delete(id); else _vmSel.add(id);
     vmUpdateSelCount();
-    loadVManage(true);
+    // 목록을 다시 그리면 화면이 맨 위로 튀므로, 해당 카드 테두리만 바꾼다
+    const card = document.getElementById('vmc-' + id);
+    if (card) card.style.outline = _vmSel.has(id) ? '2px solid #E8639A' : '';
   }
   function vmUpdateSelCount() {
     const el = document.getElementById('vm-selcount');
@@ -3330,12 +3332,21 @@
   function vmSelectPage() {
     document.querySelectorAll('#vm-list input[type=checkbox]').forEach(cb => {
       const m = cb.getAttribute('onchange')?.match(/vmToggleSel\('([^']+)'\)/);
-      if (m) _vmSel.add(m[1]);
+      if (!m) return;
+      _vmSel.add(m[1]);
+      cb.checked = true;
+      const card = document.getElementById('vmc-' + m[1]);
+      if (card) card.style.outline = '2px solid #E8639A';
     });
     vmUpdateSelCount();
-    loadVManage(true);
   }
-  function vmClearSel() { _vmSel.clear(); vmUpdateSelCount(); loadVManage(true); }
+
+  function vmClearSel() {
+    _vmSel.clear();
+    document.querySelectorAll('#vm-list input[type=checkbox]').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('#vm-list [id^="vmc-"]').forEach(el => { el.style.outline = ''; });
+    vmUpdateSelCount();
+  }
 
   function vmPrint() {
     const picked = _vmData.filter(v => _vmSel.has(v.id));
