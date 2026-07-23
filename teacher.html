@@ -1632,7 +1632,8 @@
           approved: false
         })
       });
-      showToast('✅ 변형문제 생성 완료!\n미션탭 → 🤖 변형문제 검수에서 승인해주세요.', 'ok');
+      if (v.warning) showToast('⚠️ 주의: ' + v.warning + '\n검수 시 문제 조건을 꼭 확인해주세요.', 'warn');
+      else showToast('✅ 변형문제 생성 완료!\n미션탭 → 🤖 변형문제 검수에서 승인해주세요.', 'ok');
       loadVariationReviews();
     } catch(e) { console.error('generateVariation:', e); }
   }
@@ -1753,6 +1754,7 @@
     const sy = v => H - PAD - (v - ymin) / (ymax - ymin) * (H - PAD * 2);
 
     let out = '';
+    const showNum = fig.showNumbers !== false;
     const gridC = 'rgba(255,255,255,0.10)', axisC = 'rgba(255,255,255,0.45)';
     const txtC = 'rgba(255,255,255,0.55)', curveC = '#F9A8D4';
 
@@ -1761,13 +1763,13 @@
     for (let v = Math.ceil(xr[0] / step) * step; v <= xr[1]; v += step) {
       const X = sx(v);
       out += `<line x1="${X}" y1="${PAD}" x2="${X}" y2="${H - PAD}" stroke="${gridC}" stroke-width="1"/>`;
-      if (Math.abs(v) > 1e-9) out += `<text x="${X}" y="${sy(0) + 13}" fill="${txtC}" font-size="9" text-anchor="middle">${_figFmt(v)}</text>`;
+      if (showNum && Math.abs(v) > 1e-9) out += `<text x="${X}" y="${sy(0) + 13}" fill="${txtC}" font-size="9" text-anchor="middle">${_figFmt(v)}</text>`;
     }
     const ystep = niceStep(ymax - ymin);
     for (let v = Math.ceil(ymin / ystep) * ystep; v <= ymax; v += ystep) {
       const Y = sy(v);
       out += `<line x1="${PAD}" y1="${Y}" x2="${W - PAD}" y2="${Y}" stroke="${gridC}" stroke-width="1"/>`;
-      if (Math.abs(v) > 1e-9) out += `<text x="${sx(0) - 5}" y="${Y + 3}" fill="${txtC}" font-size="9" text-anchor="end">${_figFmt(v)}</text>`;
+      if (showNum && Math.abs(v) > 1e-9) out += `<text x="${sx(0) - 5}" y="${Y + 3}" fill="${txtC}" font-size="9" text-anchor="end">${_figFmt(v)}</text>`;
     }
 
     // 축
@@ -1943,6 +1945,7 @@
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null })
       });
+      if (nv.warning) showToast('⚠️ 주의: ' + nv.warning, 'warn');
       loadVariationReviews();
     } catch(e) { alert('재생성 실패'); }
   }

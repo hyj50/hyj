@@ -2822,6 +2822,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const sy = v => H - PAD - (v - ymin) / (ymax - ymin) * (H - PAD * 2);
 
     let out = '';
+    const showNum = fig.showNumbers !== false;
     const gridC = 'rgba(255,255,255,0.10)', axisC = 'rgba(255,255,255,0.45)';
     const txtC = 'rgba(255,255,255,0.55)', curveC = '#F9A8D4';
 
@@ -2830,13 +2831,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     for (let v = Math.ceil(xr[0] / step) * step; v <= xr[1]; v += step) {
       const X = sx(v);
       out += `<line x1="${X}" y1="${PAD}" x2="${X}" y2="${H - PAD}" stroke="${gridC}" stroke-width="1"/>`;
-      if (Math.abs(v) > 1e-9) out += `<text x="${X}" y="${sy(0) + 13}" fill="${txtC}" font-size="9" text-anchor="middle">${_figFmt(v)}</text>`;
+      if (showNum && Math.abs(v) > 1e-9) out += `<text x="${X}" y="${sy(0) + 13}" fill="${txtC}" font-size="9" text-anchor="middle">${_figFmt(v)}</text>`;
     }
     const ystep = niceStep(ymax - ymin);
     for (let v = Math.ceil(ymin / ystep) * ystep; v <= ymax; v += ystep) {
       const Y = sy(v);
       out += `<line x1="${PAD}" y1="${Y}" x2="${W - PAD}" y2="${Y}" stroke="${gridC}" stroke-width="1"/>`;
-      if (Math.abs(v) > 1e-9) out += `<text x="${sx(0) - 5}" y="${Y + 3}" fill="${txtC}" font-size="9" text-anchor="end">${_figFmt(v)}</text>`;
+      if (showNum && Math.abs(v) > 1e-9) out += `<text x="${sx(0) - 5}" y="${Y + 3}" fill="${txtC}" font-size="9" text-anchor="end">${_figFmt(v)}</text>`;
     }
 
     // 축
