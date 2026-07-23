@@ -410,6 +410,7 @@
     <button class="main-tab-btn active" data-main-tab="notes" onclick="switchMainTab('notes')">📋<br>오답노트</button>
     <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬<br>문의</button>
     <button class="main-tab-btn" data-main-tab="mission" onclick="switchMainTab('mission')">🎯<br>미션</button>
+    <button class="main-tab-btn" data-main-tab="vmanage" onclick="switchMainTab('vmanage')">📚<br>문제관리</button>
     <button class="main-tab-btn" data-main-tab="theme" onclick="switchMainTab('theme')">🎨<br>테마</button>
   </div>
 
@@ -506,6 +507,24 @@
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:12px;">🛍️ 구매 내역 (지급 대기)</div>
       <div id="purchase-list" style="display:flex;flex-direction:column;gap:8px;"></div>
     </div>
+  </div>
+
+  <!-- 변형문제 관리 탭 -->
+  <div class="main-tab-panel" id="main-tab-vmanage">
+    <div style="background:var(--bg2);border-radius:16px;padding:1rem;margin-bottom:12px;border:1px solid var(--border);">
+      <div style="font-size:15px;font-weight:800;color:var(--text1);margin-bottom:10px;">📚 변형문제 관리</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <select id="vm-student" onchange="loadVManage()" style="flex:1;min-width:110px;padding:8px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;"></select>
+        <select id="vm-unit" onchange="loadVManage()" style="flex:1;min-width:110px;padding:8px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;"></select>
+        <select id="vm-status" onchange="loadVManage()" style="flex:1;min-width:96px;padding:8px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;">
+          <option value="">전체 상태</option>
+          <option value="1">✅ 승인됨</option>
+          <option value="0">⏳ 검수대기</option>
+        </select>
+      </div>
+      <div id="vm-count" style="font-size:11.5px;color:var(--text4);margin-top:8px;"></div>
+    </div>
+    <div id="vm-list"></div>
   </div>
 
   <!-- 테마 관리 탭 -->
@@ -1597,7 +1616,7 @@
         body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id })
       });
       if (res.status === 429) {
-        alert('⚠️ 오늘 AI 변형문제 생성 한도(20회)를 모두 썼어요.\n이 오답의 변형문제는 내일 미션탭에서 🔄 재생성으로 만들 수 있어요.');
+        showToast('⚠️ AI가 잠시 바빠요. 잠시 후 🔄 재생성을 눌러주세요.', 'warn');
         return;
       }
       if (res.status === 503) {
@@ -1936,7 +1955,7 @@
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
         body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id })
       });
-      if (res.status === 429) { alert('⚠️ 오늘 AI 한도(20회)를 다 썼어요. 내일 다시 시도해주세요.'); return; }
+      if (res.status === 429) { showToast('⚠️ AI가 잠시 바빠요. 조금 뒤 다시 눌러주세요.', 'warn'); return; }
       if (res.status === 503) { alert('⚠️ AI 서버가 잠시 혼잡해요. 조금 있다 다시 눌러주세요.'); return; }
       const nv = await res.json();
       if (nv.error) { alert('재생성 실패: ' + nv.error); return; }
@@ -1945,6 +1964,7 @@
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null })
       });
+      if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
       if (nv.warning) showToast('⚠️ 주의: ' + nv.warning, 'warn');
       loadVariationReviews();
     } catch(e) { alert('재생성 실패'); }
@@ -3056,6 +3076,170 @@
     if (tab === 'qna') loadTeacherQnA(1);
     if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
     if (tab === 'theme') { renderThemeEmojiPicker(); loadThemeBgs(); }
+    if (tab === 'vmanage') initVManage();
+  }
+
+  // ===== 변형문제 관리 =====
+  let _vmData = [];
+
+  async function initVManage() {
+    const sSel = document.getElementById('vm-student');
+    if (!sSel.options.length) {
+      const st = await fetch(`${SUPABASE_URL}/rest/v1/students?select=id,name&order=name`, { headers: sbHeaders() }).then(r => r.json());
+      sSel.innerHTML = '<option value="">전체 학생</option>' +
+        (st || []).map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+    }
+    await loadVManage();
+  }
+
+  async function loadVManage() {
+    const box = document.getElementById('vm-list');
+    box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?select=*,wrong_notes!inner(id,student_id,subject,major_unit,minor_unit,image_url,students(name))&order=created_at.desc`, { headers: sbHeaders() }).then(r => r.json());
+      _vmData = Array.isArray(rows) ? rows : [];
+
+      // 단원 목록 채우기
+      const uSel = document.getElementById('vm-unit');
+      if (!uSel.options.length) {
+        const units = [...new Set(_vmData.map(v => v.wrong_notes?.major_unit).filter(Boolean))].sort();
+        uSel.innerHTML = '<option value="">전체 단원</option>' + units.map(u => `<option value="${u}">${u}</option>`).join('');
+      }
+
+      const fs = document.getElementById('vm-student').value;
+      const fu = document.getElementById('vm-unit').value;
+      const fa = document.getElementById('vm-status').value;
+      let list = _vmData.filter(v => {
+        const n = v.wrong_notes || {};
+        if (fs && n.student_id !== fs) return false;
+        if (fu && n.major_unit !== fu) return false;
+        if (fa === '1' && !v.approved) return false;
+        if (fa === '0' && v.approved) return false;
+        return true;
+      });
+
+      document.getElementById('vm-count').textContent =
+        `변형문제 ${list.length}개 · 원본 오답 ${new Set(list.map(v => v.note_id)).size}개`;
+
+      if (!list.length) {
+        box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:24px;">조건에 맞는 변형문제가 없어요.</div>';
+        return;
+      }
+
+      // 원본 오답별로 묶기
+      const g = {};
+      list.forEach(v => { (g[v.note_id] = g[v.note_id] || []).push(v); });
+
+      box.innerHTML = Object.keys(g).map(nid => {
+        const vs = g[nid], n = vs[0].wrong_notes || {};
+        const who = n.students?.name || '?';
+        const unit = [n.subject, n.major_unit, n.minor_unit].filter(Boolean).join(' › ') || '단원 미분류';
+        return `
+        <div style="background:var(--bg2);border-radius:14px;padding:0.9rem;margin-bottom:12px;border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+            ${n.image_url ? `<img src="${n.image_url}" onclick="openModal('${n.image_url}')" style="width:44px;height:44px;border-radius:8px;object-fit:cover;cursor:pointer;flex-shrink:0;" />` : ''}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:800;color:var(--text1);">${who} <span style="font-size:11px;color:var(--text4);font-weight:600;">· 변형 ${vs.length}개</span></div>
+              <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${unit}</div>
+            </div>
+            <button onclick="addMoreVariation('${nid}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">＋ 더 만들기</button>
+          </div>
+          ${vs.map(v => vmCard(v)).join('')}
+        </div>`;
+      }).join('');
+    } catch (e) {
+      console.error(e);
+      box.innerHTML = '<div style="text-align:center;color:#e11d48;font-size:12.5px;padding:20px;">불러오기 실패</div>';
+    }
+  }
+
+  function vmCard(v) {
+    let sp = v.figure;
+    if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
+    const svg = sp ? renderFigure(sp) : '';
+    return `
+      <div style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;${v.approved ? 'background:#DCFCE7;color:#166534;' : 'background:#FEF3C7;color:#92400E;'}">${v.approved ? '✅ 승인됨' : '⏳ 검수대기'}</span>
+          <span style="font-size:10.5px;color:var(--text4);">정답 ${v.answer ?? '-'} · ${Math.round((v.time_limit_sec || 180) / 60)}분</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text1);line-height:1.55;white-space:pre-wrap;margin-bottom:6px;">${renderProblemHtml(v.problem_text || '')}</div>
+        ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
+        ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:130px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;" />` : ''}
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <button onclick="vmToggle('${v.id}',${v.approved})" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">${v.approved ? '↩ 승인취소' : '✅ 승인'}</button>
+          <button onclick="vmEdit('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>
+          <button onclick="regenVariation('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">🔄 재생성</button>
+          <button onclick="vmDelete('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:#e11d48;font-size:11px;font-weight:700;cursor:pointer;">🗑 삭제</button>
+        </div>
+      </div>`;
+  }
+
+  // 같은 원본으로 변형문제를 "추가" 생성 (기존 것을 지우지 않음)
+  async function addMoreVariation(noteId) {
+    const v = _vmData.find(x => x.note_id === noteId);
+    const img = v?.wrong_notes?.image_url;
+    if (!img) { showToast('원본 사진이 없어 만들 수 없어요.', 'warn'); return; }
+    showToast('🤖 변형문제 추가 생성 중...', 'ok');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ image_url: img })
+      });
+      let reason = '';
+      if (!res.ok) { try { reason = (await res.json()).error || ''; } catch (e) {} 
+        showToast('❌ ' + (reason || `생성 실패 (${res.status})`), 'error'); return; }
+      const nv = await res.json();
+      const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({
+          note_id: noteId,
+          problem_text: nv.problem_text || nv.problem,
+          answer: nv.answer,
+          time_limit_sec: nv.time_limit_sec || 300,
+          figure: nv.figure || null,
+          approved: false
+        })
+      });
+      if (!ins.ok) throw new Error(await ins.text());
+      showToast('✅ 변형문제가 추가됐어요! 검수 후 승인해주세요.', 'ok');
+      loadVManage();
+    } catch (e) {
+      console.error(e);
+      showToast('❌ 추가 실패\n' + String(e.message || e).slice(0, 80), 'error');
+    }
+  }
+
+  async function vmToggle(id, cur) {
+    await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
+      method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ approved: !cur })
+    });
+    loadVManage();
+  }
+
+  async function vmDelete(id) {
+    if (!confirm('이 변형문제를 삭제할까요?')) return;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, { method: 'DELETE', headers: sbHeaders() });
+    if (!r.ok) { showToast('❌ 삭제 실패 (학생이 이미 푼 문제는 지울 수 없어요)', 'error'); return; }
+    loadVManage();
+  }
+
+  async function vmEdit(id) {
+    const v = _vmData.find(x => x.id === id);
+    if (!v) return;
+    const t = prompt('문제 내용을 수정하세요', v.problem_text || '');
+    if (t === null) return;
+    const a = prompt('정답을 수정하세요 (단위 없이 숫자만)', v.answer || '');
+    if (a === null) return;
+    const m = prompt('제한시간(분)', String(Math.round((v.time_limit_sec || 180) / 60)));
+    if (m === null) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
+      method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ problem_text: t, answer: String(a).trim(), time_limit_sec: (parseInt(m, 10) || 3) * 60 })
+    });
+    showToast('✅ 수정 완료', 'ok');
+    loadVManage();
   }
 
   // ===== 배경 테마 관리 =====
