@@ -396,6 +396,9 @@
   h1 { gap: 8px; }
   h1 > span:first-child { white-space: nowrap; }
   h1 > span:last-child { flex-shrink: 0; }
+  .prob-table { border-collapse:collapse; margin:10px 0; white-space:normal; background:rgba(255,255,255,0.06); border-radius:8px; overflow:hidden; }
+  .prob-table th, .prob-table td { border:1px solid rgba(255,255,255,0.22); padding:7px 11px; font-size:13.5px; text-align:center; color:#fff; }
+  .prob-table th { background:rgba(255,255,255,0.13); font-weight:700; }
   .palette-row { display:flex; gap:10px; flex-wrap:wrap; }
   .palette-dot { width:34px; height:34px; border-radius:50%; cursor:pointer; border:2.5px solid transparent; transition:border-color .15s; flex-shrink:0; }
   .palette-dot.active { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.4); }
@@ -653,7 +656,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <div style="font-size:15px;font-weight:800;color:white;">🎯 변형문제 도전</div>
       <div id="mission-timer" style="font-size:18px;font-weight:800;color:#F9A8D4;">5:00</div>
     </div>
-    <div id="mission-problem-text" style="background:rgba(255,255,255,0.07);border-radius:12px;padding:1.1rem;font-size:14.5px;color:white;line-height:1.7;margin-bottom:14px;white-space:pre-wrap;"></div>
+    <div id="mission-problem-text" style="background:rgba(255,255,255,0.07);border-radius:12px;padding:1.1rem;font-size:14.5px;color:white;line-height:1.7;margin-bottom:10px;white-space:pre-wrap;"></div>
+    <div id="mission-figure-svg" style="display:none;background:rgba(255,255,255,0.05);border-radius:12px;padding:8px;margin-bottom:10px;"></div>
+    <img id="mission-figure-img" style="display:none;width:100%;border-radius:12px;margin-bottom:10px;background:#fff;cursor:zoom-in;" onclick="openModal(this.src,'문제 그림')" />
+    <div id="mission-origin-box" style="display:none;align-items:center;gap:9px;background:rgba(255,255,255,0.06);border-radius:11px;padding:8px 10px;margin-bottom:12px;">
+      <img id="mission-origin-img" style="width:46px;height:46px;border-radius:8px;object-fit:cover;cursor:zoom-in;flex-shrink:0;" onclick="openModal(this.src,'원본 오답 문제')" />
+      <div style="font-size:11.5px;color:rgba(255,255,255,0.6);line-height:1.45;">이 문제의 <b style="color:rgba(255,255,255,0.85);">원본 오답</b>이에요<br>눌러서 크게 보기</div>
+    </div>
     <input type="text" id="mission-answer-input" placeholder="답을 입력하세요 (숫자 또는 3/4 형태)" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);font-size:15px;font-weight:700;background:rgba(255,255,255,0.1);color:white;box-sizing:border-box;margin-bottom:10px;text-align:center;" autocomplete="off" />
     <div style="display:flex;gap:8px;">
       <button onclick="cancelMission()" style="flex:1;padding:12px;border-radius:11px;border:1.5px solid rgba(255,255,255,0.25);background:none;color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;">포기</button>
@@ -2710,13 +2719,198 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       </div>`).join('');
   }
 
+  // ===== 변형문제 그림 렌더러: AI가 준 설계도(JSON)로 SVG를 직접 그린다 =====
+
+  // AI가 보낸 문자열을 그대로 실행하면 위험하므로 허용 문자만 통과시킨다.
+  function makeFn(expr) {
+    let e = String(expr || '').trim();
+    if (!e) return null;
+    // ^ → **,  2x → 2*x,  x( → x*(
+    e = e.replace(/\^/g, '**');
+    e = e.replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2');
+    e = e.replace(/\)\s*(\d|[a-zA-Z(])/g, ')*$1');
+    // 허용된 함수/상수만 남기고 검사
+    const allowed = /^[0-9xX+\-*/().,\s]|sin|cos|tan|sqrt|abs|log|exp|pi|e/;
+    const stripped = e.replace(/sin|cos|tan|sqrt|abs|log|exp|pi|e|\*\*/g, '');
+    if (/[^0-9xX+\-*/().,\s]/.test(stripped)) return null;   // 이상한 문자 → 거부
+    const body = e
+      .replace(/\bpi\b/g, 'Math.PI')
+      .replace(/\be\b/g, 'Math.E')
+      .replace(/\b(sin|cos|tan|sqrt|abs|log|exp)\b/g, 'Math.$1');
+    try {
+      const f = new Function('x', `"use strict";return (${body});`);
+      const t = f(1);
+      if (typeof t !== 'number') return null;
+      return f;
+    } catch (err) { return null; }
+  }
+
+  // --- 2) SVG 그리기 ---
+  function renderFigure(fig) {
+    if (!fig || typeof fig !== 'object') return '';
+    const W = 320, H = 260, PAD = 26;
+    const xr = fig.xRange || [-5, 5];
+    const yr = fig.yRange || null;
+
+    // 막대그래프는 좌표축이 아니라 따로 처리
+    if (fig.type === 'bar') return renderBar(fig, W, H);
+
+    // y범위 자동 계산
+    let ymin, ymax;
+    const fns = (fig.funcs || []).map(makeFn).filter(Boolean);
+    if (yr) { ymin = yr[0]; ymax = yr[1]; }
+    else {
+      const vals = [];
+      for (const f of fns) {
+        for (let i = 0; i <= 100; i++) {
+          const x = xr[0] + (xr[1] - xr[0]) * i / 100;
+          const y = f(x);
+          if (isFinite(y) && Math.abs(y) < 1e4) vals.push(y);
+        }
+      }
+      (fig.points || []).forEach(p => vals.push(p[1]));
+      (fig.lines || []).forEach(l => { if (l.y !== undefined) vals.push(l.y); });
+      if (!vals.length) { ymin = -5; ymax = 5; }
+      else {
+        ymin = Math.min(...vals); ymax = Math.max(...vals);
+        const m = (ymax - ymin) * 0.15 || 1;
+        ymin -= m; ymax += m;
+      }
+    }
+    if (ymin === ymax) { ymin -= 1; ymax += 1; }
+
+    const sx = v => PAD + (v - xr[0]) / (xr[1] - xr[0]) * (W - PAD * 2);
+    const sy = v => H - PAD - (v - ymin) / (ymax - ymin) * (H - PAD * 2);
+
+    let out = '';
+    const gridC = 'rgba(255,255,255,0.10)', axisC = 'rgba(255,255,255,0.45)';
+    const txtC = 'rgba(255,255,255,0.55)', curveC = '#F9A8D4';
+
+    // 격자 + 눈금
+    const step = niceStep(xr[1] - xr[0]);
+    for (let v = Math.ceil(xr[0] / step) * step; v <= xr[1]; v += step) {
+      const X = sx(v);
+      out += `<line x1="${X}" y1="${PAD}" x2="${X}" y2="${H - PAD}" stroke="${gridC}" stroke-width="1"/>`;
+      if (Math.abs(v) > 1e-9) out += `<text x="${X}" y="${sy(0) + 13}" fill="${txtC}" font-size="9" text-anchor="middle">${_figFmt(v)}</text>`;
+    }
+    const ystep = niceStep(ymax - ymin);
+    for (let v = Math.ceil(ymin / ystep) * ystep; v <= ymax; v += ystep) {
+      const Y = sy(v);
+      out += `<line x1="${PAD}" y1="${Y}" x2="${W - PAD}" y2="${Y}" stroke="${gridC}" stroke-width="1"/>`;
+      if (Math.abs(v) > 1e-9) out += `<text x="${sx(0) - 5}" y="${Y + 3}" fill="${txtC}" font-size="9" text-anchor="end">${_figFmt(v)}</text>`;
+    }
+
+    // 축
+    if (ymin <= 0 && ymax >= 0) out += `<line x1="${PAD}" y1="${sy(0)}" x2="${W - PAD}" y2="${sy(0)}" stroke="${axisC}" stroke-width="1.5"/>`;
+    if (xr[0] <= 0 && xr[1] >= 0) out += `<line x1="${sx(0)}" y1="${PAD}" x2="${sx(0)}" y2="${H - PAD}" stroke="${axisC}" stroke-width="1.5"/>`;
+
+    // 보조선
+    (fig.lines || []).forEach(l => {
+      if (l.y !== undefined) out += `<line x1="${PAD}" y1="${sy(l.y)}" x2="${W - PAD}" y2="${sy(l.y)}" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="5 3"/>`;
+      if (l.x !== undefined) out += `<line x1="${sx(l.x)}" y1="${PAD}" x2="${sx(l.x)}" y2="${H - PAD}" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="5 3"/>`;
+    });
+
+    // 함수 곡선
+    const colors = [curveC, '#6EE7B7', '#FCD34D'];
+    fns.forEach((f, fi) => {
+      let d = '', pen = false;
+      for (let i = 0; i <= 300; i++) {
+        const x = xr[0] + (xr[1] - xr[0]) * i / 300;
+        const y = f(x);
+        if (!isFinite(y) || y < ymin - (ymax - ymin) || y > ymax + (ymax - ymin)) { pen = false; continue; }
+        d += (pen ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(y).toFixed(1) + ' ';
+        pen = true;
+      }
+      if (d) out += `<path d="${d}" fill="none" stroke="${colors[fi % 3]}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    });
+
+    // 점
+    (fig.points || []).forEach(p => {
+      const X = sx(p[0]), Y = sy(p[1]);
+      out += `<circle cx="${X}" cy="${Y}" r="4" fill="#fff" stroke="#7C3AED" stroke-width="2"/>`;
+      if (p[2]) out += `<text x="${X + 7}" y="${Y - 6}" fill="#fff" font-size="11" font-weight="700">${_figEsc(p[2])}</text>`;
+    });
+
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
+  }
+
+  function renderBar(fig, W, H) {
+    const labels = fig.labels || [], values = fig.values || [];
+    if (!labels.length || !values.length) return '';
+    const PAD = 30, BW = (W - PAD * 2) / labels.length;
+    const mx = Math.max(...values, 1);
+    let out = `<line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>`;
+    labels.forEach((lb, i) => {
+      const h = (values[i] / mx) * (H - PAD * 2);
+      const x = PAD + i * BW + BW * 0.2, w = BW * 0.6;
+      out += `<rect x="${x}" y="${H - PAD - h}" width="${w}" height="${h}" fill="#7C3AED" rx="3"/>`;
+      out += `<text x="${x + w / 2}" y="${H - PAD + 13}" fill="rgba(255,255,255,0.6)" font-size="10" text-anchor="middle">${_figEsc(lb)}</text>`;
+      out += `<text x="${x + w / 2}" y="${H - PAD - h - 5}" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">${values[i]}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
+  }
+
+  function niceStep(range) {
+    const raw = range / 6, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+    return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+  }
+  function _figFmt(v) { const r = Math.round(v * 100) / 100; return String(r); }
+  function _figEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  // AI가 만든 문제의 마크다운 표를 실제 표로 그려준다 (수식은 MathJax가 처리)
+  function renderProblemHtml(text) {
+    const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const isRow = l => /^\s*\|.*\|\s*$/.test(l);
+    const isSep = l => /^\s*\|[\s\-:|]+\|\s*$/.test(l);
+    const lines = String(text || '').split('\n');
+    let out = '', i = 0;
+    while (i < lines.length) {
+      if (isRow(lines[i])) {
+        const buf = [];
+        while (i < lines.length && isRow(lines[i])) { buf.push(lines[i]); i++; }
+        const rows = buf.filter(r => !isSep(r))
+          .map(r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => esc(c.trim())));
+        if (rows.length) {
+          out += '<table class="prob-table">' + rows.map((cells, ri) =>
+            '<tr>' + cells.map(c => ri === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join('') + '</tr>'
+          ).join('') + '</table>';
+        }
+      } else {
+        out += esc(lines[i]) + (i < lines.length - 1 ? '\n' : '');
+        i++;
+      }
+    }
+    return out;
+  }
+
   async function startMission(variationId) {
-    const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${variationId}&select=*`, { headers: sbHeaders() }).then(r => r.json());
+    const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${variationId}&select=*,wrong_notes(image_url)`, { headers: sbHeaders() }).then(r => r.json());
     const v = rows[0];
     if (!v) { alert('문제를 불러올 수 없어요'); return; }
     _missionCurrent = v;
-    document.getElementById('mission-problem-text').textContent = v.problem_text;
-    if (window.MathJax?.typesetPromise) MathJax.typesetPromise([document.getElementById('mission-problem-text')]).catch(()=>{});
+    const ptEl = document.getElementById('mission-problem-text');
+    ptEl.innerHTML = renderProblemHtml(v.problem_text);
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise([ptEl]).catch(()=>{});
+
+    // AI가 보낸 설계도로 그래프 자동 생성
+    const figBox = document.getElementById('mission-figure-svg');
+    let spec = v.figure;
+    if (typeof spec === 'string') { try { spec = JSON.parse(spec); } catch (e) { spec = null; } }
+    const svg = spec ? renderFigure(spec) : '';
+    if (svg) { figBox.innerHTML = svg; figBox.style.display = 'block'; }
+    else { figBox.innerHTML = ''; figBox.style.display = 'none'; }
+
+    // 문제에 딸린 그림(선생님이 직접 붙인 것)
+    const fig = document.getElementById('mission-figure-img');
+    if (v.image_url) { fig.src = v.image_url; fig.style.display = 'block'; }
+    else { fig.style.display = 'none'; fig.removeAttribute('src'); }
+
+    // 원본 오답 사진 (어떤 문제의 변형인지 확인용)
+    const oimg = document.getElementById('mission-origin-img');
+    const obox = document.getElementById('mission-origin-box');
+    const ourl = v.wrong_notes?.image_url;
+    if (ourl) { oimg.src = ourl; obox.style.display = 'flex'; }
+    else { obox.style.display = 'none'; }
     document.getElementById('mission-answer-input').value = '';
     document.getElementById('mission-solve-overlay').style.display = 'flex';
 
