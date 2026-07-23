@@ -2803,6 +2803,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     // 막대그래프는 좌표축이 아니라 따로 처리
     if (fig.type === 'bar') return renderBar(fig, W, H);
     if (fig.type === 'circle') return renderCircle(fig, W, H);
+    if (fig.type === 'svg') return sanitizeSvg(fig.svg);
+    if (fig.type === 'geometry') return geoRender(fig, W, H);
 
     // y범위 자동 계산
     let ymin, ymax;
@@ -2883,6 +2885,212 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
   }
+
+  // ===== AI가 직접 그린 SVG를 안전하게 정리해서 표시 =====
+  // 그리기에 필요한 태그/속성만 남기고 나머지는 전부 제거한다.
+
+  const OK_SVG_TAGS = new Set([
+    'svg', 'g', 'defs', 'marker', 'path', 'line', 'circle', 'ellipse', 'rect',
+    'polygon', 'polyline', 'text', 'tspan', 'title', 'desc',
+    'lineargradient', 'radialgradient', 'stop', 'clippath', 'pattern', 'symbol'
+  ]);
+
+  const OK_SVG_ATTRS = new Set([
+    'd', 'x', 'y', 'dx', 'dy', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2',
+    'points', 'width', 'height', 'viewbox', 'preserveaspectratio',
+    'fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width', 'stroke-dasharray',
+    'stroke-linecap', 'stroke-linejoin', 'stroke-opacity', 'opacity',
+    'transform', 'font-size', 'font-family', 'font-weight', 'font-style',
+    'text-anchor', 'dominant-baseline', 'alignment-baseline', 'letter-spacing',
+    'id', 'class', 'marker-end', 'marker-start', 'marker-mid',
+    'markerwidth', 'markerheight', 'refx', 'refy', 'orient', 'markerunits',
+    'offset', 'stop-color', 'stop-opacity', 'gradientunits', 'clip-path',
+    'patternunits', 'xmlns'
+  ]);
+
+  function sanitizeSvg(raw) {
+    let s = String(raw || '').trim();
+    if (!s) return '';
+
+    // 코드블록 표시 제거
+    s = s.replace(/```(?:svg|xml|html)?/gi, '').trim();
+
+    // svg 태그만 추출
+    const start = s.toLowerCase().indexOf('<svg');
+    const end = s.toLowerCase().lastIndexOf('</svg>');
+    if (start < 0 || end < 0) return '';
+    s = s.slice(start, end + 6);
+
+    // 위험 요소 통째로 제거
+    s = s.replace(/<\s*(script|foreignObject|iframe|object|embed|animate\w*|set|handler|image)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+    s = s.replace(/<\s*(script|foreignObject|iframe|object|embed|animate\w*|set|handler|image)\b[^>]*\/?>/gi, '');
+    s = s.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
+    s = s.replace(/<!--[\s\S]*?-->/g, '');
+    s = s.replace(/<!DOCTYPE[^>]*>/gi, '');
+    s = s.replace(/<\?[\s\S]*?\?>/g, '');
+
+    // 태그 단위로 검사
+    s = s.replace(/<\s*(\/?)\s*([a-zA-Z][a-zA-Z0-9-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g,
+      (m, close, tag, attrs) => {
+        const t = tag.toLowerCase();
+        if (!OK_SVG_TAGS.has(t)) return '';                 // 허용 안 된 태그 삭제
+        if (close) return `</${t}>`;
+
+        let out = '';
+        const re = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*("([^"]*)"|'([^']*)')/g;
+        let a;
+        while ((a = re.exec(attrs))) {
+          const name = a[1].toLowerCase();
+          const val = (a[3] !== undefined ? a[3] : a[4]) ?? '';
+          if (name.startsWith('on')) continue;                       // 이벤트 핸들러 금지
+          if (name === 'style') continue;                            // 인라인 스타일 금지
+          if (name === 'href' || name.endsWith(':href')) continue;    // 외부 링크 금지
+          if (!OK_SVG_ATTRS.has(name)) continue;
+          if (/javascript:|data:text|expression\s*\(|url\s*\(\s*['"]?\s*http/i.test(val)) continue;
+          out += ` ${name}="${val.replace(/"/g, '&quot;')}"`;
+        }
+        const selfClose = /\/\s*$/.test(attrs) ? ' /' : '';
+        return `<${t}${out}${selfClose}>`;
+      });
+
+    // 반드시 viewBox 가 있어야 크기 조절이 됨
+    if (!/viewbox\s*=/i.test(s)) {
+      s = s.replace(/<svg/i, '<svg viewBox="0 0 400 320"');
+    }
+    // 화면 폭에 맞추기
+    s = s.replace(/<svg([^>]*)>/i, (m, at) => {
+      let a = at.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*')/gi, '');
+      return `<svg${a} width="100%">`;
+    });
+    return s;
+  }
+
+  // ===== 범용 도형 렌더러 (점+선분+원/호+각도표시로 평면도형 전반) =====
+  function geoRender(fig, W, H) {
+    W = W || 320; H = H || 260;
+    const P = {};
+    (fig.points || []).forEach(p => {
+      if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
+    });
+    const at = ref => Array.isArray(ref) ? [Number(ref[0]), Number(ref[1])] : P[String(ref)];
+
+    // ── 범위 계산 ──
+    const xs = [], ys = [];
+    Object.values(P).forEach(([x, y]) => { xs.push(x); ys.push(y); });
+    (fig.circles || []).forEach(c => {
+      const p = at(c.center); if (!p) return;
+      xs.push(p[0] - c.r, p[0] + c.r); ys.push(p[1] - c.r, p[1] + c.r);
+    });
+    (fig.arcs || []).forEach(a => {
+      const p = at(a.center); if (!p) return;
+      xs.push(p[0] - a.r, p[0] + a.r); ys.push(p[1] - a.r, p[1] + a.r);
+    });
+    if (!xs.length) return '';
+    let x0 = Math.min(...xs), x1 = Math.max(...xs);
+    let y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (x1 - x0 < 1e-6) { x0 -= 1; x1 += 1; }
+    if (y1 - y0 < 1e-6) { y0 -= 1; y1 += 1; }
+    const PAD = 34;
+    const k = Math.min((W - PAD * 2) / (x1 - x0), (H - PAD * 2) / (y1 - y0));  // 가로세로 비율 유지
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+    const sx = v => W / 2 + (v - cx) * k;
+    const sy = v => H / 2 - (v - cy) * k;
+    const S = ref => { const p = at(ref); return p ? [sx(p[0]), sy(p[1])] : null; };
+
+    const C = { line: '#F9A8D4', aux: '#93C5FD', txt: '#fff', sub: 'rgba(255,255,255,0.65)', circ: 'rgba(255,255,255,0.55)' };
+    let out = '';
+
+    // ── 원 ──
+    (fig.circles || []).forEach(c => {
+      const p = S(c.center); if (!p) return;
+      out += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(c.r * k).toFixed(1)}" fill="none" stroke="${C.circ}" stroke-width="1.6"/>`;
+    });
+
+    // ── 호 ──
+    (fig.arcs || []).forEach(a => {
+      const p = at(a.center); if (!p) return;
+      const r = a.r * k, f = (Number(a.from) || 0) * Math.PI / 180, t = (Number(a.to) || 0) * Math.PI / 180;
+      const c0 = S(a.center);
+      const x1a = c0[0] + r * Math.cos(f), y1a = c0[1] - r * Math.sin(f);
+      const x2a = c0[0] + r * Math.cos(t), y2a = c0[1] - r * Math.sin(t);
+      let d = ((Number(a.to) - Number(a.from)) % 360 + 360) % 360;
+      out += `<path d="M ${x1a.toFixed(1)} ${y1a.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${d > 180 ? 1 : 0} 0 ${x2a.toFixed(1)} ${y2a.toFixed(1)}" fill="none" stroke="${C.circ}" stroke-width="1.6"/>`;
+    });
+
+    // ── 선분 ──
+    const drawSeg = (s, dash) => {
+      const a = S(s[0]), b = S(s[1]); if (!a || !b) return '';
+      return `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${dash ? C.aux : C.line}" stroke-width="${dash ? 1.5 : 2.1}"${dash ? ' stroke-dasharray="5 3"' : ''} stroke-linecap="round"/>`;
+    };
+    (fig.segments || []).forEach(s => { out += drawSeg(s, false); });
+    (fig.dashed || []).forEach(s => { out += drawSeg(s, true); });
+
+    // ── 직각 표시 ──
+    (fig.rightAngles || []).forEach(t => {
+      const a = at(t[0]), v = at(t[1]), b = at(t[2]); if (!a || !v || !b) return;
+      const u1 = _geoNorm([a[0] - v[0], a[1] - v[1]]), u2 = _geoNorm([b[0] - v[0], b[1] - v[1]]);
+      const L = 12 / k;
+      const p1 = [v[0] + u1[0] * L, v[1] + u1[1] * L];
+      const p2 = [v[0] + (u1[0] + u2[0]) * L, v[1] + (u1[1] + u2[1]) * L];
+      const p3 = [v[0] + u2[0] * L, v[1] + u2[1] * L];
+      out += `<polyline points="${[p1, p2, p3].map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="${C.sub}" stroke-width="1.4"/>`;
+    });
+
+    // ── 각 표시(호 + 라벨) ──
+    (fig.angles || []).forEach(g => {
+      const v = at(g.at), a = at(g.from), b = at(g.to); if (!v || !a || !b) return;
+      const A1 = Math.atan2(a[1] - v[1], a[0] - v[0]), A2 = Math.atan2(b[1] - v[1], b[0] - v[0]);
+      const R = 20;
+      const vs = [sx(v[0]), sy(v[1])];
+      const px = (ang, r) => [vs[0] + r * Math.cos(ang), vs[1] - r * Math.sin(ang)];
+      let diff = A2 - A1; while (diff <= -Math.PI) diff += 2 * Math.PI; while (diff > Math.PI) diff -= 2 * Math.PI;
+      const p1 = px(A1, R), p2 = px(A2, R);
+      out += `<path d="M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} A ${R} ${R} 0 0 ${diff > 0 ? 0 : 1} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}" fill="none" stroke="${C.sub}" stroke-width="1.4"/>`;
+      if (g.label) {
+        const mid = px(A1 + diff / 2, R + 14);
+        out += `<text x="${mid[0].toFixed(1)}" y="${(mid[1] + 4).toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle">${_geoEsc(g.label)}</text>`;
+      }
+    });
+
+    // ── 같은 길이 빗금 ──
+    (fig.ticks || []).forEach((s, i) => {
+      const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const d = _geoNorm([b[0] - a[0], b[1] - a[1]]);
+      const n = [-d[1], d[0]];
+      const cnt = (i % 3) + 1;
+      for (let j = 0; j < cnt; j++) {
+        const off = (j - (cnt - 1) / 2) * 5;
+        const ox = mx + d[0] * off, oy = my + d[1] * off;
+        out += `<line x1="${(ox - n[0] * 5).toFixed(1)}" y1="${(oy - n[1] * 5).toFixed(1)}" x2="${(ox + n[0] * 5).toFixed(1)}" y2="${(oy + n[1] * 5).toFixed(1)}" stroke="${C.sub}" stroke-width="1.5"/>`;
+      }
+    });
+
+    // ── 변 길이 라벨 ──
+    (fig.labels || []).forEach(L => {
+      const s = L.seg || []; const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const d = _geoNorm([b[0] - a[0], b[1] - a[1]]);
+      const n = [-d[1], d[0]];
+      out += `<text x="${(mx + n[0] * 14).toFixed(1)}" y="${(my + n[1] * 14 + 4).toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle">${_geoEsc(L.text)}</text>`;
+    });
+
+    // ── 점 + 이름 ──
+    Object.keys(P).forEach(name => {
+      const p = S(name);
+      const [gx, gy] = P[name];
+      const ox = gx - cx, oy = gy - cy;
+      const m = Math.hypot(ox, oy) || 1;
+      const lx = p[0] + (ox / m) * 15, ly = p[1] - (oy / m) * 15;
+      out += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#fff"/>`;
+      out += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" fill="${C.txt}" font-size="12" font-weight="700" text-anchor="middle">${_geoEsc(name)}</text>`;
+    });
+
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
+  }
+
+  function _geoNorm(v) { const m = Math.hypot(v[0], v[1]) || 1; return [v[0] / m, v[1] / m]; }
+  function _geoEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   function renderCircle(fig, W, H) {
     const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 34;
