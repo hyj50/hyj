@@ -2792,6 +2792,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
     // 막대그래프는 좌표축이 아니라 따로 처리
     if (fig.type === 'bar') return renderBar(fig, W, H);
+    if (fig.type === 'circle') return renderCircle(fig, W, H);
 
     // y범위 자동 계산
     let ymin, ymax;
@@ -2869,6 +2870,29 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       if (p[2]) out += `<text x="${X + 7}" y="${Y - 6}" fill="#fff" font-size="11" font-weight="700">${_figEsc(p[2])}</text>`;
     });
 
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
+  }
+
+  function renderCircle(fig, W, H) {
+    const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 34;
+    const pts = fig.points || [];
+    const pos = {};
+    let out = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.8"/>`;
+    pts.forEach(p => {
+      const name = p[0], ang = (Number(p[1]) || 0) * Math.PI / 180;
+      const x = cx + R * Math.cos(ang), y = cy - R * Math.sin(ang);
+      pos[name] = [x, y];
+    });
+    (fig.chords || []).forEach(c => {
+      const a = pos[c[0]], b = pos[c[1]];
+      if (a && b) out += `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="#F9A8D4" stroke-width="2"/>`;
+    });
+    Object.keys(pos).forEach(n => {
+      const [x, y] = pos[n];
+      const lx = x + (x - cx) * 0.14, ly = y + (y - cy) * 0.14;
+      out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#fff"/>`;
+      out += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">${_figEsc(n)}</text>`;
+    });
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
   }
 

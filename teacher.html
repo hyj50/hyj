@@ -242,6 +242,9 @@
   .note-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
   .note-reason-tag { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: var(--bg4); color: var(--text3); }
   .note-retry-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #FFE0DC; color: #B5421F; font-weight: 600; }
+  .prob-table { border-collapse:collapse; margin:8px 0; white-space:normal; }
+  .prob-table th, .prob-table td { border:1px solid var(--border2); padding:6px 10px; font-size:12.5px; text-align:center; color:var(--text1); }
+  .prob-table th { background:var(--bg3); font-weight:700; }
   .status-badge { font-size: 10.5px; padding: 2px 8px; border-radius: 6px; font-weight: 700; }
   .status-badge.pending { background: #FFF3CC; color: #854F0B; }
   .status-badge.approved { background: var(--green-light); color: var(--green); }
@@ -1649,7 +1652,7 @@
             <span style="font-size:11px;color:var(--text4);">⏱ <input type="number" id="var-time-${v.id}" value="${Math.round((v.time_limit_sec||300)/60)}" min="1" max="60" style="width:44px;padding:3px 6px;border-radius:6px;border:1px solid var(--border2);font-size:12px;font-weight:700;background:var(--bg2);color:var(--text1);text-align:center;" />분</span>
           </div>
           ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="max-width:100%;max-height:110px;border-radius:8px;object-fit:contain;margin-bottom:8px;cursor:pointer;" onclick="openModal('${v.wrong_notes.image_url}')" />` : ''}
-          <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${v.problem_text}</div>
+          <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${renderProblemHtml(v.problem_text)}</div>
           ${(() => {
             let sp = v.figure;
             if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
@@ -1719,6 +1722,7 @@
 
     // 막대그래프는 좌표축이 아니라 따로 처리
     if (fig.type === 'bar') return renderBar(fig, W, H);
+    if (fig.type === 'circle') return renderCircle(fig, W, H);
 
     // y범위 자동 계산
     let ymin, ymax;
@@ -1799,6 +1803,29 @@
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
   }
 
+  function renderCircle(fig, W, H) {
+    const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 34;
+    const pts = fig.points || [];
+    const pos = {};
+    let out = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.8"/>`;
+    pts.forEach(p => {
+      const name = p[0], ang = (Number(p[1]) || 0) * Math.PI / 180;
+      const x = cx + R * Math.cos(ang), y = cy - R * Math.sin(ang);
+      pos[name] = [x, y];
+    });
+    (fig.chords || []).forEach(c => {
+      const a = pos[c[0]], b = pos[c[1]];
+      if (a && b) out += `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="#F9A8D4" stroke-width="2"/>`;
+    });
+    Object.keys(pos).forEach(n => {
+      const [x, y] = pos[n];
+      const lx = x + (x - cx) * 0.14, ly = y + (y - cy) * 0.14;
+      out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#fff"/>`;
+      out += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" fill="#fff" font-size="12" font-weight="700" text-anchor="middle">${_figEsc(n)}</text>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
+  }
+
   function renderBar(fig, W, H) {
     const labels = fig.labels || [], values = fig.values || [];
     if (!labels.length || !values.length) return '';
@@ -1821,6 +1848,32 @@
   }
   function _figFmt(v) { const r = Math.round(v * 100) / 100; return String(r); }
   function _figEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  // AI가 만든 문제의 마크다운 표를 실제 표로 그려준다 (수식은 MathJax가 처리)
+  function renderProblemHtml(text) {
+    const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const isRow = l => /^\s*\|.*\|\s*$/.test(l);
+    const isSep = l => /^\s*\|[\s\-:|]+\|\s*$/.test(l);
+    const lines = String(text || '').split('\n');
+    let out = '', i = 0;
+    while (i < lines.length) {
+      if (isRow(lines[i])) {
+        const buf = [];
+        while (i < lines.length && isRow(lines[i])) { buf.push(lines[i]); i++; }
+        const rows = buf.filter(r => !isSep(r))
+          .map(r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => esc(c.trim())));
+        if (rows.length) {
+          out += '<table class="prob-table">' + rows.map((cells, ri) =>
+            '<tr>' + cells.map(c => ri === 0 ? `<th>${c}</th>` : `<td>${c}</td>`).join('') + '</tr>'
+          ).join('') + '</table>';
+        }
+      } else {
+        out += esc(lines[i]) + (i < lines.length - 1 ? '\n' : '');
+        i++;
+      }
+    }
+    return out;
+  }
 
   // 변형문제에 그림/표 이미지 첨부 (그림이 필요한 문제 대응)
   async function uploadVarFigure(id, e) {
