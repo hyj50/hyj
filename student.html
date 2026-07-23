@@ -2708,7 +2708,45 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       return;
     }
 
-    box.innerHTML = available.slice(0, DAILY_MISSION_LIMIT - attempts.length).map((v,i) => `
+    // 출제 우선순위: ①마지막에 틀린 문제 ②한 번도 안 푼 문제 ③오래전에 맞힌 문제
+    // (각 그룹 안에서는 무작위. 실패하면 예전 방식으로 자동 복귀)
+    let picked;
+    try {
+      let history = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?student_id=eq.${studentId}&select=variation_id,correct,attempt_date`, { headers: sbHeaders() }).then(r => r.json());
+      if (!Array.isArray(history)) history = [];
+
+      const stat = {};
+      history.forEach(a => {
+        const st = stat[a.variation_id] || (stat[a.variation_id] = { last: '', lastCorrect: true });
+        if (String(a.attempt_date) >= st.last) { st.last = String(a.attempt_date); st.lastCorrect = !!a.correct; }
+      });
+
+      const shuffle = arr => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      };
+
+      const gWrong = [], gNew = [], gDone = [];
+      available.forEach(v => {
+        const st = stat[v.id];
+        if (!st) gNew.push(v);
+        else if (!st.lastCorrect) gWrong.push(v);
+        else gDone.push(v);
+      });
+      shuffle(gWrong); shuffle(gNew);
+      gDone.sort((a, b) => String(stat[a.id].last).localeCompare(String(stat[b.id].last)));
+
+      picked = [...gWrong, ...gNew, ...gDone];
+    } catch (e) {
+      console.error('미션 우선순위 계산 실패, 기본 순서로 표시:', e);
+      picked = available;
+    }
+    if (!picked || !picked.length) picked = available;
+
+    box.innerHTML = picked.slice(0, DAILY_MISSION_LIMIT - attempts.length).map((v,i) => `
       <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:12px;padding:12px;">
         ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;" />` : '<span style="font-size:26px;">📝</span>'}
         <div style="flex:1;">
