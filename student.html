@@ -2887,6 +2887,21 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // ===== AI가 직접 그린 SVG를 안전하게 정리해서 표시 =====
+  // SVG 는 대소문자를 구분하므로 원래 표기로 되돌린다
+  const SVG_CASE = {
+    viewbox: 'viewBox', preserveaspectratio: 'preserveAspectRatio',
+    markerwidth: 'markerWidth', markerheight: 'markerHeight',
+    refx: 'refX', refy: 'refY', markerunits: 'markerUnits',
+    gradientunits: 'gradientUnits', gradienttransform: 'gradientTransform',
+    spreadmethod: 'spreadMethod', patternunits: 'patternUnits',
+    patterncontentunits: 'patternContentUnits', clippathunits: 'clipPathUnits',
+    textlength: 'textLength', lengthadjust: 'lengthAdjust'
+  };
+  const SVG_TAGCASE = {
+    lineargradient: 'linearGradient', radialgradient: 'radialGradient',
+    clippath: 'clipPath', foreignobject: 'foreignObject'
+  };
+
   // 그리기에 필요한 태그/속성만 남기고 나머지는 전부 제거한다.
 
   const OK_SVG_TAGS = new Set([
@@ -2934,7 +2949,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       (m, close, tag, attrs) => {
         const t = tag.toLowerCase();
         if (!OK_SVG_TAGS.has(t)) return '';                 // 허용 안 된 태그 삭제
-        if (close) return `</${t}>`;
+        const tag2 = SVG_TAGCASE[t] || t;
+        if (close) return `</${tag2}>`;
 
         let out = '';
         const re = /([a-zA-Z_:][a-zA-Z0-9_:.-]*)\s*=\s*("([^"]*)"|'([^']*)')/g;
@@ -2947,14 +2963,14 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           if (name === 'href' || name.endsWith(':href')) continue;    // 외부 링크 금지
           if (!OK_SVG_ATTRS.has(name)) continue;
           if (/javascript:|data:text|expression\s*\(|url\s*\(\s*['"]?\s*http/i.test(val)) continue;
-          out += ` ${name}="${val.replace(/"/g, '&quot;')}"`;
+          out += ` ${SVG_CASE[name] || name}="${val.replace(/"/g, '&quot;')}"`;
         }
         const selfClose = /\/\s*$/.test(attrs) ? ' /' : '';
-        return `<${t}${out}${selfClose}>`;
+        return `<${tag2}${out}${selfClose}>`;
       });
 
     // 반드시 viewBox 가 있어야 크기 조절이 됨
-    if (!/viewbox\s*=/i.test(s)) {
+    if (!/viewBox\s*=/i.test(s)) {
       s = s.replace(/<svg/i, '<svg viewBox="0 0 400 320"');
     }
     // 화면 폭에 맞추기
