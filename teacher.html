@@ -189,13 +189,18 @@
 
   .filter-row { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
   .filter-btn {
-    padding: 7px 13px; border-radius: 20px;
+    padding: 9px 15px; border-radius: 20px;
     border: 1.5px solid var(--border2);
     background: var(--bg2); font-size: 12px;
     cursor: pointer; color: var(--text3);
-    font-weight: 600; transition: all 0.15s;
+    font-weight: 600; transition: background .15s, color .15s, border-color .15s;
     white-space: nowrap;
+    min-height: 38px;                 /* 손가락으로 누르기 편한 최소 높이 */
+    display: inline-flex; align-items: center; justify-content: center;
+    touch-action: manipulation;       /* 더블탭 확대 대기시간 제거 */
+    -webkit-tap-highlight-color: rgba(232,99,154,0.25);
   }
+  .filter-btn:active { transform: scale(0.96); }
   .filter-btn.active {
     background: linear-gradient(135deg, #E8639A, #C94080);
     color: white; border-color: transparent;
@@ -453,13 +458,25 @@
   <div class="main-tab-panel" id="main-tab-mission">
     <!-- 학생별 약점 단원 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('weak')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">섹션</div>
+        <span id="sec-arrow-weak" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(-90deg);">▾</span>
+      </div>
+      <div id="sec-weak" style="display:none;">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">📊 학생별 약점 단원</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">오답 개수 + 미션 오답(×2 가중) 기준 TOP 3 — 수업 준비에 활용하세요</div>
       <div id="weakness-teacher-list" style="display:flex;flex-direction:column;gap:10px;"></div>
+    
+      </div>
     </div>
 
     <!-- 학생 포인트 현황 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('points')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">섹션</div>
+        <span id="sec-arrow-points" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(-90deg);">▾</span>
+      </div>
+      <div id="sec-points" style="display:none;">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">💎 학생 포인트 현황</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">학생을 탭하면 적립/사용 내역을 볼 수 있어요</div>
       <div id="point-overview-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
@@ -476,19 +493,33 @@
         </div>
         <div style="font-size:11px;color:var(--text4);margin-top:6px;">차감하려면 음수 입력 (예: -20)</div>
       </div>
+    
+      </div>
     </div>
 
     <!-- 변형문제 검수 대기 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('review')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">섹션</div>
+        <span id="sec-arrow-review" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(0deg);">▾</span>
+      </div>
+      <div id="sec-review" style="margin-top:10px;">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🤖 변형문제 검수</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">AI가 만든 변형문제를 확인하고 승인하세요. 승인된 문제만 학생 미션에 나와요.</div>
       <div id="variation-review-list" style="display:flex;flex-direction:column;gap:10px;">
         <div style="font-size:13px;color:var(--text4);text-align:center;padding:16px;">불러오는 중...</div>
       </div>
+    
+      </div>
     </div>
 
     <!-- 상점 관리 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('shop')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">섹션</div>
+        <span id="sec-arrow-shop" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(-90deg);">▾</span>
+      </div>
+      <div id="sec-shop" style="display:none;">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:12px;">🏪 상점 관리</div>
       <div style="display:flex;gap:6px;margin-bottom:8px;">
         <input type="text" id="shop-item-emoji" placeholder="🎁" maxlength="4" style="width:52px;padding:9px;border-radius:10px;border:1px solid var(--border2);font-size:14px;text-align:center;background:var(--bg3);color:var(--text1);flex-shrink:0;" />
@@ -500,12 +531,21 @@
       </div>
       <button onclick="addShopItem()" style="width:100%;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:white;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:10px;">➕ 아이템 등록</button>
       <div id="shop-item-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    
+      </div>
     </div>
 
     <!-- 구매 알림 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('purchase')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">섹션</div>
+        <span id="sec-arrow-purchase" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(-90deg);">▾</span>
+      </div>
+      <div id="sec-purchase" style="display:none;">
       <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:12px;">🛍️ 구매 내역 (지급 대기)</div>
       <div id="purchase-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    
+      </div>
     </div>
   </div>
 
@@ -768,8 +808,9 @@
   let bulkMode = false;
   let selectedIds = new Set();
   let unitSearchKeywordT = '';
-  const PAGE_SIZE_T = 10;
+  const PAGE_SIZE_T = 5;
   let currentPageT = 1;
+  let sortAscT = false;   // false=최신순, true=오래된순
   let totalCountT = 0;
 
   function onUnitSearchT() {
@@ -2378,7 +2419,7 @@
 
     if (currentFilter === 'byUnit') {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=subject.asc,major_unit.asc,created_at.desc`,
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=subject.asc,major_unit.asc,created_at.${sortAscT ? 'asc' : 'desc'}`,
         { headers: sbHeaders() }
       );
       currentEntries = await res.json();
@@ -2390,7 +2431,7 @@
     const offset = (currentPageT - 1) * PAGE_SIZE_T;
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.desc&limit=${PAGE_SIZE_T}&offset=${offset}`,
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.${sortAscT ? 'asc' : 'desc'}&limit=${PAGE_SIZE_T}&offset=${offset}`,
         { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
       );
       const cr = res.headers.get('content-range');
@@ -2992,6 +3033,7 @@
           <button class="filter-btn" data-filter="pending" onclick="setFilter('pending')">미해결</button>
           <button class="filter-btn" data-filter="solved" onclick="setFilter('solved')">완료</button>
           <button class="filter-btn" data-filter="struggling" onclick="setFilter('struggling')">⭐ 자주틀림</button>
+          <button class="filter-btn" id="sort-btn" onclick="toggleSortT()">🕘 최신순</button>
           <button class="filter-btn" style="margin-left:auto;border-color:#FF453A;color:#FF453A;" onclick="toggleBulkMode()">🗑️ 선택삭제</button>
         </div>
 
@@ -3075,7 +3117,7 @@
     const info = document.getElementById('page-info');
     const list = currentEntries;
 
-    // 대단원별 뷰
+    // 대단원별 뷰 (5개씩 페이지, 단원이 바뀌면 머리말 표시)
     if (currentFilter === 'byUnit') {
       if (!list.length) {
         container.innerHTML = '<div class="empty">표시할 오답이 없어요</div>';
@@ -3083,22 +3125,30 @@
         if (info) info.textContent = '';
         return;
       }
-      const groups = {};
-      list.forEach(e => {
-        const key = [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(e);
+      const unitOf = e => [e.subject, e.major_unit].filter(Boolean).join(' > ') || '미분류';
+      const cnt = {};
+      list.forEach(e => { const u = unitOf(e); cnt[u] = (cnt[u] || 0) + 1; });
+
+      const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE_T));
+      if (currentPageT > totalPages) currentPageT = totalPages;
+      const from = (currentPageT - 1) * PAGE_SIZE_T;
+      const page = list.slice(from, from + PAGE_SIZE_T);
+
+      let html = '', prev = from > 0 ? unitOf(list[from - 1]) : null;
+      page.forEach(e => {
+        const u = unitOf(e);
+        if (u !== prev) {
+          html += `<div style="font-size:13px;font-weight:700;color:#0F6E56;padding:8px 12px;background:#F0F8F5;border-radius:10px;margin:14px 0 8px;">
+            📚 ${u} <span style="font-size:12px;color:#888;font-weight:400;">(${cnt[u]}개)</span>
+          </div>`;
+          prev = u;
+        }
+        html += noteCardHtml(e);
       });
-      container.innerHTML = Object.entries(groups).map(([unit, entries]) => `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:13px;font-weight:700;color:#0F6E56;padding:8px 12px;background:#F0F8F5;border-radius:10px;margin-bottom:8px;">
-            📚 ${unit} <span style="font-size:12px;color:#888;font-weight:400;">(${entries.length}개)</span>
-          </div>
-          ${entries.map(noteCardHtml).join('')}
-        </div>
-      `).join('');
-      if (pag) pag.innerHTML = '';
-      if (info) info.textContent = '';
+      container.innerHTML = html;
+
+      if (info) info.textContent = `전체 ${list.length}개 중 ${from + 1}–${Math.min(from + PAGE_SIZE_T, list.length)}번째`;
+      if (pag) pag.innerHTML = pagerHtml(totalPages);
       return;
     }
 
@@ -3269,6 +3319,12 @@
     const totalPages = Math.ceil(totalCountT / PAGE_SIZE_T);
     if (totalPages <= 1) { pag.innerHTML = ''; if(info) info.textContent = ''; return; }
     if (info) info.textContent = `전체 ${totalCountT}개 중 ${(currentPageT-1)*PAGE_SIZE_T+1}–${Math.min(currentPageT*PAGE_SIZE_T, totalCountT)}번째`;
+    pag.innerHTML = pagerHtml(totalPages);
+  }
+
+  // 페이지 버튼 묶음 (목록/대단원별 공용)
+  function pagerHtml(totalPages) {
+    if (totalPages <= 1) return '';
     const start = Math.max(1, currentPageT - 2);
     const end = Math.min(totalPages, start + 4);
     let btns = `<button class="page-btn ${currentPageT===1?'disabled':''}" onclick="goPageT(${currentPageT-1})">‹</button>`;
@@ -3276,14 +3332,15 @@
     for (let p = start; p <= end; p++) btns += `<button class="page-btn ${p===currentPageT?'active':''}" onclick="goPageT(${p})">${p}</button>`;
     if (end < totalPages) btns += `${end<totalPages-1?'<span style="padding:0 2px;color:#ccc">…</span>':''}<button class="page-btn" onclick="goPageT(${totalPages})">${totalPages}</button>`;
     btns += `<button class="page-btn ${currentPageT===totalPages?'disabled':''}" onclick="goPageT(${currentPageT+1})">›</button>`;
-    pag.innerHTML = btns;
+    return btns;
   }
 
   async function goPageT(p) {
-    const totalPages = Math.ceil(totalCountT / PAGE_SIZE_T);
+    const totalPages = Math.ceil((currentFilter === 'byUnit' ? currentEntries.length : totalCountT) / PAGE_SIZE_T);
     if (p < 1 || p > totalPages) return;
     currentPageT = p;
-    await loadCurrentPage();
+    if (currentFilter === 'byUnit') renderNoteList();
+    else await loadCurrentPage();
     document.getElementById('note-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -3318,7 +3375,7 @@
     document.querySelectorAll('.main-tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('main-tab-' + tab).classList.add('active');
     if (tab === 'qna') loadTeacherQnA(1);
-    if (tab === 'mission') { loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
+    if (tab === 'mission') { restoreSecs(); loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
     if (tab === 'theme') { renderThemeEmojiPicker(); loadThemeBgs(); }
     if (tab === 'vmanage') initVManage();
   }
@@ -3521,6 +3578,42 @@
     });
     showToast('✅ 수정 완료', 'ok');
     loadVManage();
+  }
+
+  // 올린 시간 정렬 전환 (최신순 ↔ 오래된순)
+  function toggleSortT() {
+    sortAscT = !sortAscT;
+    const b = document.getElementById('sort-btn');
+    if (b) b.textContent = sortAscT ? '🕘 오래된순' : '🕘 최신순';
+    currentPageT = 1;
+    loadCurrentPage();
+  }
+
+  // 미션탭 섹션 접기/펼치기
+  function toggleSec(key) {
+    const box = document.getElementById('sec-' + key);
+    const arw = document.getElementById('sec-arrow-' + key);
+    if (!box) return;
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : 'block';
+    if (!open) box.style.marginTop = '10px';
+    if (arw) arw.style.transform = open ? 'rotate(-90deg)' : 'rotate(0deg)';
+    try { localStorage.setItem('sec_' + key, open ? '0' : '1'); } catch (e) {}
+  }
+  // 저장된 상태 복원
+  function restoreSecs() {
+    ['weak','points','review','shop','purchase'].forEach(k => {
+      let v = null;
+      try { v = localStorage.getItem('sec_' + k); } catch (e) {}
+      if (v === null) return;
+      const box = document.getElementById('sec-' + k);
+      const arw = document.getElementById('sec-arrow-' + k);
+      if (!box) return;
+      const open = v === '1';
+      box.style.display = open ? 'block' : 'none';
+      if (open) box.style.marginTop = '10px';
+      if (arw) arw.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
+    });
   }
 
   // ===== 시험지 만들기(인쇄 → PDF) =====
