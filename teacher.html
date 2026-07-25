@@ -1878,8 +1878,9 @@
     out += `<polygon data-ah="1" points="${xTip},${axY} ${(xTip - AH).toFixed(1)},${(axY - AW).toFixed(1)} ${(xTip - AH).toFixed(1)},${(axY + AW).toFixed(1)}" fill="#9a9aa5"/>`;
     out += `<line x1="${axX}" y1="${B + 8}" x2="${axX}" y2="${(yTip + AH - 0.5).toFixed(1)}" stroke="${axisC}" stroke-width="1.5"/>`;
     out += `<polygon data-ah="1" points="${axX},${yTip} ${(axX - AW).toFixed(1)},${(yTip + AH).toFixed(1)} ${(axX + AW).toFixed(1)},${(yTip + AH).toFixed(1)}" fill="#9a9aa5"/>`;
-    out += `<text x="${xTip - 2}" y="${axY + 15}" fill="${txtC}" font-size="12" font-style="italic" text-anchor="middle">x</text>`;
-    out += `<text x="${axX + 9}" y="${yTip + 5}" fill="${txtC}" font-size="12" font-style="italic">y</text>`;
+    const xNm = String(fig.xLabel || 'x').slice(0, 4), yNm = String(fig.yLabel || 'y').slice(0, 4);
+    out += `<text x="${xTip - 2}" y="${axY + 15}" fill="${txtC}" font-size="12" font-style="italic" text-anchor="middle">${_figEsc(xNm)}</text>`;
+    out += `<text x="${axX + 9}" y="${yTip + 5}" fill="${txtC}" font-size="12" font-style="italic">${_figEsc(yNm)}</text>`;
     if (yInside && xInside) out += `<text x="${axX - 5}" y="${axY + 13}" fill="${txtC}" font-size="10" text-anchor="end">O</text>`;
 
     // ── 보조선 ──
@@ -1909,9 +1910,83 @@
       if (d) out += `<path d="${d}" fill="none" stroke="${colors[fi % 3]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dashes[fi % 3] ? ` stroke-dasharray="${dashes[fi % 3]}"` : ''} clip-path="url(#${uid})"/>`;
     });
 
+    // ── x축 위 표시 (a, b, c ... ) : 세로 점선 + 축 위 이름 ──
+    (fig.xMarks || []).forEach(mk => {
+      const xv = Number(mk && mk.x);
+      if (!isFinite(xv) || xv < xr[0] - 1e-9 || xv > xr[1] + 1e-9) return;
+      const X = sx(xv);
+      const di = (mk.drop === undefined || mk.drop === null) ? null : Number(mk.drop);
+      if (di !== null && fns[di]) {
+        const yv = fns[di](xv);
+        if (isFinite(yv) && yv >= ymin && yv <= ymax) {
+          out += `<line x1="${X.toFixed(1)}" y1="${axY.toFixed(1)}" x2="${X.toFixed(1)}" y2="${sy(yv).toFixed(1)}" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-dasharray="4 3"/>`;
+        }
+      }
+      out += `<line x1="${X.toFixed(1)}" y1="${(axY - 3.5).toFixed(1)}" x2="${X.toFixed(1)}" y2="${(axY + 3.5).toFixed(1)}" stroke="${axisC}" stroke-width="1.4"/>`;
+      const lab = String(mk.label ?? '');
+      if (lab) {
+        out += `<text x="${X.toFixed(1)}" y="${clamp(axY + 16, T + 13, H - 4).toFixed(1)}" fill="#fff" font-size="12" font-style="italic" text-anchor="middle">${_figEsc(lab.slice(0, 6))}</text>`;
+      }
+    });
+
+    // ── 곡선 이름표 (y=f'(t) 등) ──
+    const _boxes = [];
+    const _hit = (r) => _boxes.some(p => !(r.x2 < p.x1 || r.x1 > p.x2 || r.y2 < p.y1 || r.y1 > p.y2));
+    (fig.funcLabels || []).forEach((txt, fi) => {
+      const f = fns[fi];
+      if (!f || !txt) return;
+      const s = String(txt).slice(0, 24);
+      const bw = s.length * 6.4 + 8, bh = 15;
+      let put = null;
+      for (const cf of [0.9, 0.8, 0.68, 0.55, 0.42, 0.28, 0.14]) {
+        const xv = xr[0] + (xr[1] - xr[0]) * cf;
+        const yv = f(xv);
+        if (!isFinite(yv) || yv < ymin || yv > ymax) continue;
+        const X = sx(xv), Y = sy(yv);
+        for (const dy of [-13, 20]) {
+          const bx = Math.max(L + bw / 2, Math.min(R - bw / 2, X));
+          const by = Y + dy;
+          if (by - bh < T + 2 || by > B - 2) continue;
+          const r = { x1: bx - bw / 2, x2: bx + bw / 2, y1: by - bh, y2: by + 3 };
+          if (_hit(r)) continue;
+          // 다른 곡선을 덮는지 확인
+          let clash = false;
+          for (let gi = 0; gi < fns.length && !clash; gi++) {
+            if (gi === fi) continue;
+            for (let t2 = 0; t2 <= 30; t2++) {
+              const xx = xr[0] + (xr[1] - xr[0]) * ((r.x1 + (r.x2 - r.x1) * t2 / 30) - L) / (R - L);
+              const yy = fns[gi](xx);
+              if (!isFinite(yy)) continue;
+              const py = sy(yy);
+              if (py >= r.y1 && py <= r.y2) { clash = true; break; }
+            }
+          }
+          if (clash) continue;
+          put = { bx, by, r };
+          break;
+        }
+        if (put) break;
+      }
+      if (!put) {
+        const xv = xr[0] + (xr[1] - xr[0]) * 0.9, yv = f(xv);
+        const Y = isFinite(yv) ? clamp(sy(yv), T + 18, B - 4) : T + 18;
+        const bx = Math.max(L + bw / 2, Math.min(R - bw / 2, sx(xv)));
+        put = { bx, by: Y - 13, r: { x1: bx - bw / 2, x2: bx + bw / 2, y1: Y - 28, y2: Y - 10 } };
+      }
+      _boxes.push(put.r);
+      out += `<text x="${put.bx.toFixed(1)}" y="${put.by.toFixed(1)}" fill="${colors[fi % 3]}" font-size="11.5" font-weight="600" text-anchor="middle">${_figEsc(s)}</text>`;
+    });
+
     // ── 점 (라벨이 테두리 밖으로 안 나가게) ──
     (fig.points || []).forEach(p => {
-      const X = sx(p[0]), Y = sy(p[1]);
+      // 4번째 값으로 곡선 번호를 주면 y 를 앱이 직접 계산 → 항상 곡선 위에 정확히 찍힘
+      let py2 = Number(p[1]);
+      const ci = Number(p[3]);
+      if (isFinite(ci) && fns[ci]) {
+        const yv = fns[ci](Number(p[0]));
+        if (isFinite(yv)) py2 = yv;
+      }
+      const X = sx(p[0]), Y = sy(py2);
       if (!isFinite(X) || !isFinite(Y)) return;
       out += `<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="4" fill="#fff" stroke="#7C3AED" stroke-width="2"/>`;
       if (p[2]) {
