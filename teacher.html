@@ -1681,7 +1681,7 @@
         return;
       }
 
-      await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
+      const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
         method: 'POST',
         headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
@@ -1695,10 +1695,19 @@
           approved: false
         })
       });
+      if (!ins.ok) {
+        const why = (await ins.text()).slice(0, 120);
+        console.error('변형문제 저장 실패:', ins.status, why);
+        showToast(`❌ 변형문제를 만들었지만 저장에 실패했어요 (${ins.status})\n${why}`, 'error');
+        return;
+      }
       if (v.warning) showToast('⚠️ 주의: ' + v.warning + '\n검수 시 문제 조건을 꼭 확인해주세요.', 'warn');
       else showToast('✅ 변형문제 생성 완료!\n미션탭 → 🤖 변형문제 검수에서 승인해주세요.', 'ok');
       loadVariationReviews();
-    } catch(e) { console.error('generateVariation:', e); }
+    } catch (e) {
+      console.error('generateVariation:', e);
+      showToast('❌ 변형문제 생성 중 오류\n' + String(e && e.message || e).slice(0, 90), 'error');
+    }
   }
 
   async function loadVariationReviews() {
@@ -2582,7 +2591,10 @@
       if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
       if (nv.warning) showToast('⚠️ 주의: ' + nv.warning, 'warn');
       loadVariationReviews();
-    } catch(e) { alert('재생성 실패'); }
+    } catch (e) {
+      console.error('regenVariation:', e);
+      alert('재생성 실패\n' + String(e && e.message || e).slice(0, 120));
+    }
   }
 
   // 검수 카드의 삭제도 문제관리와 동일하게 (풀이기록까지 정리 + 실패 시 알림)
