@@ -591,6 +591,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
             <div style="font-size:13px;color:var(--text4);text-align:center;padding:14px;">불러오는 중...</div>
           </div>
         </div>
+
+        <!-- 오늘의 수학 퀴즈 -->
+        <div id="daily-quiz-box"></div>
       </div>
 
       <div class="tab-panel" id="tab-qna">
@@ -2677,6 +2680,207 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   let _missionTimerInt = null;
   let _missionEndTime = null;
 
+  const QUIZ_BANK = {"common":[{"q":"고대 그리스의 피타고라스는 '만물은 수'라고 주장했다.","t":"ox","a":0,"why":"피타고라스 학파의 핵심 사상이에요. 세상 모든 것을 정수의 비로 설명할 수 있다고 믿었죠."},{"q":"피타고라스 학파는 무리수의 존재를 발견하고 기뻐하며 널리 알렸다.","t":"ox","a":1,"why":"오히려 충격을 받고 숨기려 했어요. '만물은 수(정수의 비)'라는 믿음이 무너졌거든요."},{"q":"'기하학에 왕도는 없다'고 말한 수학자는?","t":"mc","o":["유클리드","아르키메데스","탈레스","피타고라스"],"a":0,"why":"이집트 왕 프톨레마이오스가 쉬운 방법을 묻자 유클리드가 한 말로 전해져요."},{"q":"유클리드의 저서 『원론』은 기하학을 공리에서 출발해 정리로 쌓아 올린 책이다.","t":"ox","a":0,"why":"공리·정의에서 시작해 명제를 증명해 나가는 방식으로, 2000년 넘게 수학 교과서의 표준이었어요."},{"q":"목욕탕에서 부력의 원리를 깨닫고 '유레카'를 외친 사람은?","t":"mc","o":["아르키메데스","갈릴레이","뉴턴","케플러"],"a":0,"why":"왕관이 순금인지 알아내라는 문제를 풀다가 부피 측정법을 떠올렸다고 해요."},{"q":"아르키메데스는 원주율의 값을 다각형을 이용해 근사했다.","t":"ox","a":0,"why":"원에 내접·외접하는 정96각형으로 원주율이 3.1408과 3.1429 사이임을 밝혔어요."},{"q":"숫자 0을 수로 다루기 시작한 것은 고대 인도 수학이다.","t":"ox","a":0,"why":"인도에서 0을 하나의 수로 취급했고, 아라비아를 거쳐 유럽에 전해졌어요."},{"q":"우리가 쓰는 1, 2, 3 같은 숫자를 '아라비아 숫자'라 부르지만 원래 만든 곳은?","t":"mc","o":["인도","아라비아","그리스","중국"],"a":0,"why":"인도에서 만들어져 아라비아 상인을 통해 유럽에 전파돼서 그렇게 불려요."},{"q":"'대수학(algebra)'이라는 말은 알콰리즈미의 책 제목에서 나왔다.","t":"ox","a":0,"why":"『알자브르 왈무카발라』의 '알자브르'가 algebra의 어원이에요."},{"q":"'알고리즘(algorithm)'이라는 단어의 어원이 된 수학자는?","t":"mc","o":["알콰리즈미","유클리드","피보나치","데카르트"],"a":0,"why":"알콰리즈미(Al-Khwarizmi)의 이름이 라틴어로 옮겨지며 algorithm이 됐어요."},{"q":"좌표평면을 처음 생각해낸 사람은 데카르트로 알려져 있다.","t":"ox","a":0,"why":"그래서 좌표평면을 '데카르트 좌표계'라고도 불러요."},{"q":"데카르트가 남긴 유명한 말은?","t":"mc","o":["나는 생각한다, 고로 나는 존재한다","유레카","기하학에 왕도는 없다","신은 주사위를 던지지 않는다"],"a":0,"why":"철학자이자 수학자였던 데카르트의 대표적인 명제예요."},{"q":"미적분을 두고 우선권 논쟁을 벌인 두 수학자는 뉴턴과 라이프니츠다.","t":"ox","a":0,"why":"거의 같은 시기에 독립적으로 발견했고, 지금 쓰는 dy/dx 기호는 라이프니츠 것이에요."},{"q":"오늘날 우리가 쓰는 적분 기호 ∫는 누가 만들었나?","t":"mc","o":["라이프니츠","뉴턴","오일러","가우스"],"a":0,"why":"합(Summa)의 첫 글자 S를 길게 늘인 모양이에요."},{"q":"초등학생 가우스가 1부터 100까지를 순식간에 더했다는 일화가 전해진다.","t":"ox","a":0,"why":"양 끝을 짝지으면 101이 50쌍이라는 것을 알아채 5050을 구했다고 해요."},{"q":"'수학의 왕자'라고 불리는 수학자는?","t":"mc","o":["가우스","오일러","뉴턴","힐베르트"],"a":0,"why":"정수론·기하·해석 등 거의 모든 분야에 업적을 남겨 그렇게 불려요."},{"q":"자연상수 e를 나타내는 기호와 함수 f(x) 표기를 널리 퍼뜨린 수학자는?","t":"mc","o":["오일러","가우스","라그랑주","코시"],"a":0,"why":"오일러는 e, i, f(x), Σ 등 지금 쓰는 기호를 많이 정착시켰어요."},{"q":"오일러는 시력을 잃은 뒤에도 계속 수학 연구를 했다.","t":"ox","a":0,"why":"말년에 거의 실명했지만 암산과 구술로 엄청난 양의 논문을 남겼어요."},{"q":"'페르마의 마지막 정리'는 350여 년 만에 증명되었다.","t":"ox","a":0,"why":"1637년 페르마가 남긴 메모를 1994년 앤드루 와일스가 증명했어요."},{"q":"페르마의 마지막 정리를 최종적으로 증명한 사람은?","t":"mc","o":["앤드루 와일스","알랭 콘","존 내시","그리고리 페렐만"],"a":0,"why":"1994년 와일스가 완성했고 이듬해 논문으로 발표됐어요."},{"q":"피보나치 수열은 앞의 두 수를 더해 다음 수를 만든다.","t":"ox","a":0,"why":"1, 1, 2, 3, 5, 8, 13… 처럼 이어져요. 해바라기 씨앗 배열 등 자연에서도 보여요."},{"q":"피보나치 수열에서 이웃한 두 수의 비는 어떤 값에 가까워지나?","t":"mc","o":["황금비","원주율","자연상수 e","루트 2"],"a":0,"why":"약 1.618…인 황금비에 수렴해요."},{"q":"'쾨니히스베르크의 다리 건너기' 문제를 해결하며 그래프 이론을 연 사람은?","t":"mc","o":["오일러","가우스","해밀턴","칸토어"],"a":0,"why":"7개 다리를 한 번씩만 건널 수 없음을 증명했고, 이것이 위상수학·그래프 이론의 출발점이 됐어요."},{"q":"조선 시대에도 수학책이 있었다.","t":"ox","a":0,"why":"홍정하의 『구일집』, 최석정의 『구수략』 등이 있어요. 홍정하는 중국 사신과의 수학 대결로도 유명해요."},{"q":"우리나라 최초로 필즈상을 받은 수학자는?","t":"mc","o":["허준이","김민형","황준묵","박형주"],"a":0,"why":"2022년 허준이 교수가 조합론 분야 업적으로 수상했어요."},{"q":"필즈상은 40세 이하의 수학자에게만 주어진다.","t":"ox","a":0,"why":"4년마다 열리는 세계수학자대회에서 40세 이하 수학자에게 수여해요."},{"q":"노벨상에는 수학 부문이 있다.","t":"ox","a":1,"why":"수학 부문은 없어요. 그래서 필즈상, 아벨상이 그 역할을 대신해요."},{"q":"'앞으로 100만 달러가 걸린 미해결 문제 7개'를 밀레니엄 문제라고 한다.","t":"ox","a":0,"why":"2000년 클레이 수학연구소가 지정했고, 지금까지 푸앵카레 추측 하나만 풀렸어요."},{"q":"밀레니엄 문제 중 유일하게 해결된 것은?","t":"mc","o":["푸앵카레 추측","리만 가설","P-NP 문제","호지 추측"],"a":0,"why":"러시아의 페렐만이 증명했지만 상금과 필즈상을 모두 거절했어요."},{"q":"컴퓨터의 이론적 토대를 만들고 암호 해독에 기여한 수학자는?","t":"mc","o":["앨런 튜링","존 폰 노이만","클로드 섀넌","노버트 위너"],"a":0,"why":"'튜링 기계' 개념을 세웠고 2차 대전 때 독일 암호기 에니그마 해독에 참여했어요."},{"q":"소수는 무한히 많다는 것이 증명되어 있다.","t":"ox","a":0,"why":"유클리드가 귀류법으로 증명했어요. 가장 큰 소수는 존재하지 않아요."},{"q":"지금까지 알려진 소수 중 가장 큰 것은 사람이 손으로 계산해 찾았다.","t":"ox","a":1,"why":"컴퓨터 분산 계산(GIMPS 프로젝트)으로 찾고 있어요. 자릿수가 수천만 자리예요."},{"q":"원주율 π는 소수점 아래가 반복 없이 무한히 이어진다.","t":"ox","a":0,"why":"무리수이자 초월수라서 순환하지 않고 끝없이 이어져요."},{"q":"3월 14일을 '파이 데이'라고 부르는 이유는?","t":"mc","o":["원주율 3.14에서 따와서","파이를 먹는 날이라서","수학자 생일이라서","봄이 시작돼서"],"a":0,"why":"3.14에서 따왔어요. 공교롭게도 아인슈타인 생일이기도 해요."},{"q":"'4색 정리'는 어떤 지도든 네 가지 색이면 이웃한 나라를 다르게 칠할 수 있다는 정리다.","t":"ox","a":0,"why":"1976년 컴퓨터의 도움으로 증명된 최초의 유명한 정리예요."},{"q":"뫼비우스 띠는 안과 밖의 구분이 없는 곡면이다.","t":"ox","a":0,"why":"종이띠를 한 번 꼬아 붙이면 만들어져요. 면이 하나뿐이라 계속 따라가면 뒷면으로 이어져요."},{"q":"'무한에도 크기가 다른 무한이 있다'는 것을 밝힌 수학자는?","t":"mc","o":["칸토어","힐베르트","괴델","러셀"],"a":0,"why":"자연수의 무한보다 실수의 무한이 더 크다는 것을 대각선 논법으로 보였어요."},{"q":"괴델의 불완전성 정리는 '모든 참인 명제를 증명할 수 있는 완전한 체계가 존재한다'는 내용이다.","t":"ox","a":1,"why":"반대예요. 충분히 강한 체계 안에는 참이지만 증명할 수 없는 명제가 반드시 있다는 정리예요."},{"q":"'수학은 발명인가 발견인가'는 지금도 논쟁 중인 주제다.","t":"ox","a":0,"why":"수학적 대상이 원래 존재하는지(플라톤주의), 사람이 만든 것인지 의견이 갈려요."},{"q":"미터법에서 1m는 원래 어떻게 정의했나?","t":"mc","o":["북극에서 적도까지 거리의 1000만분의 1","사람 팔 길이","빛이 1초에 가는 거리","진자의 길이"],"a":0,"why":"프랑스 혁명기에 지구 자오선을 기준으로 정했어요. 지금은 빛의 속도로 정의해요."},{"q":"확률론은 도박 문제를 풀다가 시작되었다.","t":"ox","a":0,"why":"파스칼과 페르마가 주고받은 편지에서 '내기가 중단됐을 때 판돈 나누기' 문제를 다룬 게 출발이에요."},{"q":"파스칼의 삼각형에서 각 수는 바로 위 두 수의 합이다.","t":"ox","a":0,"why":"이항계수가 배열된 삼각형이고, 조합 nCr 값과 같아요."},{"q":"'통계로 거짓말하기 쉽다'는 말처럼, 같은 자료도 그래프를 어떻게 그리느냐에 따라 인상이 달라진다.","t":"ox","a":0,"why":"세로축 시작점을 0이 아닌 값으로 잡으면 차이가 과장돼 보여요."},{"q":"나이팅게일은 간호사이면서 통계 그래프를 활용해 위생 개선을 이끌어냈다.","t":"ox","a":0,"why":"'장미 그래프'로 사망 원인을 시각화해 설득했고, 왕립통계학회 최초의 여성 회원이 됐어요."},{"q":"컴퓨터가 없던 시절 계산을 돕기 위해 로그를 만든 사람은?","t":"mc","o":["네이피어","케플러","브릭스","파스칼"],"a":0,"why":"곱셈을 덧셈으로 바꿔주는 로그로 천문 계산 시간을 크게 줄였어요."},{"q":"'황금비'는 대략 1.618이다.","t":"ox","a":0,"why":"(1+√5)/2 ≈ 1.6180…이에요. 미술·건축에서 아름다운 비율로 자주 언급돼요."},{"q":"정다면체는 모두 몇 가지인가?","t":"mc","o":["5가지","6가지","무한히 많다","3가지"],"a":0,"why":"정사면체·정육면체·정팔면체·정십이면체·정이십면체 다섯뿐이고, 이를 플라톤 다면체라고 해요."},{"q":"아르키메데스는 자신의 묘비에 원기둥과 구 그림을 새겨달라고 했다.","t":"ox","a":0,"why":"구의 부피와 겉넓이가 외접 원기둥의 2/3라는 것을 가장 자랑스러워했다고 전해져요."},{"q":"에라토스테네스는 막대 그림자만으로 지구 둘레를 계산했다.","t":"ox","a":0,"why":"두 도시의 그림자 각도 차이와 거리로 추정했고, 실제 값과 오차가 크지 않았어요."},{"q":"소수를 찾는 고전적인 방법 '에라토스테네스의 체'는 어떤 원리인가?","t":"mc","o":["배수를 차례로 지운다","제곱근을 계산한다","소인수분해를 한다","나머지를 비교한다"],"a":0,"why":"2의 배수, 3의 배수… 를 지워 나가면 소수만 남아요."},{"q":"수학에서 '정리(定理)'는 증명된 명제를 말한다.","t":"ox","a":0,"why":"증명 없이 참으로 받아들이는 것은 '공리', 아직 증명되지 않은 것은 '추측'이라고 해요."},{"q":"아직 증명되지 않았지만 참일 것으로 여겨지는 명제를 무엇이라 하나?","t":"mc","o":["추측","공리","보조정리","따름정리"],"a":0,"why":"골드바흐 추측, 리만 가설 등이 대표적이에요."},{"q":"'모든 짝수는 두 소수의 합으로 나타낼 수 있다'는 골드바흐 추측은 아직 미해결이다.","t":"ox","a":0,"why":"2보다 큰 짝수에 대한 이야기이고, 컴퓨터로 엄청난 범위까지 확인했지만 증명은 안 됐어요."},{"q":"암호화폐나 인터넷 보안에 쓰이는 RSA 암호는 큰 수의 소인수분해가 어렵다는 점을 이용한다.","t":"ox","a":0,"why":"두 소수를 곱하기는 쉬워도 되돌리기는 어렵다는 성질을 써요."},{"q":"'프랙탈'은 부분이 전체와 닮은 구조가 반복되는 도형이다.","t":"ox","a":0,"why":"눈송이, 해안선, 고사리 잎처럼 자기닮음이 반복돼요."},{"q":"고대 이집트에서는 밧줄에 매듭을 지어 직각을 만들었다.","t":"ox","a":0,"why":"3:4:5 비율로 매듭을 지으면 피타고라스 정리에 의해 직각이 생겨요."},{"q":"수학 기호 '='(등호)를 처음 쓴 이유는?","t":"mc","o":["같은 길이의 두 선분보다 더 같은 것은 없어서","숫자를 나누기 위해","인쇄가 편해서","두 개의 점을 잇기 위해"],"a":0,"why":"1557년 로버트 레코드가 그렇게 설명하며 도입했어요."},{"q":"'+'와 '-' 기호는 처음에 상품의 무게가 남거나 모자란 것을 표시하려고 쓰였다는 설이 있다.","t":"ox","a":0,"why":"15세기 창고에서 초과·부족을 표시하던 데서 유래했다는 이야기가 전해져요."},{"q":"세계 여러 나라 중 수학 교육과정에서 '행렬'을 다루는 시기는 나라마다 다르다.","t":"ox","a":0,"why":"우리나라도 교육과정 개정에 따라 행렬을 넣었다 뺐다 해왔어요."},{"q":"컴퓨터 그래픽에서 3차원 물체를 회전시킬 때 쓰이는 수학 도구는?","t":"mc","o":["행렬","로그","미분방정식","집합"],"a":0,"why":"회전·확대·이동을 행렬 곱셈으로 처리해요."},{"q":"내비게이션이 최단 경로를 찾을 때는 그래프 이론의 알고리즘을 쓴다.","t":"ox","a":0,"why":"다익스트라 알고리즘 같은 최단경로 알고리즘이 대표적이에요."},{"q":"'인공지능이 학습한다'는 것은 결국 오차를 줄이는 방향을 찾는 것이고, 여기에 미분이 쓰인다.","t":"ox","a":0,"why":"경사하강법은 오차함수의 기울기(미분)를 따라 내려가며 값을 조정해요."}],"m1":[{"q":"1은 소수이다.","t":"ox","a":1,"why":"소수는 1보다 큰 자연수 중 약수가 1과 자기 자신뿐인 수예요. 1은 약수가 하나뿐이라 소수도 합성수도 아니에요."},{"q":"가장 작은 소수는?","t":"mc","o":["2","1","3","0"],"a":0,"why":"2는 유일한 짝수 소수이기도 해요."},{"q":"자연수를 소수들의 곱으로 나타내는 것을 무엇이라 하나?","t":"mc","o":["소인수분해","약분","통분","인수분해"],"a":0,"why":"예를 들어 12 = 2²×3 이에요."},{"q":"두 수의 최대공약수가 1이면 두 수를 서로소라고 한다.","t":"ox","a":0,"why":"8과 9처럼 공통인 약수가 1뿐이면 서로소예요."},{"q":"절댓값은 수직선에서 원점까지의 거리이므로 항상 0보다 크거나 같다.","t":"ox","a":0,"why":"거리 개념이라 음수가 될 수 없어요. 0의 절댓값은 0이에요."},{"q":"(음수) × (음수)의 부호는?","t":"mc","o":["양수","음수","0","알 수 없다"],"a":0,"why":"부호가 같은 두 수의 곱은 양수예요."},{"q":"0으로 나누는 것은 정의되지 않는다.","t":"ox","a":0,"why":"어떤 수를 0으로 나누는 값은 정할 수 없어요. 0÷5는 0이지만 5÷0은 불가능해요."},{"q":"문자를 포함한 식에서 곱셈 기호를 생략할 때 3×a는 어떻게 쓰나?","t":"mc","o":["3a","a3","3·a만 가능","생략 불가"],"a":0,"why":"수를 문자 앞에 써요. a3처럼 쓰지 않아요."},{"q":"등식의 양변에 같은 수를 더해도 등식은 성립한다.","t":"ox","a":0,"why":"등식의 성질이에요. 빼기·곱하기도 되고, 나누기는 0이 아닌 수로만 가능해요."},{"q":"미지수가 1개이고 차수가 1인 방정식을 무엇이라 하나?","t":"mc","o":["일차방정식","이차방정식","연립방정식","항등식"],"a":0,"why":"ax+b=0 (a≠0) 꼴이에요."},{"q":"어떤 값을 대입해도 항상 성립하는 등식을 항등식이라고 한다.","t":"ox","a":0,"why":"2(x+1)=2x+2 처럼 x에 무엇을 넣어도 성립하는 식이에요."},{"q":"y가 x에 정비례하면 그래프는 원점을 지나는 직선이다.","t":"ox","a":0,"why":"y=ax (a≠0) 꼴이라 항상 원점을 지나요."},{"q":"y가 x에 반비례할 때 그래프의 모양은?","t":"mc","o":["원점에 대칭인 두 곡선","직선","포물선","원"],"a":0,"why":"y=a/x 꼴이고 쌍곡선 모양이에요. 좌표축과는 만나지 않아요."},{"q":"두 점을 지나는 직선은 오직 하나뿐이다.","t":"ox","a":0,"why":"기본 도형의 성질이에요."},{"q":"맞꼭지각의 크기는 서로 같다.","t":"ox","a":0,"why":"두 직선이 만날 때 마주 보는 각으로 항상 크기가 같아요."},{"q":"평행한 두 직선이 한 직선과 만날 때 동위각의 크기는?","t":"mc","o":["서로 같다","서로 다르다","합이 180°","합이 90°"],"a":0,"why":"동위각과 엇각 모두 크기가 같아요."},{"q":"삼각형의 세 내각의 크기의 합은 180°이다.","t":"ox","a":0,"why":"어떤 삼각형이든 항상 180°예요."},{"q":"삼각형의 합동조건이 아닌 것은?","t":"mc","o":["AAA","SSS","SAS","ASA"],"a":0,"why":"세 각만 같으면 모양은 같아도 크기가 다를 수 있어 '닮음'일 뿐 합동은 아니에요."},{"q":"n각형의 내각의 크기의 합은?","t":"mc","o":["180°×(n-2)","180°×n","360°","360°×(n-2)"],"a":0,"why":"n각형은 (n-2)개의 삼각형으로 나눌 수 있어요."},{"q":"다각형의 외각의 크기의 합은 몇 각형이든 360°이다.","t":"ox","a":0,"why":"변의 개수와 관계없이 항상 360°예요."},{"q":"부채꼴에서 호의 길이는 중심각의 크기에 정비례한다.","t":"ox","a":0,"why":"넓이도 중심각에 정비례해요. 다만 현의 길이는 정비례하지 않아요."},{"q":"부채꼴에서 현의 길이는 중심각의 크기에 정비례한다.","t":"ox","a":1,"why":"호와 넓이는 정비례하지만 현의 길이는 정비례하지 않아요."},{"q":"각뿔, 각기둥처럼 다각형인 면으로만 둘러싸인 입체도형을 무엇이라 하나?","t":"mc","o":["다면체","회전체","원뿔","구"],"a":0,"why":"곡면이 있는 원기둥·구 등은 다면체가 아니에요."},{"q":"정다면체는 모두 5가지뿐이다.","t":"ox","a":0,"why":"정사면체·정육면체·정팔면체·정십이면체·정이십면체예요."},{"q":"직사각형을 한 변을 축으로 회전시키면 생기는 입체도형은?","t":"mc","o":["원기둥","원뿔","구","각기둥"],"a":0,"why":"직각삼각형을 돌리면 원뿔, 반원을 돌리면 구가 돼요."},{"q":"원기둥의 부피는 (밑넓이)×(높이)이다.","t":"ox","a":0,"why":"각기둥도 같은 방식이에요. 뿔은 여기에 1/3을 곱해요."},{"q":"뿔의 부피는 같은 밑면과 높이를 가진 기둥의 몇 배인가?","t":"mc","o":["1/3배","1/2배","2배","3배"],"a":0,"why":"원뿔이든 각뿔이든 기둥 부피의 1/3이에요."},{"q":"자료를 몇 개의 계급으로 나누어 정리한 표를 도수분포표라고 한다.","t":"ox","a":0,"why":"계급, 계급값, 도수 같은 용어를 함께 써요."},{"q":"히스토그램에서 각 직사각형의 넓이는 무엇에 비례하나?","t":"mc","o":["그 계급의 도수","계급값","전체 자료 수","상대도수의 합"],"a":0,"why":"계급의 크기가 같으므로 넓이는 도수에 비례해요."},{"q":"상대도수는 전체 도수에 대한 각 계급 도수의 비율이고, 총합은 항상 1이다.","t":"ox","a":0,"why":"백분율로 나타내면 100%가 돼요."},{"q":"줄기와 잎 그림에서는 원래 자료의 값을 그대로 알 수 있다.","t":"ox","a":0,"why":"도수분포표와 달리 개별 값이 보존돼요."},{"q":"두 점 사이의 거리가 가장 짧은 선은 선분이다.","t":"ox","a":0,"why":"두 점을 잇는 여러 선 중 선분이 가장 짧아요."}],"m2":[{"q":"유한소수로 나타낼 수 있는 분수는 기약분수로 고쳤을 때 분모의 소인수가 2와 5뿐이다.","t":"ox","a":0,"why":"3, 7 같은 소인수가 있으면 순환소수가 돼요."},{"q":"0.999…는 1과 같다.","t":"ox","a":0,"why":"순환소수를 분수로 고치면 정확히 1이에요."},{"q":"모든 순환소수는 유리수이다.","t":"ox","a":0,"why":"분수로 나타낼 수 있으니 유리수예요. 순환하지 않는 무한소수가 무리수예요."},{"q":"a⁰의 값은? (단, a≠0)","t":"mc","o":["1","0","a","정의되지 않음"],"a":0,"why":"지수법칙에서 aⁿ÷aⁿ=a⁰=1이 돼요."},{"q":"(a³)²을 간단히 하면?","t":"mc","o":["a⁶","a⁵","a⁹","2a³"],"a":0,"why":"거듭제곱의 거듭제곱은 지수끼리 곱해요."},{"q":"부등식의 양변에 음수를 곱하면 부등호의 방향이 바뀐다.","t":"ox","a":0,"why":"가장 자주 틀리는 부분이에요. 나눌 때도 마찬가지예요."},{"q":"연립방정식의 해가 무수히 많으려면 두 일차방정식의 그래프가 어떤 관계인가?","t":"mc","o":["일치한다","평행하다","한 점에서 만난다","수직이다"],"a":0,"why":"평행하면 해가 없고, 한 점에서 만나면 해가 하나예요."},{"q":"일차함수 y=ax+b에서 a를 무엇이라 하나?","t":"mc","o":["기울기","y절편","x절편","상수항"],"a":0,"why":"b는 y절편이에요."},{"q":"일차함수의 그래프에서 기울기가 음수이면 그래프는 오른쪽 위로 올라간다.","t":"ox","a":1,"why":"기울기가 음수면 오른쪽 아래로 내려가요."},{"q":"두 직선이 평행하려면 기울기가 같고 y절편은 달라야 한다.","t":"ox","a":0,"why":"기울기와 y절편이 모두 같으면 같은 직선이에요."},{"q":"이등변삼각형의 두 밑각의 크기는 서로 같다.","t":"ox","a":0,"why":"역도 성립해요. 두 각이 같으면 이등변삼각형이에요."},{"q":"삼각형의 세 중선이 만나는 점을 무엇이라 하나?","t":"mc","o":["무게중심","외심","내심","수심"],"a":0,"why":"무게중심은 중선을 2:1로 나눠요."},{"q":"삼각형의 외심은 세 변의 수직이등분선의 교점이다.","t":"ox","a":0,"why":"외심에서 세 꼭짓점까지의 거리가 같아요."},{"q":"삼각형의 내심에서 세 변까지의 거리는 서로 같다.","t":"ox","a":0,"why":"내심은 세 내각의 이등분선의 교점이에요."},{"q":"평행사변형의 두 대각선은 서로 다른 것을 이등분한다.","t":"ox","a":0,"why":"평행사변형의 대표적인 성질이에요."},{"q":"두 대각선의 길이가 같고 서로 수직인 사각형은?","t":"mc","o":["정사각형","마름모","직사각형","평행사변형"],"a":0,"why":"직사각형은 길이만 같고, 마름모는 수직이기만 해요."},{"q":"닮은 두 도형의 넓이의 비는 닮음비의 제곱이다.","t":"ox","a":0,"why":"부피의 비는 닮음비의 세제곱이에요."},{"q":"닮음비가 2:3인 두 입체도형의 부피의 비는?","t":"mc","o":["8:27","2:3","4:9","6:9"],"a":0,"why":"세제곱해서 2³:3³ = 8:27이에요."},{"q":"삼각형에서 한 변에 평행한 직선이 다른 두 변을 지나면 그 선분들의 길이의 비가 같다.","t":"ox","a":0,"why":"삼각형과 평행선 사이의 성질이에요."},{"q":"직각삼각형에서 빗변의 제곱은 다른 두 변의 제곱의 합과 같다는 정리는?","t":"mc","o":["피타고라스 정리","탈레스 정리","삼각부등식","중점연결정리"],"a":0,"why":"a²+b²=c² 로 쓰죠."},{"q":"세 변의 길이가 3, 4, 5인 삼각형은 직각삼각형이다.","t":"ox","a":0,"why":"3²+4²=9+16=25=5² 이므로 직각삼각형이에요."},{"q":"어떤 사건이 일어날 확률은 0 이상 1 이하이다.","t":"ox","a":0,"why":"절대 일어나지 않으면 0, 반드시 일어나면 1이에요."},{"q":"사건 A가 일어날 확률이 p일 때, 일어나지 않을 확률은?","t":"mc","o":["1-p","p-1","1/p","-p"],"a":0,"why":"여사건의 확률이에요."},{"q":"두 사건이 동시에 일어나지 않을 때 확률은 각각의 확률을 더한다.","t":"ox","a":0,"why":"'또는'은 덧셈, '동시에/연이어'는 곱셈이에요."},{"q":"주사위를 두 번 던져 두 번 다 1이 나올 확률은?","t":"mc","o":["1/36","1/6","1/12","2/6"],"a":0,"why":"1/6 × 1/6 = 1/36 이에요."},{"q":"동전을 던져 앞면이 5번 연속 나왔다면 다음에는 뒷면이 나올 확률이 더 높다.","t":"ox","a":1,"why":"매번 독립이라 여전히 1/2이에요. 이런 착각을 '도박사의 오류'라고 해요."},{"q":"중점연결정리에 따르면 삼각형 두 변의 중점을 이은 선분은 나머지 변과 평행하고 길이는 그 절반이다.","t":"ox","a":0,"why":"사다리꼴에서도 비슷한 성질이 있어요."},{"q":"다항식에서 각 항의 차수 중 가장 높은 것을 그 다항식의 차수라고 한다.","t":"ox","a":0,"why":"3x²+2x+1은 이차식이에요."},{"q":"일차부등식 -2x > 4 의 해는?","t":"mc","o":["x < -2","x > -2","x < 2","x > 2"],"a":0,"why":"음수로 나누므로 부등호 방향이 바뀌어요."},{"q":"일차함수의 그래프와 x축이 만나는 점의 x좌표를 x절편이라 한다.","t":"ox","a":0,"why":"y=0을 대입해서 구해요."}],"m3":[{"q":"√2는 유리수이다.","t":"ox","a":1,"why":"분수로 나타낼 수 없는 무리수예요. 귀류법으로 증명할 수 있어요."},{"q":"제곱근 9의 값은 3과 -3 두 개이다.","t":"ox","a":0,"why":"제곱근은 두 개지만, 기호 √9는 양의 제곱근인 3만 뜻해요."},{"q":"√a × √b = √(ab) 가 성립하려면?","t":"mc","o":["a≥0, b≥0","항상 성립","a>b","a, b가 정수"],"a":0,"why":"음수의 제곱근에서는 이 성질이 깨져요."},{"q":"분모에 근호가 있을 때 이를 없애는 과정을 분모의 유리화라고 한다.","t":"ox","a":0,"why":"1/√2 = √2/2 처럼 고쳐요."},{"q":"(a+b)² 을 전개하면?","t":"mc","o":["a²+2ab+b²","a²+b²","a²-2ab+b²","a²+ab+b²"],"a":0,"why":"가운데 항 2ab를 빠뜨리는 실수가 많아요."},{"q":"a²-b² 을 인수분해하면 (a+b)(a-b) 이다.","t":"ox","a":0,"why":"합차공식이에요."},{"q":"x²+5x+6 을 인수분해하면?","t":"mc","o":["(x+2)(x+3)","(x+1)(x+6)","(x-2)(x-3)","(x+5)(x+1)"],"a":0,"why":"곱이 6, 합이 5인 두 수는 2와 3이에요."},{"q":"이차방정식 ax²+bx+c=0 에서 b²-4ac 를 무엇이라 하나?","t":"mc","o":["판별식","근의 공식","계수","해"],"a":0,"why":"이 값의 부호로 실근의 개수를 알 수 있어요."},{"q":"판별식이 0이면 이차방정식은 서로 다른 두 실근을 갖는다.","t":"ox","a":1,"why":"0이면 중근(한 개), 양수면 서로 다른 두 실근, 음수면 실근이 없어요."},{"q":"이차함수 y=ax²에서 a<0이면 그래프는 위로 볼록하다.","t":"ox","a":0,"why":"a>0이면 아래로 볼록해요."},{"q":"이차함수 y=a(x-p)²+q 의 꼭짓점 좌표는?","t":"mc","o":["(p, q)","(-p, q)","(p, -q)","(-p, -q)"],"a":0,"why":"표준형에서 부호에 주의해야 해요."},{"q":"이차함수의 그래프의 축은 꼭짓점을 지나는 세로 직선이다.","t":"ox","a":0,"why":"y=a(x-p)²+q 에서 축은 x=p 예요."},{"q":"직각삼각형에서 sin A 는 어떤 비인가?","t":"mc","o":["높이/빗변","밑변/빗변","높이/밑변","빗변/높이"],"a":0,"why":"cos는 밑변/빗변, tan는 높이/밑변이에요."},{"q":"sin 30°의 값은 1/2 이다.","t":"ox","a":0,"why":"cos 30°=√3/2, tan 30°=√3/3 이에요."},{"q":"tan 45°의 값은?","t":"mc","o":["1","√2","√3","1/2"],"a":0,"why":"45°에서는 높이와 밑변이 같아서 1이에요."},{"q":"원의 중심에서 현에 내린 수선은 그 현을 이등분한다.","t":"ox","a":0,"why":"원의 기본 성질이에요."},{"q":"한 원에서 같은 호에 대한 원주각의 크기는 중심각의 몇 배인가?","t":"mc","o":["1/2배","2배","같다","1/4배"],"a":0,"why":"원주각은 중심각의 절반이에요."},{"q":"반원에 대한 원주각의 크기는 90°이다.","t":"ox","a":0,"why":"지름을 밑변으로 하는 원주각은 항상 직각이에요."},{"q":"원에 내접하는 사각형의 마주 보는 두 각의 합은?","t":"mc","o":["180°","90°","360°","같다"],"a":0,"why":"대각의 합이 180°가 돼요."},{"q":"원 밖의 한 점에서 원에 그은 두 접선의 길이는 서로 같다.","t":"ox","a":0,"why":"접선의 길이 성질이에요."},{"q":"자료의 흩어진 정도를 나타내는 값으로 알맞은 것은?","t":"mc","o":["표준편차","평균","중앙값","최빈값"],"a":0,"why":"평균·중앙값·최빈값은 대푯값이고, 산포도에는 분산·표준편차가 있어요."},{"q":"편차의 총합은 항상 0이다.","t":"ox","a":0,"why":"(변량-평균)을 모두 더하면 0이 되기 때문에 제곱해서 분산을 구해요."},{"q":"분산의 양의 제곱근을 표준편차라고 한다.","t":"ox","a":0,"why":"표준편차는 원래 자료와 단위가 같아 해석이 편해요."},{"q":"두 변량 사이에 한쪽이 커질 때 다른 쪽도 커지는 관계를?","t":"mc","o":["양의 상관관계","음의 상관관계","상관관계 없음","인과관계"],"a":0,"why":"상관관계가 있다고 해서 인과관계인 것은 아니에요."},{"q":"극단적으로 큰 값이 하나 있으면 평균보다 중앙값이 자료를 더 잘 대표할 수 있다.","t":"ox","a":0,"why":"평균은 극단값에 크게 흔들려요."},{"q":"이차방정식의 두 근의 합은 -b/a 이다. (ax²+bx+c=0)","t":"ox","a":0,"why":"두 근의 곱은 c/a 예요. 근과 계수의 관계라고 해요."},{"q":"√(-4) 는 중학교 과정에서 정의되지 않는다.","t":"ox","a":0,"why":"음수의 제곱근은 고등학교 복소수에서 다뤄요."},{"q":"이차함수 y=x²-4x+3 의 그래프가 x축과 만나는 점의 개수는?","t":"mc","o":["2개","1개","0개","3개"],"a":0,"why":"판별식 16-12=4>0 이라 서로 다른 두 점에서 만나요."}],"h1":[{"q":"다항식 f(x)를 x-a로 나눈 나머지는 f(a)이다.","t":"ox","a":0,"why":"나머지정리예요. f(a)=0이면 x-a가 인수라는 것이 인수정리고요."},{"q":"i² 의 값은?","t":"mc","o":["-1","1","i","0"],"a":0,"why":"허수단위 i는 제곱해서 -1이 되는 수로 정의해요."},{"q":"실수 계수 이차방정식이 허근을 가지면 두 허근은 서로 켤레복소수이다.","t":"ox","a":0,"why":"a+bi가 근이면 a-bi도 근이에요."},{"q":"이차함수의 최댓값·최솟값을 구할 때 가장 먼저 하는 일은?","t":"mc","o":["완전제곱식으로 고치기","미분하기","판별식 구하기","인수분해하기"],"a":0,"why":"표준형으로 바꾸면 꼭짓점에서 최대·최소를 바로 알 수 있어요."},{"q":"서로 다른 n개에서 r개를 순서를 생각하지 않고 뽑는 경우의 수를 조합이라 한다.","t":"ox","a":0,"why":"순서를 생각하면 순열이에요."},{"q":"nCr 과 nC(n-r) 의 값은 항상 같다.","t":"ox","a":0,"why":"r개를 뽑는 것과 남길 n-r개를 뽑는 것이 같기 때문이에요."},{"q":"두 점 사이의 거리 공식은 피타고라스 정리에서 나온다.","t":"ox","a":0,"why":"√((x₂-x₁)²+(y₂-y₁)²) 이에요."},{"q":"두 직선이 수직일 조건은? (기울기 m₁, m₂)","t":"mc","o":["m₁m₂ = -1","m₁ = m₂","m₁+m₂ = 0","m₁m₂ = 1"],"a":0,"why":"기울기의 곱이 -1이에요. 단, 한쪽이 세로선이면 예외예요."},{"q":"원의 방정식 (x-a)²+(y-b)²=r² 에서 중심은 (a, b)이다.","t":"ox","a":0,"why":"r은 반지름이에요."},{"q":"x²+y²+Ax+By+C=0 이 항상 원을 나타내는 것은 아니다.","t":"ox","a":0,"why":"완전제곱식으로 고쳤을 때 우변이 양수여야 원이 돼요."},{"q":"점 (a, b)를 x축에 대하여 대칭이동하면?","t":"mc","o":["(a, -b)","(-a, b)","(-a, -b)","(b, a)"],"a":0,"why":"y축 대칭은 (-a, b), 원점 대칭은 (-a, -b)예요."},{"q":"공집합은 모든 집합의 부분집합이다.","t":"ox","a":0,"why":"원소가 없으니 조건을 항상 만족해요."},{"q":"원소가 n개인 집합의 부분집합의 개수는?","t":"mc","o":["2ⁿ","n²","2n","n!"],"a":0,"why":"각 원소를 넣거나 안 넣거나 두 가지씩이라 2ⁿ이에요."},{"q":"명제 'p이면 q이다'의 대우는 'q가 아니면 p가 아니다'이다.","t":"ox","a":0,"why":"명제와 대우는 참·거짓이 항상 일치해요."},{"q":"명제가 참이면 그 역도 반드시 참이다.","t":"ox","a":1,"why":"역은 참일 수도 거짓일 수도 있어요. 대우만 참·거짓이 같아요."},{"q":"함수가 일대일대응이려면 일대일함수이면서 무엇이어야 하나?","t":"mc","o":["치역과 공역이 같아야","정의역이 실수 전체","연속이어야","증가함수여야"],"a":0,"why":"일대일함수이고 치역=공역이면 일대일대응이에요."},{"q":"역함수가 존재하려면 그 함수는 일대일대응이어야 한다.","t":"ox","a":0,"why":"그래프로는 y=x에 대칭인 관계예요."},{"q":"유리함수 y=k/x 의 그래프의 점근선은?","t":"mc","o":["x축과 y축","y=x","x=1","없다"],"a":0,"why":"평행이동하면 점근선도 함께 이동해요."},{"q":"무리함수 y=√x 의 정의역은 x≥0 이다.","t":"ox","a":0,"why":"근호 안이 0 이상이어야 해요."},{"q":"절대부등식은 모든 실수에 대해 항상 성립하는 부등식이다.","t":"ox","a":0,"why":"a²≥0, 산술평균≥기하평균 등이 대표적이에요."},{"q":"양수 a, b에 대해 산술평균과 기하평균의 대소 관계는?","t":"mc","o":["(a+b)/2 ≥ √(ab)","(a+b)/2 ≤ √(ab)","항상 같다","비교 불가"],"a":0,"why":"등호는 a=b일 때 성립해요."},{"q":"삼차방정식은 실근을 적어도 하나는 갖는다.","t":"ox","a":0,"why":"홀수 차수 실계수 방정식은 반드시 실근이 있어요."},{"q":"연립부등식의 해는 각 부등식의 해의 공통 부분이다.","t":"ox","a":0,"why":"수직선에 그려 겹치는 구간을 찾아요."},{"q":"합의 법칙과 곱의 법칙 중 '동시에 일어날 때' 쓰는 것은?","t":"mc","o":["곱의 법칙","합의 법칙","둘 다","상황에 따라"],"a":0,"why":"'또는'은 합, '그리고/연이어'는 곱이에요."}],"h2":[{"q":"a>0, a≠1 일 때 로그 log_a 1 의 값은?","t":"mc","o":["0","1","a","정의되지 않음"],"a":0,"why":"a⁰=1 이므로 0이에요."},{"q":"log의 진수는 항상 양수여야 한다.","t":"ox","a":0,"why":"밑은 1이 아닌 양수, 진수는 양수라는 조건이 있어요."},{"q":"log_a(MN) = log_a M + log_a N 이다.","t":"ox","a":0,"why":"곱을 합으로 바꿔주는 성질이라 계산이 편해져요."},{"q":"지수함수 y=aˣ (a>1) 의 그래프는 항상 어떤 점을 지나나?","t":"mc","o":["(0, 1)","(1, 0)","(0, 0)","(1, 1)"],"a":0,"why":"a⁰=1 이라 y절편이 1이에요."},{"q":"지수함수와 로그함수는 서로 역함수 관계이다.","t":"ox","a":0,"why":"y=x에 대하여 대칭이에요."},{"q":"삼각함수에서 sin²θ + cos²θ 의 값은?","t":"mc","o":["1","0","2","tan²θ"],"a":0,"why":"단위원에서 피타고라스 정리로 얻어지는 기본 항등식이에요."},{"q":"y=sin x 의 주기는 2π 이다.","t":"ox","a":0,"why":"y=tan x 의 주기는 π 예요."},{"q":"y = a sin(bx) 에서 주기는?","t":"mc","o":["2π/|b|","2π/|a|","2πb","|a|"],"a":0,"why":"b가 커질수록 그래프가 촘촘해져요."},{"q":"사인법칙에서 a/sin A 의 값은 외접원 반지름 R에 대해 2R 이다.","t":"ox","a":0,"why":"a/sinA = b/sinB = c/sinC = 2R 이에요."},{"q":"코사인법칙 a² = b²+c²-2bc·cos A 에서 A=90°이면?","t":"mc","o":["피타고라스 정리가 된다","a=0이 된다","성립하지 않는다","b=c가 된다"],"a":0,"why":"cos90°=0이라 a²=b²+c² 가 돼요."},{"q":"등차수열은 이웃한 두 항의 차가 일정한 수열이다.","t":"ox","a":0,"why":"그 일정한 차를 공차라고 해요."},{"q":"등비수열의 일반항은?","t":"mc","o":["a·rⁿ⁻¹","a+(n-1)d","a·r·n","a/rⁿ"],"a":0,"why":"첫째항 a에 공비 r을 (n-1)번 곱해요."},{"q":"수열의 합 Sn과 일반항 an 사이에는 an = Sn - Sn₋₁ (n≥2) 관계가 있다.","t":"ox","a":0,"why":"n=1일 때는 따로 확인해야 해요."},{"q":"수학적 귀납법에서 증명해야 할 두 가지는?","t":"mc","o":["n=1일 때 성립, n=k면 n=k+1도 성립","n=0과 n=1","최댓값과 최솟값","필요조건과 충분조건"],"a":0,"why":"도미노가 넘어지는 원리와 같아요."},{"q":"함수의 극한값이 존재하려면 좌극한과 우극한이 같아야 한다.","t":"ox","a":0,"why":"둘이 다르면 극한값은 존재하지 않아요."},{"q":"함수가 어떤 점에서 연속이려면 필요한 조건이 아닌 것은?","t":"mc","o":["그 점에서 미분가능","함숫값이 존재","극한값이 존재","극한값과 함숫값이 같다"],"a":0,"why":"연속이라고 미분가능한 것은 아니에요. y=|x|가 반례예요."},{"q":"미분가능하면 반드시 연속이다.","t":"ox","a":0,"why":"역은 성립하지 않아요."},{"q":"어떤 점에서 미분계수는 그 점에서의 접선의 기울기를 뜻한다.","t":"ox","a":0,"why":"평균변화율의 극한이 순간변화율이에요."},{"q":"f'(x)>0 인 구간에서 f(x)는?","t":"mc","o":["증가한다","감소한다","일정하다","극값을 갖는다"],"a":0,"why":"f'(x)<0이면 감소해요."},{"q":"f'(a)=0 이면 x=a 에서 반드시 극값을 갖는다.","t":"ox","a":1,"why":"y=x³의 x=0처럼 부호가 바뀌지 않으면 극값이 아니에요."},{"q":"부정적분과 미분은 서로 역연산 관계이다.","t":"ox","a":0,"why":"미적분의 기본정리가 이를 정리해줘요."},{"q":"정적분 ∫ₐᵇ f(x)dx 에서 a=b 이면 값은?","t":"mc","o":["0","1","f(a)","정의되지 않음"],"a":0,"why":"구간의 길이가 0이니 0이에요."},{"q":"곡선과 x축 사이의 넓이를 구할 때, 곡선이 x축 아래에 있으면 정적분 값은 음수가 된다.","t":"ox","a":0,"why":"넓이를 구하려면 절댓값을 씌우거나 구간을 나눠야 해요."},{"q":"위치를 시간으로 미분하면 속도, 속도를 미분하면?","t":"mc","o":["가속도","거리","변위","운동량"],"a":0,"why":"거꾸로 속도를 적분하면 변위가 돼요."},{"q":"조건부확률 P(B|A) 는 A가 일어났다는 조건에서 B가 일어날 확률이다.","t":"ox","a":0,"why":"P(A∩B)/P(A) 로 계산해요."},{"q":"두 사건 A, B가 독립이면 P(A∩B) 는?","t":"mc","o":["P(A)P(B)","P(A)+P(B)","P(A)-P(B)","P(A|B)"],"a":0,"why":"독립이면 곱으로 나타나요."},{"q":"이항분포 B(n, p)의 평균은 np 이다.","t":"ox","a":0,"why":"분산은 np(1-p)예요."},{"q":"정규분포 곡선은 평균에 대하여 좌우대칭이다.","t":"ox","a":0,"why":"표준편차가 클수록 폭이 넓고 낮아져요."},{"q":"표본의 크기가 커질수록 표본평균의 분포는 어떻게 되나?","t":"mc","o":["정규분포에 가까워진다","한 점에 모인다","균등해진다","변화 없다"],"a":0,"why":"중심극한정리라고 해요."}],"h3":[{"q":"수열의 극한에서 발산하는 수열도 극한값을 갖는다고 말한다.","t":"ox","a":1,"why":"수렴할 때만 극한값이 있다고 해요."},{"q":"등비수열 rⁿ 이 수렴할 r의 조건은?","t":"mc","o":["-1 < r ≤ 1","r > 0","|r| > 1","r ≠ 0"],"a":0,"why":"r=1이면 1로, |r|<1이면 0으로 수렴해요."},{"q":"급수가 수렴하면 그 일반항은 0에 수렴한다.","t":"ox","a":0,"why":"역은 성립하지 않아요. 조화급수가 반례예요."},{"q":"lim(x→0) sin x / x 의 값은?","t":"mc","o":["1","0","∞","정의되지 않음"],"a":0,"why":"삼각함수 극한의 기본 공식이에요."},{"q":"자연로그의 밑 e 는 무리수이다.","t":"ox","a":0,"why":"약 2.71828…이고 초월수이기도 해요."},{"q":"(eˣ)' 을 구하면?","t":"mc","o":["eˣ","xeˣ⁻¹","eˣ/x","1"],"a":0,"why":"미분해도 자기 자신인 유일한 함수 꼴이에요."},{"q":"(ln x)' 은 1/x 이다.","t":"ox","a":0,"why":"x>0 에서 성립해요."},{"q":"합성함수의 미분법을 무엇이라 부르나?","t":"mc","o":["연쇄법칙","곱의 미분법","몫의 미분법","부분적분"],"a":0,"why":"바깥함수 미분 × 안쪽함수 미분이에요."},{"q":"음함수 미분법은 y를 x에 대한 함수로 보고 양변을 x로 미분하는 방법이다.","t":"ox","a":0,"why":"원의 방정식처럼 y를 분리하기 어려울 때 써요."},{"q":"변곡점은 그래프의 오목·볼록이 바뀌는 점이다.","t":"ox","a":0,"why":"f''(x)의 부호가 바뀌는 곳이에요."},{"q":"치환적분과 부분적분 중 두 함수의 곱을 적분할 때 주로 쓰는 것은?","t":"mc","o":["부분적분","치환적분","정적분","이상적분"],"a":0,"why":"∫u dv = uv - ∫v du 공식을 써요."},{"q":"회전체의 부피를 구할 때 단면의 넓이를 적분한다.","t":"ox","a":0,"why":"단면이 원이면 π(반지름)²을 적분해요."},{"q":"포물선은 한 점(초점)과 한 직선(준선)에서 같은 거리에 있는 점들의 모임이다.","t":"ox","a":0,"why":"타원은 두 초점까지 거리의 합, 쌍곡선은 차가 일정해요."},{"q":"타원 위의 점에서 두 초점까지의 거리의 합은?","t":"mc","o":["일정하다","0이다","변한다","초점 사이 거리와 같다"],"a":0,"why":"장축의 길이와 같아요."},{"q":"쌍곡선은 두 초점까지의 거리의 차의 절댓값이 일정한 점들의 모임이다.","t":"ox","a":0,"why":"점근선을 갖는 것도 특징이에요."},{"q":"두 벡터의 내적이 0이면 두 벡터는?","t":"mc","o":["서로 수직이다","평행하다","같다","크기가 0이다"],"a":0,"why":"영벡터가 아닌 경우예요."},{"q":"벡터는 크기와 방향을 모두 갖는 양이다.","t":"ox","a":0,"why":"크기만 갖는 것은 스칼라예요."},{"q":"공간에서 서로 만나지도 평행하지도 않은 두 직선을 무엇이라 하나?","t":"mc","o":["꼬인 위치","수직","평행","일치"],"a":0,"why":"평면에서는 생기지 않고 공간에서만 나타나요."},{"q":"삼수선의 정리는 공간도형에서 수직 관계를 다루는 정리이다.","t":"ox","a":0,"why":"평면 밖의 점에서 내린 수선들의 관계를 설명해요."},{"q":"정사영의 넓이는 원래 도형의 넓이에 cosθ를 곱한 값이다.","t":"ox","a":0,"why":"θ는 두 평면이 이루는 각이에요."},{"q":"매개변수로 나타낸 곡선에서 dy/dx 는 어떻게 구하나?","t":"mc","o":["(dy/dt)÷(dx/dt)","dy/dt × dx/dt","dx/dt ÷ dy/dt","dy/dt 만"],"a":0,"why":"연쇄법칙에서 나오는 결과예요."},{"q":"이상적분은 적분 구간이 무한하거나 함수가 발산하는 경우의 적분이다.","t":"ox","a":0,"why":"극한을 이용해 정의해요."}]};
+
+  // ===================== 오늘의 수학 퀴즈 =====================
+  const QUIZ_REASON = '오늘의 수학 퀴즈';
+  const QUIZ_COUNT = 5;          // 하루 문항 수
+  const QUIZ_POINT = 2;          // 한 문제당
+  const QUIZ_BONUS = 3;          // 만점 보너스
+  let _qz = null;
+
+  // 학교 이름 + 학년 → 밴드 (선행 범위는 절대 안 나오게)
+  function quizBand(stu) {
+    const sc = String(stu && stu.school || '');
+    const g = parseInt(String(stu && stu.grade || '').replace(/[^0-9]/g, ''), 10) || 1;
+    const isHigh = /고/.test(sc) && !/중/.test(sc);
+    return (isHigh ? 'h' : 'm') + Math.max(1, Math.min(3, g));
+  }
+  // 해당 학년까지 배운 범위만 모음
+  function quizPool(band) {
+    const order = ['m1', 'm2', 'm3', 'h1', 'h2', 'h3'];
+    const idx = order.indexOf(band);
+    const list = [];
+    order.slice(0, idx + 1).forEach(k => (QUIZ_BANK[k] || []).forEach(q => list.push(q)));
+    return list;
+  }
+  function _qhash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function _qrand(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function _qpick(arr, n, rnd) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a.slice(0, n);
+  }
+  function _qToday() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // 오늘의 문항 뽑기 — 같은 학년이면 전교생 같은 문제
+  function quizPickToday(band) {
+    const day = _qToday();
+    const rnd = _qrand(_qhash(day + '|' + band));
+    const order = ['m1', 'm2', 'm3', 'h1', 'h2', 'h3'];
+    const idx = order.indexOf(band);
+    const cur = QUIZ_BANK[band] || [];                               // 지금 학년
+    const near = (QUIZ_BANK[order[idx - 1]] || []).concat(cur);      // 바로 아래까지
+    const all = quizPool(band);                                      // 배운 전 범위
+
+    const out = [];
+    const add = (arr, n) => {
+      for (const q of _qpick(arr, arr.length, rnd)) {
+        if (out.length >= n) break;
+        if (out.indexOf(q) < 0) out.push(q);
+      }
+    };
+    add(QUIZ_BANK.common || [], 2);   // 수학사·교양 2
+    add(cur, 3);                      // 지금 학년에서 1
+    add(near, 4);                     // 바로 아래까지에서 1
+    add(all, QUIZ_COUNT);             // 나머지는 배운 전 범위에서
+
+    // OX만 나오지 않게 객관식 한 문제는 보장
+    if (!out.some(q => q.t === 'mc')) {
+      const mc = _qpick((QUIZ_BANK.common || []).concat(all).filter(q => q.t === 'mc'), 1, rnd)[0];
+      if (mc) out[out.length - 1] = mc;
+    }
+    return _qpick(out, out.length, _qrand(_qhash(day + '|' + band + '|order')));
+  }
+
+  async function loadDailyQuiz() {
+    const box = document.getElementById('daily-quiz-box');
+    if (!box) return;
+    const sid = document.getElementById('student-select').value;
+    if (!sid) { box.innerHTML = ''; return; }
+    try {
+      const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=school,grade`, { headers: sbHeaders() }).then(r => r.json());
+      const band = quizBand(stu[0] || {});
+      const from = _qToday() + 'T00:00:00';
+      const done = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(QUIZ_REASON + '%')}&created_at=gte.${from}&select=amount,reason`, { headers: sbHeaders() }).then(r => r.json());
+      const already = Array.isArray(done) && done.length > 0;
+      _qz = { band, sid, qs: quizPickToday(band), i: 0, ok: 0, picked: [] };
+
+      if (already) {
+        const got = done.reduce((s, x) => s + (x.amount || 0), 0);
+        box.innerHTML = `
+          <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🧠 오늘의 수학 퀴즈</div>
+            <div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 8px;line-height:1.6;">
+              오늘 퀴즈 완료! <b style="color:var(--pink);">+${got}P</b> 획득 🎉<br>
+              <span style="font-size:11.5px;color:var(--text4);">내일 새로운 문제가 나와요</span>
+            </div>
+          </div>`;
+        return;
+      }
+      box.innerHTML = `
+        <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+          <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🧠 오늘의 수학 퀴즈</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">수학사·용어 ${QUIZ_COUNT}문제 · 하루 한 번 · 맞힌 만큼 ${QUIZ_POINT}P (다 맞히면 +${QUIZ_BONUS}P)</div>
+          <button onclick="quizStart()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#DB2777);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">🎮 오늘의 퀴즈 풀기</button>
+        </div>`;
+    } catch (e) {
+      console.error('loadDailyQuiz:', e);
+      box.innerHTML = '';
+    }
+  }
+
+  function quizStart() { _qz.i = 0; _qz.ok = 0; _qz.picked = []; quizRender(); }
+
+  function quizRender() {
+    const box = document.getElementById('daily-quiz-box');
+    const q = _qz.qs[_qz.i];
+    const opts = q.t === 'ox' ? ['⭕ 맞다', '❌ 아니다'] : q.o;
+    const btns = opts.map((o, i) =>
+      `<button onclick="quizAnswer(${i})" style="width:100%;padding:12px;margin-bottom:7px;border-radius:11px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;">${_figEsc ? _figEsc(o) : o}</button>`
+    ).join('');
+    box.innerHTML = `
+      <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">🧠 오늘의 수학 퀴즈</div>
+          <div style="font-size:12px;color:var(--text3);font-weight:700;">${_qz.i + 1} / ${_qz.qs.length}</div>
+        </div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px;margin-bottom:14px;overflow:hidden;">
+          <div style="height:100%;width:${(_qz.i / _qz.qs.length * 100).toFixed(0)}%;background:linear-gradient(90deg,#7C3AED,#DB2777);border-radius:3px;transition:width .3s;"></div>
+        </div>
+        <div style="font-size:14.5px;color:var(--text1);line-height:1.65;margin-bottom:14px;font-weight:600;">${q.q}</div>
+        ${btns}
+      </div>`;
+  }
+
+  function quizAnswer(i) {
+    const q = _qz.qs[_qz.i];
+    const correct = i === q.a;
+    if (correct) _qz.ok++;
+    _qz.picked.push(i);
+    const box = document.getElementById('daily-quiz-box');
+    const opts = q.t === 'ox' ? ['⭕ 맞다', '❌ 아니다'] : q.o;
+    const last = _qz.i === _qz.qs.length - 1;
+    box.innerHTML = `
+      <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;">🧠 오늘의 수학 퀴즈 <span style="float:right;font-size:12px;color:var(--text3);">${_qz.i + 1} / ${_qz.qs.length}</span></div>
+        <div style="font-size:14.5px;color:var(--text2);line-height:1.65;margin-bottom:12px;">${q.q}</div>
+        <div style="background:${correct ? 'rgba(16,185,129,.16)' : 'rgba(239,68,68,.14)'};border:1px solid ${correct ? 'rgba(16,185,129,.55)' : 'rgba(239,68,68,.5)'};border-radius:11px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:14px;font-weight:800;color:${correct ? '#10B981' : '#EF4444'};margin-bottom:6px;">${correct ? '⭕ 정답!' : '❌ 오답'}</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-bottom:7px;">정답: <b>${opts[q.a]}</b></div>
+          <div style="font-size:12.5px;color:var(--text3);line-height:1.6;">💡 ${q.why}</div>
+        </div>
+        <button onclick="${last ? 'quizFinish()' : 'quizNext()'}" style="width:100%;padding:12px;border-radius:11px;border:none;background:linear-gradient(135deg,#7C3AED,#DB2777);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;">${last ? '결과 보기' : '다음 문제 →'}</button>
+      </div>`;
+  }
+
+  function quizNext() { _qz.i++; quizRender(); }
+
+  async function quizFinish() {
+    const box = document.getElementById('daily-quiz-box');
+    const n = _qz.qs.length, ok = _qz.ok;
+    let pts = ok * QUIZ_POINT + (ok === n ? QUIZ_BONUS : 0);
+    box.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:1.4rem;margin-bottom:14px;border:1px solid var(--border);text-align:center;">
+        <div style="font-size:13px;color:var(--text3);">저장 중...</div></div>`;
+    let saved = false;
+    try {
+      const sid = _qz.sid;
+      const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
+      const newPts = (stu[0]?.mission_points || 0) + pts;
+      const r1 = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mission_points: newPts })
+      });
+      const r2 = await fetch(`${SUPABASE_URL}/rest/v1/point_logs`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ student_id: sid, amount: pts, reason: `${QUIZ_REASON} (${ok}/${n})` })
+      });
+      saved = r1.ok && r2.ok;
+    } catch (e) { console.error('quizFinish:', e); }
+
+    const msg = ok === n ? '만점이야! 대단한데? 🏆' : ok >= n - 1 ? '거의 다 맞혔어! 👏' : ok >= n / 2 ? '괜찮아, 잘하고 있어 💪' : '해설 다시 읽어보면 다음엔 오를 거야 📖';
+    box.innerHTML = `
+      <div style="background:var(--bg2);border-radius:16px;padding:1.4rem;margin-bottom:14px;border:1px solid var(--border);text-align:center;">
+        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:10px;">🧠 오늘의 수학 퀴즈 결과</div>
+        <div style="font-size:34px;font-weight:900;background:linear-gradient(135deg,#7C3AED,#DB2777);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${ok} / ${n}</div>
+        <div style="font-size:13px;color:var(--text2);margin:8px 0 4px;font-weight:700;">${msg}</div>
+        <div style="font-size:15px;color:var(--pink);font-weight:800;margin-bottom:4px;">💎 +${pts}P${ok === n ? ` (만점 보너스 +${QUIZ_BONUS}P 포함)` : ''}</div>
+        ${saved ? '' : '<div style="font-size:11.5px;color:#EF4444;margin-bottom:6px;">⚠️ 포인트 저장에 실패했어요. 선생님께 알려주세요.</div>'}
+        <div style="font-size:11.5px;color:var(--text4);">내일 새로운 문제가 나와요</div>
+      </div>`;
+    // 결과 화면은 남겨두고 포인트 숫자만 갱신
+    try {
+      const s2 = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${_qz.sid}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
+      const el = document.getElementById('my-mission-points');
+      if (el) el.textContent = `💎 ${s2[0]?.mission_points || 0}P`;
+      if (typeof updateRankUI === 'function') updateRankUI(_qz.sid);
+    } catch (e) { /* 표시만 실패 */ }
+  }
+
   async function loadMissions() {
     const studentId = document.getElementById('student-select').value;
     if (!studentId) return;
@@ -2686,6 +2890,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const pts = stu[0]?.mission_points || 0;
     document.getElementById('my-mission-points').textContent = `💎 ${pts}P`;
     updateRankUI(studentId);
+    loadDailyQuiz();
 
     const box = document.getElementById('mission-problem-list');
 
@@ -2773,6 +2978,19 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   function makeFn(expr) {
     let e = String(expr || '').trim();
     if (!e) return null;
+    // 변수를 t, s, u 등으로 써도 받아준다 (x 로 통일)
+    // 함수 이름은 @sin@ 처럼 감싸서 그 안의 글자는 변수로 세지 않는다
+    e = e.replace(/\b(?:sin|cos|tan|sqrt|abs|log|exp|pi)\b/g, m => '@' + m + '@');
+    const segs = e.split('@');
+    const vs = new Set();
+    segs.forEach((seg, i) => {
+      if (i % 2 === 0) (seg.match(/[a-zA-Z]/g) || []).forEach(c => { if (c !== 'e' && c !== 'E') vs.add(c); });
+    });
+    const vars = [...vs];
+    if (vars.length === 1 && vars[0].toLowerCase() !== 'x') {
+      e = segs.map((seg, i) => i % 2 ? seg : seg.split(vars[0]).join('x')).join('@');
+    }
+    e = e.replace(/@/g, '');
     // ^ → **,  2x → 2*x,  x( → x*(
     e = e.replace(/\^/g, '**');
     e = e.replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2');
@@ -2807,7 +3025,17 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (fig.type === 'geometry') return geoRender(fig, W, H);
     if (fig.type === 'solid') return solidRender(fig, W, H);
 
-    const fns = (fig.funcs || []).map(makeFn).filter(Boolean);
+    const rawFuncs = fig.funcs || [];
+    const fns = rawFuncs.map(makeFn);                       // 실패한 자리는 null 로 남겨 인덱스를 지킨다
+    // sqrt(E) 와 -sqrt(E) 처럼 부호만 다른 짝은 같은 곡선으로 보고 같은 색·같은 선으로 그린다
+    const _fkey = (s) => String(s || '').replace(/\s+/g, '').replace(/^-/, '');
+    const _grpNames = [], _grp = [];
+    rawFuncs.forEach((e, i) => {
+      const k = _fkey(e);
+      let g = _grpNames.indexOf(k);
+      if (g < 0) { _grpNames.push(k); g = _grpNames.length - 1; }
+      _grp[i] = g;
+    });
     const uid = 'fg' + Math.random().toString(36).slice(2, 8);
     const L = PAD, R = W - PAD, T = PAD, B = H - PAD;
 
@@ -2817,6 +3045,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     else {
       const all = [];
       for (const f of fns) {
+        if (!f) continue;
         for (let i = 0; i <= 400; i++) {
           const x = xr[0] + (xr[1] - xr[0]) * i / 400;
           const y = f(x);
@@ -2895,7 +3124,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const xNm = String(fig.xLabel || 'x').slice(0, 4), yNm = String(fig.yLabel || 'y').slice(0, 4);
     out += `<text x="${xTip - 2}" y="${axY + 15}" fill="${txtC}" font-size="12" font-style="italic" text-anchor="middle">${_figEsc(xNm)}</text>`;
     out += `<text x="${axX + 9}" y="${yTip + 5}" fill="${txtC}" font-size="12" font-style="italic">${_figEsc(yNm)}</text>`;
-    if (yInside && xInside) out += `<text x="${axX - 5}" y="${axY + 13}" fill="${txtC}" font-size="10" text-anchor="end">O</text>`;
+    const hasOwnOrigin =
+      (fig.points || []).some(p => Math.abs(Number(p[0])) < 1e-6 && Math.abs(Number(p[1])) < 1e-6 && String(p[2] || '').trim()) ||
+      (fig.xMarks || []).some(k => Math.abs(Number(k && k.x)) < 1e-6 && String(k.label || '').trim());
+    if (yInside && xInside && !hasOwnOrigin) out += `<text x="${axX - 5}" y="${axY + 13}" fill="${txtC}" font-size="10" text-anchor="end">O</text>`;
 
     // ── 보조선 ──
     (fig.lines || []).forEach(l => {
@@ -2908,6 +3140,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const dashes = ['', '7 4', '2 3'];
     const N = 700, yspan = ymax - ymin;
     fns.forEach((f, fi) => {
+      if (!f) return;
+      const gi = _grp[fi] % 3;
       let d = '', pen = false, prevY = null, prevRaw = null;
       for (let i = 0; i <= N; i++) {
         const x = xr[0] + (xr[1] - xr[0]) * i / N;
@@ -2921,7 +3155,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         d += (pen ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(y).toFixed(1) + ' ';
         pen = true; prevY = prevRaw; prevRaw = y;
       }
-      if (d) out += `<path d="${d}" fill="none" stroke="${colors[fi % 3]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dashes[fi % 3] ? ` stroke-dasharray="${dashes[fi % 3]}"` : ''} clip-path="url(#${uid})"/>`;
+      if (d) out += `<path d="${d}" fill="none" stroke="${colors[gi]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dashes[gi] ? ` stroke-dasharray="${dashes[gi]}"` : ''} clip-path="url(#${uid})"/>`;
     });
 
     // ── x축 위 표시 (a, b, c ... ) : 세로 점선 + 축 위 이름 ──
@@ -2966,7 +3200,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           // 다른 곡선을 덮는지 확인
           let clash = false;
           for (let gi = 0; gi < fns.length && !clash; gi++) {
-            if (gi === fi) continue;
+            if (gi === fi || !fns[gi]) continue;
             for (let t2 = 0; t2 <= 30; t2++) {
               const xx = xr[0] + (xr[1] - xr[0]) * ((r.x1 + (r.x2 - r.x1) * t2 / 30) - L) / (R - L);
               const yy = fns[gi](xx);
@@ -2988,7 +3222,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         put = { bx, by: Y - 13, r: { x1: bx - bw / 2, x2: bx + bw / 2, y1: Y - 28, y2: Y - 10 } };
       }
       _boxes.push(put.r);
-      out += `<text x="${put.bx.toFixed(1)}" y="${put.by.toFixed(1)}" fill="${colors[fi % 3]}" font-size="11.5" font-weight="600" text-anchor="middle">${_figEsc(s)}</text>`;
+      out += `<text x="${put.bx.toFixed(1)}" y="${put.by.toFixed(1)}" fill="${colors[_grp[fi] % 3]}" font-size="11.5" font-weight="600" text-anchor="middle">${_figEsc(s)}</text>`;
     });
 
     // ── 점 (라벨이 테두리 밖으로 안 나가게) ──
@@ -3050,6 +3284,73 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     'patternunits', 'xmlns'
   ]);
 
+  // ===== AI 가 그린 SVG 를 다크 화면에서 보이게 색 보정 =====
+  function figForScreen(svg) {
+    if (!svg) return svg;
+    let VW = 0, VH = 0;
+    const vb = svg.match(/viewBox\s*=\s*"([^"]*)"/i);
+    if (vb) { const p = vb[1].trim().split(/[\s,]+/).map(Number); if (p.length === 4) { VW = p[2]; VH = p[3]; } }
+
+    const px = v => {
+      v = String(v || '').trim().toLowerCase();
+      let m = v.match(/^#([0-9a-f]{3})$/);
+      if (m) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16), 1];
+      m = v.match(/^#([0-9a-f]{6})$/);
+      if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16), 1];
+      m = v.match(/^rgba?\(([^)]*)\)$/);
+      if (m) { const q = m[1].split(',').map(parseFloat); if (q.length >= 3) return [q[0], q[1], q[2], q.length > 3 ? q[3] : 1]; }
+      if (v === 'black') return [0, 0, 0, 1];
+      if (v === 'white') return [255, 255, 255, 1];
+      return null;
+    };
+    const lum = c => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+
+    const SHAPES = ['path', 'line', 'polyline', 'polygon', 'circle', 'ellipse', 'rect'];
+    const MAIN = '#F9A8D4', AUX = 'rgba(255,255,255,0.55)', TXT = '#fff';
+
+    // 화면 전체를 덮는 배경 사각형 제거
+    svg = svg.replace(/<rect\b([^>]*?)\/?>/gi, (m, at) => {
+      const num = n => { const q = at.match(new RegExp('\\b' + n + '\\s*=\\s*"([^"]*)"', 'i')); return q ? parseFloat(q[1]) : NaN; };
+      const w = num('width'), h = num('height'), x = num('x') || 0, y = num('y') || 0;
+      const full = /width\s*=\s*"100%"/i.test(at) ||
+        (VW && VH && w >= VW * 0.92 && h >= VH * 0.92 && x <= VW * 0.05 && y <= VH * 0.05);
+      return full ? '' : m;
+    });
+
+    svg = svg.replace(/<\s*([a-zA-Z][\w-]*)([^>]*)>/g, (m, tag, at) => {
+      const t = tag.toLowerCase();
+      if (t === 'svg' || t === 'defs' || t === 'clippath' || t === 'g') return m;
+      const isShape = SHAPES.indexOf(t) >= 0, isText = t === 'text' || t === 'tspan';
+      if (!isShape && !isText) return m;
+
+      const grab = k => { const q = at.match(new RegExp('\\s' + k + '\\s*=\\s*"([^"]*)"', 'i')); return q ? q[1] : null; };
+      let fill = grab('fill'), stroke = grab('stroke');
+      const sty = grab('style') || '';
+      const sf = sty.match(/(?:^|;)\s*fill\s*:\s*([^;]+)/i); if (sf && !fill) fill = sf[1].trim();
+      const ss = sty.match(/(?:^|;)\s*stroke\s*:\s*([^;]+)/i); if (ss && !stroke) stroke = ss[1].trim();
+
+      let nf = fill, ns = stroke;
+      if (isText) {
+        const c = px(fill);
+        if (!fill || (c && lum(c) < 0.45)) nf = TXT;
+      } else {
+        const cf = px(fill), cs = px(stroke);
+        // 채우기: 어둡거나 지정 없음 → 없앰(기본 검정 방지)
+        if (!fill || fill === 'currentColor') nf = 'none';
+        else if (cf && cf[3] > 0.6 && lum(cf) < 0.35) nf = 'none';
+        // 선: 어둡거나 지정 없음 → 밝게
+        if (!stroke || stroke === 'none' || stroke === 'currentColor') ns = (nf === 'none') ? MAIN : null;
+        else if (cs && lum(cs) < 0.35) ns = /dash/i.test(at) ? AUX : MAIN;
+      }
+      let a2 = at.replace(/\s(fill|stroke)\s*=\s*"[^"]*"/gi, '');
+      if (nf !== null && nf !== undefined) a2 = ` fill="${nf}"` + a2;
+      if (ns !== null && ns !== undefined) a2 = ` stroke="${ns}"` + a2;
+      if (!isText && ns && !/stroke-width/i.test(a2)) a2 = ' stroke-width="2"' + a2;
+      return `<${tag}${a2}>`;
+    });
+    return svg;
+  }
+
   function sanitizeSvg(raw) {
     let s = String(raw || '').trim();
     if (!s) return '';
@@ -3105,7 +3406,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       let a = at.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*')/gi, '');
       return `<svg${a} width="100%">`;
     });
-    return s;
+    return figForScreen(s);
   }
 
   // ===== 범용 도형 렌더러 (점+선분+원/호+각도표시로 평면도형 전반) =====
