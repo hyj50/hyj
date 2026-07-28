@@ -495,6 +495,18 @@
       </div>
     </div>
 
+    <!-- 퀴즈 범위 설정 -->
+    <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+      <div onclick="toggleSec('quizband')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
+        <div style="font-size:15px;font-weight:800;color:var(--text1);">🧠 오늘의 퀴즈 범위</div>
+        <span id="sec-arrow-quizband" style="font-size:13px;color:var(--text4);transition:transform .18s;transform:rotate(0deg);">▾</span>
+      </div>
+      <div id="sec-quizband" style="margin-top:10px;">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6;">학생마다 퀴즈에 나올 범위를 정할 수 있어요. <b>자동</b>은 학교·학년으로 판단해요. 선행 나간 학생은 위 학년으로 올려주세요.</div>
+        <div id="quiz-band-list" style="display:flex;flex-direction:column;gap:7px;"></div>
+      </div>
+    </div>
+
     <!-- 변형문제 검수 대기 -->
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div onclick="toggleSec('review')" style="display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;margin:-0.35rem 0;padding:0.35rem 0;">
@@ -1832,6 +1844,19 @@
   function makeFn(expr) {
     let e = String(expr || '').trim();
     if (!e) return null;
+    // 변수를 t, s, u 등으로 써도 받아준다 (x 로 통일)
+    // 함수 이름은 @sin@ 처럼 감싸서 그 안의 글자는 변수로 세지 않는다
+    e = e.replace(/\b(?:sin|cos|tan|sqrt|abs|log|exp|pi)\b/g, m => '@' + m + '@');
+    const segs = e.split('@');
+    const vs = new Set();
+    segs.forEach((seg, i) => {
+      if (i % 2 === 0) (seg.match(/[a-zA-Z]/g) || []).forEach(c => { if (c !== 'e' && c !== 'E') vs.add(c); });
+    });
+    const vars = [...vs];
+    if (vars.length === 1 && vars[0].toLowerCase() !== 'x') {
+      e = segs.map((seg, i) => i % 2 ? seg : seg.split(vars[0]).join('x')).join('@');
+    }
+    e = e.replace(/@/g, '');
     // ^ → **,  2x → 2*x,  x( → x*(
     e = e.replace(/\^/g, '**');
     e = e.replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2');
@@ -1866,7 +1891,17 @@
     if (fig.type === 'geometry') return geoRender(fig, W, H);
     if (fig.type === 'solid') return solidRender(fig, W, H);
 
-    const fns = (fig.funcs || []).map(makeFn).filter(Boolean);
+    const rawFuncs = fig.funcs || [];
+    const fns = rawFuncs.map(makeFn);                       // 실패한 자리는 null 로 남겨 인덱스를 지킨다
+    // sqrt(E) 와 -sqrt(E) 처럼 부호만 다른 짝은 같은 곡선으로 보고 같은 색·같은 선으로 그린다
+    const _fkey = (s) => String(s || '').replace(/\s+/g, '').replace(/^-/, '');
+    const _grpNames = [], _grp = [];
+    rawFuncs.forEach((e, i) => {
+      const k = _fkey(e);
+      let g = _grpNames.indexOf(k);
+      if (g < 0) { _grpNames.push(k); g = _grpNames.length - 1; }
+      _grp[i] = g;
+    });
     const uid = 'fg' + Math.random().toString(36).slice(2, 8);
     const L = PAD, R = W - PAD, T = PAD, B = H - PAD;
 
@@ -1876,6 +1911,7 @@
     else {
       const all = [];
       for (const f of fns) {
+        if (!f) continue;
         for (let i = 0; i <= 400; i++) {
           const x = xr[0] + (xr[1] - xr[0]) * i / 400;
           const y = f(x);
@@ -1954,7 +1990,10 @@
     const xNm = String(fig.xLabel || 'x').slice(0, 4), yNm = String(fig.yLabel || 'y').slice(0, 4);
     out += `<text x="${xTip - 2}" y="${axY + 15}" fill="${txtC}" font-size="12" font-style="italic" text-anchor="middle">${_figEsc(xNm)}</text>`;
     out += `<text x="${axX + 9}" y="${yTip + 5}" fill="${txtC}" font-size="12" font-style="italic">${_figEsc(yNm)}</text>`;
-    if (yInside && xInside) out += `<text x="${axX - 5}" y="${axY + 13}" fill="${txtC}" font-size="10" text-anchor="end">O</text>`;
+    const hasOwnOrigin =
+      (fig.points || []).some(p => Math.abs(Number(p[0])) < 1e-6 && Math.abs(Number(p[1])) < 1e-6 && String(p[2] || '').trim()) ||
+      (fig.xMarks || []).some(k => Math.abs(Number(k && k.x)) < 1e-6 && String(k.label || '').trim());
+    if (yInside && xInside && !hasOwnOrigin) out += `<text x="${axX - 5}" y="${axY + 13}" fill="${txtC}" font-size="10" text-anchor="end">O</text>`;
 
     // ── 보조선 ──
     (fig.lines || []).forEach(l => {
@@ -1967,6 +2006,8 @@
     const dashes = ['', '7 4', '2 3'];
     const N = 700, yspan = ymax - ymin;
     fns.forEach((f, fi) => {
+      if (!f) return;
+      const gi = _grp[fi] % 3;
       let d = '', pen = false, prevY = null, prevRaw = null;
       for (let i = 0; i <= N; i++) {
         const x = xr[0] + (xr[1] - xr[0]) * i / N;
@@ -1980,7 +2021,7 @@
         d += (pen ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(y).toFixed(1) + ' ';
         pen = true; prevY = prevRaw; prevRaw = y;
       }
-      if (d) out += `<path d="${d}" fill="none" stroke="${colors[fi % 3]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dashes[fi % 3] ? ` stroke-dasharray="${dashes[fi % 3]}"` : ''} clip-path="url(#${uid})"/>`;
+      if (d) out += `<path d="${d}" fill="none" stroke="${colors[gi]}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${dashes[gi] ? ` stroke-dasharray="${dashes[gi]}"` : ''} clip-path="url(#${uid})"/>`;
     });
 
     // ── x축 위 표시 (a, b, c ... ) : 세로 점선 + 축 위 이름 ──
@@ -2025,7 +2066,7 @@
           // 다른 곡선을 덮는지 확인
           let clash = false;
           for (let gi = 0; gi < fns.length && !clash; gi++) {
-            if (gi === fi) continue;
+            if (gi === fi || !fns[gi]) continue;
             for (let t2 = 0; t2 <= 30; t2++) {
               const xx = xr[0] + (xr[1] - xr[0]) * ((r.x1 + (r.x2 - r.x1) * t2 / 30) - L) / (R - L);
               const yy = fns[gi](xx);
@@ -2047,7 +2088,7 @@
         put = { bx, by: Y - 13, r: { x1: bx - bw / 2, x2: bx + bw / 2, y1: Y - 28, y2: Y - 10 } };
       }
       _boxes.push(put.r);
-      out += `<text x="${put.bx.toFixed(1)}" y="${put.by.toFixed(1)}" fill="${colors[fi % 3]}" font-size="11.5" font-weight="600" text-anchor="middle">${_figEsc(s)}</text>`;
+      out += `<text x="${put.bx.toFixed(1)}" y="${put.by.toFixed(1)}" fill="${colors[_grp[fi] % 3]}" font-size="11.5" font-weight="600" text-anchor="middle">${_figEsc(s)}</text>`;
     });
 
     // ── 점 (라벨이 테두리 밖으로 안 나가게) ──
@@ -2177,6 +2218,73 @@
     return svg;
   }
 
+  // ===== AI 가 그린 SVG 를 다크 화면에서 보이게 색 보정 =====
+  function figForScreen(svg) {
+    if (!svg) return svg;
+    let VW = 0, VH = 0;
+    const vb = svg.match(/viewBox\s*=\s*"([^"]*)"/i);
+    if (vb) { const p = vb[1].trim().split(/[\s,]+/).map(Number); if (p.length === 4) { VW = p[2]; VH = p[3]; } }
+
+    const px = v => {
+      v = String(v || '').trim().toLowerCase();
+      let m = v.match(/^#([0-9a-f]{3})$/);
+      if (m) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16), 1];
+      m = v.match(/^#([0-9a-f]{6})$/);
+      if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16), 1];
+      m = v.match(/^rgba?\(([^)]*)\)$/);
+      if (m) { const q = m[1].split(',').map(parseFloat); if (q.length >= 3) return [q[0], q[1], q[2], q.length > 3 ? q[3] : 1]; }
+      if (v === 'black') return [0, 0, 0, 1];
+      if (v === 'white') return [255, 255, 255, 1];
+      return null;
+    };
+    const lum = c => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+
+    const SHAPES = ['path', 'line', 'polyline', 'polygon', 'circle', 'ellipse', 'rect'];
+    const MAIN = '#F9A8D4', AUX = 'rgba(255,255,255,0.55)', TXT = '#fff';
+
+    // 화면 전체를 덮는 배경 사각형 제거
+    svg = svg.replace(/<rect\b([^>]*?)\/?>/gi, (m, at) => {
+      const num = n => { const q = at.match(new RegExp('\\b' + n + '\\s*=\\s*"([^"]*)"', 'i')); return q ? parseFloat(q[1]) : NaN; };
+      const w = num('width'), h = num('height'), x = num('x') || 0, y = num('y') || 0;
+      const full = /width\s*=\s*"100%"/i.test(at) ||
+        (VW && VH && w >= VW * 0.92 && h >= VH * 0.92 && x <= VW * 0.05 && y <= VH * 0.05);
+      return full ? '' : m;
+    });
+
+    svg = svg.replace(/<\s*([a-zA-Z][\w-]*)([^>]*)>/g, (m, tag, at) => {
+      const t = tag.toLowerCase();
+      if (t === 'svg' || t === 'defs' || t === 'clippath' || t === 'g') return m;
+      const isShape = SHAPES.indexOf(t) >= 0, isText = t === 'text' || t === 'tspan';
+      if (!isShape && !isText) return m;
+
+      const grab = k => { const q = at.match(new RegExp('\\s' + k + '\\s*=\\s*"([^"]*)"', 'i')); return q ? q[1] : null; };
+      let fill = grab('fill'), stroke = grab('stroke');
+      const sty = grab('style') || '';
+      const sf = sty.match(/(?:^|;)\s*fill\s*:\s*([^;]+)/i); if (sf && !fill) fill = sf[1].trim();
+      const ss = sty.match(/(?:^|;)\s*stroke\s*:\s*([^;]+)/i); if (ss && !stroke) stroke = ss[1].trim();
+
+      let nf = fill, ns = stroke;
+      if (isText) {
+        const c = px(fill);
+        if (!fill || (c && lum(c) < 0.45)) nf = TXT;
+      } else {
+        const cf = px(fill), cs = px(stroke);
+        // 채우기: 어둡거나 지정 없음 → 없앰(기본 검정 방지)
+        if (!fill || fill === 'currentColor') nf = 'none';
+        else if (cf && cf[3] > 0.6 && lum(cf) < 0.35) nf = 'none';
+        // 선: 어둡거나 지정 없음 → 밝게
+        if (!stroke || stroke === 'none' || stroke === 'currentColor') ns = (nf === 'none') ? MAIN : null;
+        else if (cs && lum(cs) < 0.35) ns = /dash/i.test(at) ? AUX : MAIN;
+      }
+      let a2 = at.replace(/\s(fill|stroke)\s*=\s*"[^"]*"/gi, '');
+      if (nf !== null && nf !== undefined) a2 = ` fill="${nf}"` + a2;
+      if (ns !== null && ns !== undefined) a2 = ` stroke="${ns}"` + a2;
+      if (!isText && ns && !/stroke-width/i.test(a2)) a2 = ' stroke-width="2"' + a2;
+      return `<${tag}${a2}>`;
+    });
+    return svg;
+  }
+
   function sanitizeSvg(raw) {
     let s = String(raw || '').trim();
     if (!s) return '';
@@ -2232,7 +2340,7 @@
       let a = at.replace(/\s(width|height)\s*=\s*("[^"]*"|'[^']*')/gi, '');
       return `<svg${a} width="100%">`;
     });
-    return s;
+    return figForScreen(s);
   }
 
   // ===== 범용 도형 렌더러 (점+선분+원/호+각도표시로 평면도형 전반) =====
@@ -3030,6 +3138,63 @@
     } catch(e) { console.error('grantPoints:', e); }
   }
 
+  // ===== 학생별 오늘의 퀴즈 범위 =====
+  const QB_TAG = '⚙️퀴즈범위';
+  const QB_OPTS = [['', '자동 (학교·학년)'], ['m1', '중1까지'], ['m2', '중2까지'], ['m3', '중3까지'],
+                   ['h1', '고1까지'], ['h2', '고2까지'], ['h3', '고3 전체'], ['all', '전 범위(테스트)']];
+
+  async function loadQuizBands() {
+    const box = document.getElementById('quiz-band-list');
+    if (!box) return;
+    try {
+      const [stus, logs] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/students?select=id,name,school,grade&order=name.asc`, { headers: sbHeaders() }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/rest/v1/point_logs?reason=like.${encodeURIComponent(QB_TAG + '%')}&select=student_id,reason,created_at&order=created_at.desc`, { headers: sbHeaders() }).then(r => r.json())
+      ]);
+      if (!Array.isArray(stus)) { box.innerHTML = ''; return; }
+      const cur = {};
+      (Array.isArray(logs) ? logs : []).forEach(l => {
+        if (cur[l.student_id] === undefined) cur[l.student_id] = String(l.reason || '').split(' ').pop().trim();
+      });
+      box.innerHTML = stus.map(st => {
+        const v = cur[st.id] || '';
+        const auto = qbAuto(st);
+        const opts = QB_OPTS.map(([k, t]) =>
+          `<option value="${k}"${k === v ? ' selected' : ''}>${k === '' ? t + ' → ' + qbName(auto) : t}</option>`).join('');
+        return `<div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:700;color:var(--text1);">${st.name}</div>
+            <div style="font-size:11px;color:var(--text4);">${st.school || ''} ${st.grade || ''}</div>
+          </div>
+          <select onchange="saveQuizBand('${st.id}', this.value, '${st.name}')" style="width:150px;padding:8px;border-radius:9px;border:1px solid var(--border2);font-size:12.5px;background:var(--bg3);color:var(--text1);">${opts}</select>
+        </div>`;
+      }).join('');
+    } catch (e) { console.error('loadQuizBands:', e); box.innerHTML = '<div style="font-size:12px;color:var(--text4);">불러오기 실패</div>'; }
+  }
+  function qbAuto(st) {
+    const sc = String(st.school || '');
+    const g = parseInt(String(st.grade || '').replace(/[^0-9]/g, ''), 10) || 1;
+    const isHigh = /고/.test(sc) && !/중/.test(sc);
+    return (isHigh ? 'h' : 'm') + Math.max(1, Math.min(3, g));
+  }
+  function qbName(b) {
+    const m = { m1: '중1', m2: '중2', m3: '중3', h1: '고1', h2: '고2', h3: '고3', all: '전 범위' };
+    return m[b] || b;
+  }
+  async function saveQuizBand(sid, band, name) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/point_logs`, {
+        method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ student_id: sid, amount: 0, reason: `${QB_TAG} ${band || 'auto'}` })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      showToast(`✅ ${name} 퀴즈 범위: ${band ? qbName(band) + '까지' : '자동'}`, 'ok');
+    } catch (e) {
+      console.error('saveQuizBand:', e);
+      showToast('❌ 범위 저장 실패\n' + String(e && e.message || e).slice(0, 80), 'error');
+    }
+  }
+
   // ===== 학생별 약점 단원 (오답수 + 미션오답×2) =====
   async function loadWeaknessTeacher() {
     const box = document.getElementById('weakness-teacher-list');
@@ -3808,7 +3973,7 @@
     document.querySelectorAll('.main-tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('main-tab-' + tab).classList.add('active');
     if (tab === 'qna') loadTeacherQnA(1);
-    if (tab === 'mission') { restoreSecs(); loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); }
+    if (tab === 'mission') { restoreSecs(); loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); loadQuizBands(); }
     if (tab === 'theme') { renderThemeEmojiPicker(); loadThemeBgs(); }
     if (tab === 'vmanage') initVManage();
   }
@@ -4035,7 +4200,7 @@
   }
   // 저장된 상태 복원
   function restoreSecs() {
-    ['weak','points','review','shop','purchase'].forEach(k => {
+    ['weak','points','review','shop','purchase','quizband'].forEach(k => {
       let v = null;
       try { v = localStorage.getItem('sec_' + k); } catch (e) {}
       if (v === null) return;
