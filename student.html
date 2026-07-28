@@ -2701,7 +2701,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const order = ['m1', 'm2', 'm3', 'h1', 'h2', 'h3'];
     const idx = band === 'all' ? order.length - 1 : order.indexOf(band);
     const list = [];
-    order.slice(0, idx + 1).forEach(k => (QUIZ_BANK[k] || []).forEach(q => list.push(q)));
+    order.slice(0, idx + 1).forEach(k => (QUIZ_BANK[k] || []).forEach(q => { if (!qHidden(q)) list.push(q); }));
     return list;
   }
   // 선생님이 지정한 범위가 있으면 그것을 쓰고, 없으면 학교·학년으로 자동 판단
@@ -2742,8 +2742,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const rnd = _qrand(_qhash(day + '|' + band));
     const order = ['m1', 'm2', 'm3', 'h1', 'h2', 'h3'];
     const idx = order.indexOf(band);
-    const cur = band === 'all' ? quizPool('all') : (QUIZ_BANK[band] || []);   // 지금 학년
-    const near = band === 'all' ? cur : (QUIZ_BANK[order[idx - 1]] || []).concat(cur);
+    const cur = (band === 'all' ? quizPool('all') : (QUIZ_BANK[band] || [])).filter(q => !qHidden(q));
+    const near = band === 'all' ? cur : (QUIZ_BANK[order[idx - 1]] || []).filter(q => !qHidden(q)).concat(cur);
     const all = quizPool(band);                                      // 배운 전 범위
 
     const out = [];
@@ -2753,7 +2753,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (out.indexOf(q) < 0) out.push(q);
       }
     };
-    add(QUIZ_BANK.common || [], 2);   // 수학사·교양 2
+    add((QUIZ_BANK.common || []).filter(q => !qHidden(q)), 2);   // 수학사·교양 2
     add(cur, 3);                      // 지금 학년에서 1
     add(near, 4);                     // 바로 아래까지에서 1
     add(all, QUIZ_COUNT);             // 나머지는 배운 전 범위에서
@@ -2763,16 +2763,38 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const mc = _qpick((QUIZ_BANK.common || []).concat(all).filter(q => q.t === 'mc'), 1, rnd)[0];
       if (mc) out[out.length - 1] = mc;
     }
-    return _qpick(out, out.length, _qrand(_qhash(day + '|' + band + '|order')));
+    return _qpick(out, out.length, _qrand(_qhash(day + '|' + band + '|order'))).map(qEff);
+  }
+
+  // ---- 선생님이 고친 문항 반영 ----
+  let _qEdits = {};
+  async function loadQuizEdits() {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/quiz_edits?select=*`, { headers: sbHeaders() }).then(r => r.json());
+      if (Array.isArray(r)) { _qEdits = {}; r.forEach(e => { _qEdits[e.qid] = e; }); }
+    } catch (e) { /* 테이블이 없거나 실패하면 원본 그대로 */ }
+  }
+  function qHidden(q) { const e = _qEdits[quizQid(q)]; return !!(e && e.hidden); }
+  function qEff(q) {
+    const id = quizQid(q), e = _qEdits[id];
+    if (!e) return q;
+    return {
+      q: e.q != null ? e.q : q.q,
+      t: e.t || q.t,
+      o: e.o || q.o,
+      a: e.a != null ? e.a : q.a,
+      why: e.why != null ? e.why : q.why,
+      _id: id
+    };
   }
 
   // ---- 틀린 문제 다시보기 ----
-  function quizQid(q) { return _qhash(q.q).toString(36); }
+  function quizQid(q) { return q._id || _qhash(q.q).toString(36); }
   let _qIdx = null;
   function quizIndex() {
     if (_qIdx) return _qIdx;
     _qIdx = {};
-    Object.keys(QUIZ_BANK).forEach(k => (QUIZ_BANK[k] || []).forEach(q => { _qIdx[quizQid(q)] = q; }));
+    Object.keys(QUIZ_BANK).forEach(k => (QUIZ_BANK[k] || []).forEach(q => { _qIdx[quizQid(q)] = qEff(q); }));
     return _qIdx;
   }
 
@@ -2839,6 +2861,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const sid = document.getElementById('student-select').value;
     if (!sid) { box.innerHTML = ''; return; }
     try {
+      await loadQuizEdits();
+      _qIdx = null;
       const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=school,grade`, { headers: sbHeaders() }).then(r => r.json());
       const band = await quizBandFor(sid, stu[0] || {});
       const unlimited = isUnlimited(sid);
@@ -2876,13 +2900,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // 테스트 계정용 — 날짜와 무관하게 매번 새로 뽑기
   function quizPickRandom(band) {
     const rnd = _qrand((Math.random() * 4294967296) | 0);
-    const pool = (QUIZ_BANK.common || []).concat(quizPool(band));
+    const pool = (QUIZ_BANK.common || []).filter(q => !qHidden(q)).concat(quizPool(band));
     const out = _qpick(pool, QUIZ_COUNT, rnd);
     if (!out.some(q => q.t === 'mc')) {
       const mc = _qpick(pool.filter(q => q.t === 'mc'), 1, rnd)[0];
       if (mc) out[out.length - 1] = mc;
     }
-    return out;
+    return out.map(qEff);
   }
 
   function quizStart() {
