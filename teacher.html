@@ -1645,7 +1645,8 @@
 
       const stu = getCurrentStudent();
       // 통합 포인트: 검수 OK +10P
-      grantPoints(e.student_id, 10, '오답 검수 완료');
+      const gave = await grantReviewPoint(e);
+      if (!gave) showToast('이 오답은 전에 검수 포인트를 이미 받았어요 (중복 지급 안 함)', 'warn');
       await refreshCurrentEntries();
       // 변형문제 자동생성 (백그라운드)
       generateVariation(e);
@@ -3053,6 +3054,8 @@
         body: JSON.stringify({ solved: false, review_status: 'pending' })
       });
       if (!res.ok) throw new Error(await res.text());
+      const back = await revokeReviewPoint(entryId);
+      if (back) showToast(`↩️ 검수 취소 · 지급했던 ${back}P를 되돌렸어요`, 'ok');
       await refreshCurrentEntries();
     } catch (err) {
       console.error(err);
@@ -3259,6 +3262,44 @@
 
   // ===== 점수판 연동 =====
   // ===== 통합 포인트 시스템 =====
+  // ===== 오답 검수 포인트 (중복 지급 방지) =====
+  // reason 뒤에 #노트ID 를 붙여서 그 오답에 이미 지급했는지 알 수 있게 한다
+  const REVIEW_P = 10;
+  async function noteRewardLogs(noteId) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?reason=like.${encodeURIComponent('오답 검수 완료 #' + noteId)}&select=id,amount`, { headers: sbHeaders() }).then(r => r.json());
+      return Array.isArray(r) ? r : [];
+    } catch (e) { return []; }
+  }
+  // 승인: 아직 안 준 경우에만 지급
+  async function grantReviewPoint(entry) {
+    const paid = await noteRewardLogs(entry.id);
+    if (paid.length) return false;                       // 이미 준 오답이면 다시 주지 않는다
+    await grantPoints(entry.student_id, REVIEW_P, `오답 검수 완료 #${entry.id}`);
+    return true;
+  }
+  // 검수 취소: 지급 기록을 지우고 포인트도 되돌린다 (레벨까지 정확해짐)
+  async function revokeReviewPoint(noteId) {
+    const logs = await noteRewardLogs(noteId);
+    if (!logs.length) return 0;
+    const sum = logs.reduce((a, l) => a + (l.amount || 0), 0);
+    try {
+      const n = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${noteId}&select=student_id`, { headers: sbHeaders() }).then(r => r.json());
+      const sid = n && n[0] && n[0].student_id;
+      if (!sid) return 0;
+      const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
+      const cur = stu[0]?.mission_points || 0;
+      await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mission_points: Math.max(0, cur - sum) })
+      });
+      await fetch(`${SUPABASE_URL}/rest/v1/point_logs?reason=like.${encodeURIComponent('오답 검수 완료 #' + noteId)}`, {
+        method: 'DELETE', headers: sbHeaders()
+      });
+      return sum;
+    } catch (e) { console.error('revokeReviewPoint:', e); return 0; }
+  }
+
   async function grantPoints(studentId, amount, reason) {
     try {
       const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${studentId}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
