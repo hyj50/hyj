@@ -1626,10 +1626,15 @@
   }
 
   // 다시풀기 체크 토글
+  // 같은 오답에 대해 승인/취소가 동시에(더블탭 등) 실행되는 것을 막는 잠금장치
+  // (포인트 중복지급/중복차감의 실제 원인이 이 경합 상태였음)
+  const _reviewLock = new Set();
   // ✅ OK: 검수 통과 → 완료 처리
   async function approveEntry(entryId) {
     const e = currentEntries.find(x => x.id === entryId);
     if (!e) return;
+    if (_reviewLock.has(entryId)) return; // 처리 중이면 무시 (중복 클릭 방지)
+    _reviewLock.add(entryId);
 
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
@@ -1653,6 +1658,8 @@
     } catch (err) {
       console.error(err);
       alert('처리에 실패했어요.');
+    } finally {
+      _reviewLock.delete(entryId);
     }
   }
 
@@ -3047,6 +3054,8 @@
 
   // 완료된 걸 다시 검수 대기로 되돌리기 (실수로 OK 눌렀을 때)
   async function reopenEntry(entryId) {
+    if (_reviewLock.has(entryId)) return; // 처리 중이면 무시 (중복 클릭 방지)
+    _reviewLock.add(entryId);
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
         method: 'PATCH',
@@ -3060,6 +3069,8 @@
     } catch (err) {
       console.error(err);
       alert('처리에 실패했어요.');
+    } finally {
+      _reviewLock.delete(entryId);
     }
   }
 
