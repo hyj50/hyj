@@ -3330,39 +3330,130 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   const RHY_WINDOWS = [[0.055, 'PERFECT', 1.0, '#FBBF24'], [0.100, 'GOOD', 0.7, '#34D399'], [0.150, 'OK', 0.4, '#38BDF8']];
   const RHY_APPROACH = 1.5;   // 노트가 위에서 판정선까지 내려오는 시간(초)
 
-  // ---- 곡 (모두 저작권이 소멸한 고전 · 간단히 편곡함) ----
-  // [MIDI 음높이, 길이(8분음표 단위)] · 0은 쉼표
+  // ---- 곡 20개 (모두 저작권이 소멸한 고전·민요 · 리듬게임용으로 간단히 편곡) ----
+  // mel: [MIDI 음높이, 길이(8분음표 단위)] · bass: 마디마다 울리는 저음 · meter: 한 마디 박자 수
   const RHY_SONGS = {
-    ode: {
-      name: '환희의 송가', by: '베토벤', bpm: 100, diff: '쉬움', color: '#38BDF8',
-      mel: [[64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[64,3],[62,1],[62,4],
-            [64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[62,3],[60,1],[60,4]],
-      bass: [48,55,48,55,53,55,48,55],
-    },
-    twinkle: {
-      name: '작은별 변주곡', by: '모차르트', bpm: 112, diff: '보통', color: '#34D399',
+    twinkle: { name: '작은별 변주곡', by: '모차르트', lv: 1, bpm: 104, meter: 4, color: '#38BDF8',
       mel: [[60,2],[60,2],[67,2],[67,2],[69,2],[69,2],[67,4],[65,2],[65,2],[64,2],[64,2],[62,2],[62,2],[60,4],
             [67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],[67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],
-            [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],[65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]],
-      bass: [48,48,53,48,55,53,55,48],
-    },
-    nacht: {
-      name: '아이네 클라이네 나흐트무지크', by: '모차르트', bpm: 120, diff: '어려움', color: '#F43F5E',
+            [60,2],[60,2],[67,2],[67,2],[69,2],[69,2],[67,4],[65,2],[65,2],[64,2],[64,2],[62,2],[62,2],[60,4]],
+      bass: [48,53,55,48,55,55,53,48] },
+
+    ode: { name: '환희의 송가', by: '베토벤', lv: 1, bpm: 100, meter: 4, color: '#38BDF8',
+      mel: [[64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[64,3],[62,1],[62,4],
+            [64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[62,3],[60,1],[60,4]],
+      bass: [48,55,48,55,53,55,48,55] },
+
+    mary: { name: '비행기', by: '전래 동요', lv: 1, bpm: 108, meter: 4, color: '#38BDF8',
+      mel: [[64,2],[62,2],[60,2],[62,2],[64,2],[64,2],[64,4],[62,2],[62,2],[62,4],[64,2],[67,2],[67,4],
+            [64,2],[62,2],[60,2],[62,2],[64,2],[64,2],[64,2],[64,2],[62,2],[62,2],[64,2],[62,2],[60,8]],
+      bass: [48,48,55,48,48,53,55,48] },
+
+    butterfly: { name: '나비야', by: '독일 민요', lv: 1, bpm: 106, meter: 4, color: '#38BDF8',
+      mel: [[67,2],[64,2],[64,4],[65,2],[62,2],[62,4],[60,2],[62,2],[64,2],[65,2],[67,2],[67,2],[67,4],
+            [67,2],[64,2],[64,4],[65,2],[62,2],[62,4],[60,2],[64,2],[67,2],[67,2],[64,4],[60,4]],
+      bass: [48,53,55,48,48,53,55,48] },
+
+    canon: { name: '캐논', by: '파헬벨', lv: 1, bpm: 96, meter: 4, color: '#38BDF8',
+      mel: [[78,4],[76,4],[74,4],[73,4],[71,4],[69,4],[71,4],[73,4],
+            [74,4],[73,4],[71,4],[69,4],[67,4],[66,4],[67,4],[64,4],
+            [62,4],[66,4],[69,4],[73,4],[74,4],[71,4],[74,8]],
+      bass: [50,45,47,42,43,38,43,45] },
+
+    jingle: { name: '징글벨', by: '피어폰트', lv: 2, bpm: 120, meter: 4, color: '#34D399',
+      mel: [[64,2],[64,2],[64,4],[64,2],[64,2],[64,4],[64,2],[67,2],[60,3],[62,1],[64,8],
+            [65,2],[65,2],[65,3],[65,1],[65,2],[64,2],[64,2],[64,2],[64,2],[62,2],[62,2],[64,2],[62,4],[67,4]],
+      bass: [48,48,55,48,53,53,55,48] },
+
+    susanna: { name: '오 수재너', by: '포스터', lv: 2, bpm: 118, meter: 4, color: '#34D399',
+      mel: [[60,1],[62,1],[64,2],[67,2],[67,2],[69,2],[67,2],[64,2],[60,2],[62,2],[64,2],[64,2],[62,2],[60,2],[62,4],
+            [60,1],[62,1],[64,2],[67,2],[67,2],[69,2],[67,2],[64,2],[60,2],[62,2],[64,2],[64,2],[62,2],[62,2],[60,4]],
+      bass: [48,48,55,55,48,53,55,48] },
+
+    auld: { name: '올드 랭 사인', by: '스코틀랜드 민요', lv: 2, bpm: 100, meter: 4, color: '#34D399',
+      mel: [[67,2],[72,3],[72,1],[72,2],[76,2],[74,3],[72,1],[74,2],[76,2],[72,3],[72,1],[76,2],[79,2],[81,6],
+            [79,2],[76,3],[76,1],[72,2],[74,2],[76,3],[74,1],[72,2],[74,2],[69,3],[69,1],[67,2],[72,6]],
+      bass: [48,53,48,55,48,53,55,48] },
+
+    surprise: { name: '놀람 교향곡', by: '하이든', lv: 2, bpm: 108, meter: 4, color: '#34D399',
+      mel: [[60,2],[60,2],[64,2],[64,2],[67,2],[67,2],[64,4],
+            [65,2],[65,2],[62,2],[62,2],[71,2],[71,2],[67,4],
+            [60,2],[60,2],[64,2],[64,2],[67,2],[67,2],[64,4],
+            [65,2],[62,2],[71,2],[62,2],[60,8]],
+      bass: [48,48,53,55,48,48,55,48] },
+
+    morning: { name: '페르귄트 「아침」', by: '그리그', lv: 2, bpm: 100, meter: 4, color: '#34D399',
+      mel: [[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],
+            [67,2],[69,2],[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],
+            [67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],[72,4]],
+      bass: [55,55,48,48,55,55,53,48] },
+
+    spring: { name: '사계 「봄」', by: '비발디', lv: 3, bpm: 116, meter: 4, color: '#FBBF24',
+      mel: [[76,1],[76,1],[76,2],[71,1],[71,2],[76,1],[76,1],[76,2],[71,1],[71,2],
+            [76,1],[78,1],[80,1],[78,1],[76,2],[78,1],[76,1],[75,1],[76,4],
+            [83,1],[83,1],[83,2],[80,1],[80,2],[83,1],[83,1],[83,2],[80,1],[80,2],
+            [83,1],[81,1],[80,1],[78,1],[76,4]],
+      bass: [52,52,59,52,52,59,52,52] },
+
+    swan: { name: '백조의 호수', by: '차이콥스키', lv: 3, bpm: 104, meter: 4, color: '#FBBF24',
+      mel: [[71,6],[76,1],[78,1],[79,2],[81,2],[83,4],[83,2],[83,2],
+            [83,2],[81,2],[79,2],[78,2],[76,8],
+            [71,6],[76,1],[78,1],[79,2],[81,2],[83,4],[83,2],[86,2],[85,2],[83,2],[81,4]],
+      bass: [47,47,54,47,43,50,47,47] },
+
+    nacht: { name: '아이네 클라이네 나흐트무지크', by: '모차르트', lv: 3, bpm: 120, meter: 4, color: '#FBBF24',
       mel: [[67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,4],
             [69,1],[62,1],[69,1],[62,1],[69,1],[62,1],[69,1],[72,1],[74,4],
             [67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,2],[74,2],
             [76,1],[74,1],[72,1],[71,1],[69,2],[67,2],[62,2],[67,4]],
-      bass: [55,55,50,50,55,55,50,55],
-    },
-    minuet: {
-      name: '미뉴에트 G장조', by: '바흐(페촐트)', bpm: 108, diff: '리듬천국', color: '#A78BFA',
+      bass: [55,55,50,50,55,55,50,55] },
+
+    chopsticks: { name: '젓가락 행진곡', by: '앨런', lv: 3, bpm: 132, meter: 3, color: '#FBBF24',
+      mel: [[65,1],[67,1],[65,1],[67,1],[65,1],[67,1],[65,1],[67,1],
+            [64,1],[69,1],[64,1],[69,1],[64,1],[69,1],[64,1],[69,1],
+            [62,1],[71,1],[62,1],[71,1],[62,1],[71,1],[62,1],[71,1],
+            [60,2],[72,2],[60,2],[72,2],[60,4]],
+      bass: [48,48,48,48,55,55,48,48] },
+
+    turkish: { name: '터키 행진곡', by: '모차르트', lv: 4, bpm: 126, meter: 4, color: '#F43F5E',
+      mel: [[71,1],[69,1],[68,1],[69,1],[72,2],[71,1],[69,1],[71,1],
+            [74,2],[72,1],[71,1],[72,1],[76,2],[74,1],[72,1],[74,1],
+            [77,1],[76,1],[75,1],[76,1],[83,2],[81,1],[80,1],[81,1],
+            [83,1],[81,1],[80,1],[81,1],[76,2],[72,2],[76,2],[69,4]],
+      bass: [45,45,52,45,45,52,45,45] },
+
+    elise: { name: '엘리제를 위하여', by: '베토벤', lv: 4, bpm: 132, meter: 3, color: '#F43F5E',
+      mel: [[76,1],[75,1],[76,1],[75,1],[76,1],[71,1],[74,1],[72,1],[69,2],
+            [60,1],[64,1],[69,1],[71,2],[64,1],[68,1],[71,1],[72,2],
+            [64,1],[76,1],[75,1],[76,1],[75,1],[76,1],[71,1],[74,1],[72,1],[69,2],
+            [60,1],[64,1],[69,1],[71,2],[64,1],[72,1],[71,1],[69,4]],
+      bass: [45,45,52,52,45,45,52,45] },
+
+    minuet: { name: '미뉴에트 G장조', by: '바흐(페촐트)', lv: 4, bpm: 116, meter: 3, color: '#F43F5E',
       mel: [[74,2],[67,1],[69,1],[71,1],[72,1],[74,2],[67,2],[67,2],
             [76,2],[72,1],[74,1],[76,1],[77,1],[79,2],[67,2],[67,2],
             [72,2],[74,1],[72,1],[71,1],[69,1],[71,2],[72,1],[71,1],
-            [69,2],[67,1],[69,1],[71,1],[67,1],[71,2],[74,2]],
-      bass: [55,50,55,47,48,50,55,55],
-    },
+            [69,2],[67,1],[69,1],[71,1],[67,1],[71,2],[74,2],[67,4]],
+      bass: [55,50,55,47,48,50,55,55] },
+
+    arirang: { name: '아리랑', by: '한국 전래', lv: 2, bpm: 96, meter: 3, color: '#34D399',
+      mel: [[67,2],[69,1],[72,3],[72,2],[69,1],[67,3],[69,2],[72,1],[69,2],[67,1],[64,6],
+            [72,2],[72,1],[74,3],[76,2],[74,1],[72,3],[74,2],[76,1],[74,2],[72,1],[69,6]],
+      bass: [48,48,55,55,48,53,55,48] },
+
+    amazing: { name: '어메이징 그레이스', by: '찬송가', lv: 2, bpm: 92, meter: 3, color: '#34D399',
+      mel: [[62,2],[67,4],[71,1],[67,1],[71,4],[69,2],[67,4],[64,2],[62,6],
+            [62,2],[67,4],[71,1],[67,1],[71,4],[69,2],[74,6],
+            [74,2],[74,4],[71,1],[74,1],[71,4],[69,2],[67,4],[64,2],[62,6]],
+      bass: [55,55,48,55,55,50,55,55] },
+
+    silent: { name: '고요한 밤 거룩한 밤', by: '그루버', lv: 1, bpm: 88, meter: 3, color: '#38BDF8',
+      mel: [[67,3],[69,1],[67,2],[64,6],[67,3],[69,1],[67,2],[64,6],
+            [74,4],[74,2],[71,6],[72,4],[72,2],[67,6],
+            [69,4],[69,2],[72,3],[71,1],[69,2],[67,3],[69,1],[67,2],[64,6]],
+      bass: [48,48,48,48,55,55,48,48] },
   };
+  const RHY_LV_LABEL = ['', '🌱 쉬움', '🔥 보통', '⚡ 어려움', '💀 매우 어려움'];
 
   let _rhyCtx = null, _rhyRunning = false, _rhyState = null, _rhyRaf = null;
 
@@ -3410,13 +3501,17 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
   }
-  // 잘 쳤을 때 나는 짧은 타격음
-  function rhyClick(lane) {
-    const c = rhyAudio(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'square'; o.frequency.value = [520, 640, 780, 940][lane] || 640;
-    g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.08);
-    rhyHat(t, 0.10);
+  // 잘 쳤을 때 나는 소리 — 그 노트의 '실제 음'을 한 옥타브 위로 튕겨준다.
+  // (레인마다 고정된 음을 내면 반주와 음이 부딪힌다)
+  function rhyClick(midi) {
+    const c = rhyAudio(), t = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'triangle'; o.frequency.value = rhyFreq((midi == null ? 72 : midi) + 12);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.17, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.18);
+    rhyHat(t, 0.07);
   }
   function rhyMiss() {
     const c = rhyAudio(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
@@ -3433,11 +3528,29 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // 음이 낮으면 왼쪽, 높으면 오른쪽 레인. 같은 음은 같은 레인이라 손이 안 꼬인다.
   function rhyBuildChart(songKey, startAt, heaven) {
     const song = RHY_SONGS[songKey];
-    const beat = 60 / song.bpm, unit = beat / 2, measure = beat * 4;
+    const beat = 60 / song.bpm, unit = beat / 2, measure = beat * (song.meter || 4);
     const leadIn = measure * 2;                       // 카운트인 2마디
-    const pitches = song.mel.map(m => m[0]);
-    const lo = Math.min(...pitches), hi = Math.max(...pitches);
-    const laneOf = m => hi === lo ? 0 : Math.min(RHY_LANES - 1, Math.floor((m - lo) / (hi - lo + 0.001) * RHY_LANES));
+    // 레인 배정: 음이 낮으면 왼쪽, 높으면 오른쪽.
+    // 단순히 음역을 4등분하면 곡에 따라 빈 레인이나 한쪽 몰림이 생기므로,
+    // '나오는 음' 기준으로 노트 수가 네 레인에 고루 퍼지게 자른다.
+    const laneMap = (() => {
+      const cnt = {};
+      song.mel.forEach(([m]) => { cnt[m] = (cnt[m] || 0) + 1; });
+      const uniq = Object.keys(cnt).map(Number).sort((a, b) => a - b);
+      const total = song.mel.length, per = total / RHY_LANES;
+      const map = {};
+      let acc = 0, lane = 0;
+      uniq.forEach((m, i) => {
+        const lanesLeft = RHY_LANES - 1 - lane;         // 아직 안 쓴 레인 수
+        const uniqLeft = uniq.length - i;               // 이 음 포함, 남은 음 종류 수
+        // 남은 음 종류가 남은 레인 수까지 줄면 무조건 한 칸 밀어야 빈 레인이 안 생긴다
+        if (lane < RHY_LANES - 1 && (uniqLeft <= lanesLeft || acc >= per * (lane + 1))) lane++;
+        map[m] = lane;
+        acc += cnt[m];
+      });
+      return map;
+    })();
+    const laneOf = m => laneMap[m] || 0;
 
     const notes = [], cues = [], music = [];
     let t = startAt + leadIn;
@@ -3500,31 +3613,39 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const limit = isUnlimited(sid) ? Infinity : RHYTHM_DAILY;
     const left = limit === Infinity ? '∞' : Math.max(0, limit - used);
     const out = used >= limit;
-    const heaven = _myLevel() >= PERK.RHYTHM_HEAVEN;
+    const canHeaven = _myLevel() >= PERK.RHYTHM_HEAVEN;
     const best = localStorage.getItem(`rhy_best_${sid}`);
     const cal = rhyOffset();
-    const btn = (k, sg) => {
-      const s = RHY_SONGS[k];
-      return `<button onclick="rhyStart('${k}',${sg ? 'true' : 'false'})" ${out ? 'disabled' : ''}
-        style="width:100%;padding:11px 13px;border-radius:12px;border:none;margin-bottom:7px;text-align:left;cursor:${out ? 'default' : 'pointer'};
-        background:${out ? 'var(--bg3)' : s.color};color:${out ? 'var(--text4)' : '#0B1020'};">
-        <div style="font-size:13px;font-weight:900;">${sg ? '🎧 ' : ''}${s.name}</div>
-        <div style="font-size:10.5px;font-weight:700;opacity:.72;">${s.by} · ${s.diff}${sg ? ' · 듣고 따라 치기' : ''}</div>
-      </button>`;
-    };
+    const keys = Object.keys(RHY_SONGS).sort((x, y) => RHY_SONGS[x].lv - RHY_SONGS[y].lv);
 
     box.innerHTML = `
       <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
-        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🥁 리듬 게임</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🥁 리듬 게임 <span style="font-size:11px;color:var(--text4);font-weight:600;">· ${keys.length}곡</span></div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">1회 ${RHYTHM_COST}P · 하루 ${RHYTHM_DAILY}번 · 오늘 <b style="color:var(--pink);">${left}</b>번 남음${best ? ` · 최고 <b style="color:#FBBF24;">${best}</b>` : ''}</div>
 
-        ${btn('ode')}${btn('twinkle')}${btn('nacht')}
-        ${heaven ? btn('minuet', true)
-          : `<div style="padding:9px 12px;border-radius:10px;background:var(--bg3);font-size:11.5px;color:var(--text4);margin-bottom:7px;">🔒 Lv.${PERK.RHYTHM_HEAVEN} — 🎧 리듬천국 모드 (노트 없이 듣고 따라 치기)</div>`}
+        ${canHeaven ? `<label for="rhy-heaven" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.4);margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" id="rhy-heaven" style="width:16px;height:16px;accent-color:#A78BFA;cursor:pointer;flex-shrink:0;" />
+            <span style="font-size:12px;font-weight:800;color:#A78BFA;">🎧 리듬천국 모드 <span style="font-weight:600;opacity:.8;">— 노트 없이 듣고 따라 치기</span></span>
+          </label>`
+          : `<div style="padding:9px 12px;border-radius:10px;background:var(--bg3);font-size:11.5px;color:var(--text4);margin-bottom:10px;">🔒 Lv.${PERK.RHYTHM_HEAVEN} — 🎧 리듬천국 모드 (노트 없이 듣고 따라 치기)</div>`}
 
-        ${out ? '<div style="text-align:center;font-size:12.5px;color:var(--text4);padding:4px 0 8px;">오늘은 다 했어요 · 내일 또 만나요 🌙</div>' : ''}
+        <div style="max-height:264px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:11px;border:1px solid var(--border);">
+          ${keys.map((k, i) => {
+            const g = RHY_SONGS[k];
+            return `<div onclick="${out ? '' : `rhySongPick('${k}')`}" style="display:flex;align-items:center;gap:9px;padding:10px 12px;${i ? 'border-top:1px solid var(--border);' : ''}cursor:${out ? 'default' : 'pointer'};opacity:${out ? '.45' : '1'};">
+              <div style="width:7px;height:30px;border-radius:4px;background:${g.color};flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:12.5px;font-weight:800;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${g.name}</div>
+                <div style="font-size:10.5px;color:var(--text4);font-weight:600;">${g.by}</div>
+              </div>
+              <div style="font-size:10.5px;font-weight:800;color:${g.color};white-space:nowrap;flex-shrink:0;">${RHY_LV_LABEL[g.lv]}</div>
+            </div>`;
+          }).join('')}
+        </div>
 
-        <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;margin-top:4px;">
+        ${out ? '<div style="text-align:center;font-size:12.5px;color:var(--text4);padding:10px 0 4px;">오늘은 다 했어요 · 내일 또 만나요 🌙</div>' : ''}
+
+        <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;margin-top:10px;">
           🎧 박자 맞추기 ${cal ? `(현재 ${Math.round(cal * 1000)}ms 보정됨)` : '— 처음이면 먼저 해주세요'}
         </button>
 
@@ -3533,6 +3654,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           <span style="opacity:.8;">리듬게임 P는 명성·레벨에 반영되지 않아요.</span>
         </div>
       </div>`;
+  }
+
+  // 목록에서 곡을 고르면 리듬천국 토글 상태와 함께 시작
+  function rhySongPick(key) {
+    const hv = document.getElementById('rhy-heaven');
+    rhyStart(key, !!(hv && hv.checked));
   }
 
   // ---- 전체화면 판 ----
@@ -3550,6 +3677,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
   function rhyClose() {
     _rhyRunning = false;
+    if (_calTimer) { clearInterval(_calTimer); _calTimer = null; }
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
     if (_rhyState && _rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
     const el = document.getElementById('rhy-overlay');
@@ -3557,48 +3685,65 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // ---- 박자 맞추기 (기기 지연 보정) ----
+  // 소리는 탭을 다 채울 때까지 계속 울린다 (예전엔 8번 울리고 끊겨서 이어서 못 쳤음)
+  let _calTimer = null;
   function rhyCalibrate() {
     const c = rhyAudio();
-    const beat = 0.6, n = 8, start = c.currentTime + 1.0, beats = [];
-    for (let i = 0; i < n; i++) {
-      const t = start + i * beat;
-      beats.push(t);
-      if (i % 4 === 0) rhyKick(t); else rhyHat(t, 0.2);
-      rhyTone(t, i % 4 === 0 ? 76 : 69, 0.2, 0.22);
-    }
+    const beat = 0.6, need = 8;
+    const beats = [];
+    let nextBeat = c.currentTime + 0.9, idx = 0;
     const taps = [];
+
+    const schedule = () => {                      // 1.5초 앞까지 미리 예약해 둔다
+      while (nextBeat < c.currentTime + 1.5) {
+        beats.push(nextBeat);
+        if (idx % 4 === 0) rhyKick(nextBeat); else rhyHat(nextBeat, 0.2);
+        rhyTone(nextBeat, idx % 4 === 0 ? 76 : 69, 0.2, 0.22);
+        nextBeat += beat; idx++;
+      }
+      while (beats.length > 24) beats.shift();     // 오래된 건 버림
+    };
+    schedule();
+    clearInterval(_calTimer);
+    _calTimer = setInterval(schedule, 250);
+
+    const stop = () => { clearInterval(_calTimer); _calTimer = null; };
+
     const el = rhyOverlay(`
       <div style="color:#E2E8F0;text-align:center;padding:24px;max-width:340px;">
         <div style="font-size:19px;font-weight:800;margin-bottom:8px;">🎧 박자 맞추기</div>
-        <div style="font-size:13px;opacity:.75;line-height:1.7;margin-bottom:22px;">소리에 맞춰 아무 데나 <b>8번</b> 탭해주세요.<br>기기마다 소리가 조금씩 늦어서, 이걸 맞춰두면 훨씬 정확해져요.</div>
-        <div id="rhy-cal-count" style="font-size:40px;font-weight:900;margin-bottom:18px;">0 / ${n}</div>
+        <div style="font-size:13px;opacity:.75;line-height:1.7;margin-bottom:22px;">소리에 맞춰 아무 데나 <b>${need}번</b> 탭해주세요.<br>기기마다 소리가 조금씩 늦어서, 이걸 맞춰두면 훨씬 정확해져요.</div>
+        <div id="rhy-cal-count" style="font-size:40px;font-weight:900;margin-bottom:18px;">0 / ${need}</div>
         <div id="rhy-cal-dot" style="width:92px;height:92px;border-radius:50%;background:#1E293B;margin:0 auto 22px;transition:transform .08s;"></div>
-        <button onclick="rhyClose()" style="padding:9px 18px;border-radius:10px;border:1px solid #334155;background:none;color:#94A3B8;font-size:12.5px;font-weight:700;cursor:pointer;">그만두기</button>
+        <button id="rhy-cal-quit" style="padding:9px 18px;border-radius:10px;border:1px solid #334155;background:none;color:#94A3B8;font-size:12.5px;font-weight:700;cursor:pointer;">그만두기</button>
       </div>`);
+    document.getElementById('rhy-cal-quit').onclick = e => { e.stopPropagation(); stop(); rhyClose(); };
 
     const onTap = () => {
       const now = c.currentTime;
       let bestD = 9;
       beats.forEach(b => { if (Math.abs(now - b) < Math.abs(bestD)) bestD = now - b; });
-      if (Math.abs(bestD) < 0.35) taps.push(bestD);
+      if (Math.abs(bestD) < 0.30) taps.push(bestD);   // 박자와 너무 먼 탭은 안 셈
       const d = document.getElementById('rhy-cal-dot');
       if (d) { d.style.transform = 'scale(1.18)'; setTimeout(() => { d.style.transform = 'scale(1)'; }, 90); }
       const cnt = document.getElementById('rhy-cal-count');
-      if (cnt) cnt.textContent = `${taps.length} / ${n}`;
-      if (taps.length >= n) {
-        el.removeEventListener('pointerdown', onTap);
-        const sorted = taps.slice().sort((a, b) => a - b);
-        const mid = sorted.length % 2 ? sorted[(sorted.length - 1) / 2]
-          : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;   // 중앙값(튄 값에 안 흔들림)
-        rhySetOffset(mid);
-        el.innerHTML = `
-          <div style="color:#E2E8F0;text-align:center;padding:24px;">
-            <div style="font-size:44px;margin-bottom:10px;">✅</div>
-            <div style="font-size:18px;font-weight:800;margin-bottom:6px;">보정 완료!</div>
-            <div style="font-size:13px;opacity:.75;margin-bottom:22px;">${Math.round(mid * 1000)}ms 만큼 맞췄어요</div>
-            <button onclick="rhyClose();loadRhythm();" style="padding:11px 24px;border-radius:11px;border:none;background:linear-gradient(135deg,#38BDF8,#0284C7);color:white;font-size:13.5px;font-weight:800;cursor:pointer;">확인</button>
-          </div>`;
-      }
+      if (cnt) cnt.textContent = `${Math.min(taps.length, need)} / ${need}`;
+      if (taps.length < need) return;
+
+      el.removeEventListener('pointerdown', onTap);
+      stop();
+      const sorted = taps.slice().sort((a, b) => a - b);
+      const mid = sorted.length % 2 ? sorted[(sorted.length - 1) / 2]
+        : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;   // 중앙값(튄 값에 안 흔들림)
+      rhySetOffset(mid);
+      el.innerHTML = `
+        <div style="color:#E2E8F0;text-align:center;padding:24px;">
+          <div style="font-size:44px;margin-bottom:10px;">✅</div>
+          <div style="font-size:18px;font-weight:800;margin-bottom:6px;">보정 완료!</div>
+          <div style="font-size:13px;opacity:.75;margin-bottom:22px;">${Math.round(mid * 1000)}ms 만큼 맞췄어요</div>
+          <button id="rhy-cal-ok" style="padding:11px 24px;border-radius:11px;border:none;background:linear-gradient(135deg,#38BDF8,#0284C7);color:white;font-size:13.5px;font-weight:800;cursor:pointer;">확인</button>
+        </div>`;
+      document.getElementById('rhy-cal-ok').onclick = () => { rhyClose(); loadRhythm(); };
     };
     el.addEventListener('pointerdown', onTap);
   }
@@ -3666,7 +3811,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           <div id="rhy-msg" style="position:absolute;left:0;right:0;top:36%;text-align:center;color:#E2E8F0;font-size:22px;font-weight:900;"></div>
         </div>
         <div style="display:flex;gap:6px;padding:0 8px 16px;">
-          ${Array.from({ length: RHY_LANES }, (_, i) => `<div id="rhy-pad${i}" style="flex:1;height:88px;border-radius:13px;background:${RHY_LANE_COLORS[i]}26;border:2px solid ${RHY_LANE_COLORS[i]}73;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:${RHY_LANE_COLORS[i]};">${RHY_KEYS[i].toUpperCase()}</div>`).join('')}
+          ${Array.from({ length: RHY_LANES }, (_, i) => `<div id="rhy-pad${i}" style="flex:1;height:88px;border-radius:13px;background:${RHY_LANE_COLORS[i]}26;border:2px solid ${RHY_LANE_COLORS[i]}73;display:flex;align-items:center;justify-content:center;"><div style="width:34px;height:5px;border-radius:3px;background:${RHY_LANE_COLORS[i]}88;"></div></div>`).join('')}
         </div>
       </div>`);
 
@@ -3685,12 +3830,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       notesEl.appendChild(d);
     });
 
-    // 반주(킥·하이햇) + 베이스 + 멜로디 예약
+    // 반주(킥·하이햇) + 베이스 + 멜로디 예약 — 곡의 박자(3/4·4/4)를 따른다
+    const M = song.meter || 4;
     for (let b = 0; b * beat < chart.endsAt - startAt; b++) {
-      const t = startAt + b * beat;
-      if (b % 2 === 0) rhyKick(t);
-      rhyHat(t, b % 4 === 0 ? 0.2 : 0.11);
-      if (b % 2 === 0) rhyBass(t, song.bass[(b / 2) % song.bass.length], beat * 1.8);
+      const t = startAt + b * beat, inBar = b % M;
+      if (inBar === 0 || (M === 4 && inBar === 2)) rhyKick(t);
+      rhyHat(t, inBar === 0 ? 0.2 : 0.11);
+      if (inBar === 0) rhyBass(t, song.bass[Math.floor(b / M) % song.bass.length], beat * (M - 0.4));
     }
     chart.music.forEach(m => rhyTone(m.t, m.midi, m.dur * 0.92));
 
@@ -3727,7 +3873,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       _rhyState.judged.push(g[2]);
       _rhyState.combo++;
       _rhyState.maxCombo = Math.max(_rhyState.maxCombo, _rhyState.combo);
-      rhyClick(lane);
+      rhyClick(chart.notes[best].midi);
       flash(lane, true);
       showJudge(g[1], g[3]);
       const el = document.getElementById('rhy-n' + best);
@@ -3755,7 +3901,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const msg = document.getElementById('rhy-msg');
       if (msg) {
         const untilFirst = chart.leadIn - (now - startAt);
-        if (untilFirst > 0) msg.textContent = ['시작!', '1', '2', '3', '4'][Math.min(4, Math.ceil(untilFirst / beat))] || '';
+        if (untilFirst > 0) { const n = Math.ceil(untilFirst / beat); msg.textContent = n <= 0 ? '시작!' : (n <= 8 ? String(n) : ''); }
         else if (heaven) {
           const nx = chart.notes.find(n => n.hit === null);
           msg.textContent = nx && now < nx.t - chart.measure * 1.2 ? '👂 잘 들어봐' : '👏 따라 쳐!';
