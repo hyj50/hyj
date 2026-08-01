@@ -489,7 +489,11 @@
           <input type="text" id="pt-give-memo" placeholder="사유 (예: 수업태도 우수)" maxlength="40" style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid var(--border2);font-size:13px;background:var(--bg3);color:var(--text1);" />
           <button onclick="giveDirectPoints()" style="padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:white;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">지급</button>
         </div>
-        <div style="font-size:11px;color:var(--text4);margin-top:6px;">차감하려면 음수 입력 (예: -20)</div>
+        <label for="pt-give-rank" style="display:flex;align-items:center;gap:7px;margin-top:9px;cursor:pointer;user-select:none;">
+          <input type="checkbox" id="pt-give-rank" style="width:16px;height:16px;accent-color:#B45309;cursor:pointer;flex-shrink:0;" />
+          <span style="font-size:12px;font-weight:700;color:var(--text2);">🏅 명성·레벨에도 반영</span>
+        </label>
+        <div style="font-size:11px;color:var(--text4);margin-top:6px;line-height:1.6;">차감하려면 음수 입력 (예: -20)<br>체크를 안 하면 쓸 수 있는 포인트만 늘고 명성·레벨은 그대로예요.</div>
       </div>
     
       </div>
@@ -3626,16 +3630,22 @@
     if (sel) sel.innerHTML = '<option value="">학생 선택</option>' + students.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   }
 
+  // 사유 앞에 🏅 를 붙이면 학생 화면에서 명성·레벨에 합산된다 (student.html의 RANK_REASONS)
+  const RANK_MARK = '🏅';
   async function giveDirectPoints() {
     const studentId = document.getElementById('pt-give-student').value;
     const amount = parseInt(document.getElementById('pt-give-amount').value);
     const memo = document.getElementById('pt-give-memo').value.trim();
+    const toRank = document.getElementById('pt-give-rank').checked;
     if (!studentId) { alert('학생을 선택해주세요'); return; }
     if (!amount || amount === 0) { alert('포인트를 입력해주세요 (차감은 음수)'); return; }
-    await grantPoints(studentId, amount, memo || (amount > 0 ? '선생님 지급' : '선생님 차감'));
+    let reason = memo || (amount > 0 ? '선생님 지급' : '선생님 차감');
+    if (toRank && amount > 0) reason = `${RANK_MARK} ${reason}`;
+    await grantPoints(studentId, amount, reason);
     document.getElementById('pt-give-amount').value = '';
     document.getElementById('pt-give-memo').value = '';
-    alert(`✅ ${amount > 0 ? '+' : ''}${amount}P ${amount > 0 ? '지급' : '차감'} 완료!`);
+    document.getElementById('pt-give-rank').checked = false;
+    alert(`✅ ${amount > 0 ? '+' : ''}${amount}P ${amount > 0 ? '지급' : '차감'} 완료!${toRank && amount > 0 ? '\n🏅 명성·레벨에도 반영됩니다.' : ''}`);
     loadPointOverview();
   }
 
