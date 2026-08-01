@@ -2955,6 +2955,26 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // ---- 문제 그림 크게 보기 ----
+  // 앱 전체가 user-scalable=no 라서 브라우저 기본 핀치줌이 안 먹는다.
+  // 그래서 확대창 안에서 두 손가락 확대/이동을 직접 처리한다.
+  let _figS = 1, _figTx = 0, _figTy = 0;
+  let _figPinch = false, _figD0 = 0, _figS0 = 1, _figMx = 0, _figMy = 0, _figTx0 = 0, _figTy0 = 0;
+  let _figDrag = false, _figPx = 0, _figPy = 0;
+
+  function figApply() {
+    const b = document.getElementById('fig-zoom-body');
+    if (b) b.style.transform = `translate(${_figTx}px, ${_figTy}px) scale(${_figS})`;
+  }
+  function figReset() { _figS = 1; _figTx = 0; _figTy = 0; figApply(); }
+  function figClamp() {
+    if (_figS <= 1) { _figS = 1; _figTx = 0; _figTy = 0; return; }
+    const b = document.getElementById('fig-zoom-body');
+    if (!b) return;
+    const maxX = b.clientWidth * (_figS - 1) / 2, maxY = b.clientHeight * (_figS - 1) / 2;
+    _figTx = Math.max(-maxX, Math.min(maxX, _figTx));
+    _figTy = Math.max(-maxY, Math.min(maxY, _figTy));
+  }
+
   function zoomFigure() {
     const src = document.getElementById('mission-figure-svg');
     if (!src || !src.innerHTML.trim()) return;
@@ -2962,12 +2982,73 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (!ov) {
       ov = document.createElement('div');
       ov.id = 'fig-zoom-overlay';
-      ov.onclick = () => { ov.style.display = 'none'; };
-      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,10,16,.96);display:none;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;cursor:zoom-out;';
-      ov.innerHTML = '<div style="position:absolute;top:16px;left:0;right:0;text-align:center;color:rgba(255,255,255,.65);font-size:12.5px;font-weight:700;">그림을 두 손가락으로 더 키울 수 있어요 · 아무 곳이나 누르면 닫혀요</div><div id="fig-zoom-body" style="width:100%;max-width:820px;"></div>';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,10,16,.96);display:none;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;overflow:hidden;touch-action:none;';
+      ov.innerHTML = '<div style="position:absolute;top:16px;left:0;right:0;text-align:center;color:rgba(255,255,255,.65);font-size:12.5px;font-weight:700;pointer-events:none;">두 손가락으로 확대 · 두 번 탭하면 원래대로</div>'
+        + '<div id="fig-zoom-body" style="width:100%;max-width:820px;transform-origin:center center;will-change:transform;"></div>'
+        + '<button id="fig-zoom-close" style="position:absolute;top:44px;right:16px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:19px;font-weight:800;cursor:pointer;">×</button>';
       document.body.appendChild(ov);
+      document.getElementById('fig-zoom-close').onclick = () => { ov.style.display = 'none'; };
+
+      const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      let lastTap = 0;
+
+      ov.addEventListener('touchstart', e => {
+        if (e.touches.length === 2) {
+          _figPinch = true; _figDrag = false;
+          _figD0 = dist(e.touches); _figS0 = _figS;
+          _figMx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          _figMy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          _figTx0 = _figTx; _figTy0 = _figTy;
+          e.preventDefault();
+        } else if (e.touches.length === 1) {
+          const now = Date.now();
+          if (now - lastTap < 300) {            // 두 번 탭 → 확대/원래대로
+            if (_figS > 1) figReset(); else { _figS = 2.4; figApply(); }
+            lastTap = 0; e.preventDefault(); return;
+          }
+          lastTap = now;
+          if (_figS > 1) { _figDrag = true; _figPx = e.touches[0].clientX; _figPy = e.touches[0].clientY; }
+        }
+      }, { passive: false });
+
+      ov.addEventListener('touchmove', e => {
+        if (_figPinch && e.touches.length === 2) {
+          const d = dist(e.touches);
+          _figS = Math.max(1, Math.min(6, _figS0 * (d / (_figD0 || 1))));
+          const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          _figTx = _figTx0 + (mx - _figMx);     // 두 손가락 중심을 따라 같이 이동
+          _figTy = _figTy0 + (my - _figMy);
+          figClamp(); figApply(); e.preventDefault();
+        } else if (_figDrag && e.touches.length === 1 && _figS > 1) {
+          _figTx += e.touches[0].clientX - _figPx;
+          _figTy += e.touches[0].clientY - _figPy;
+          _figPx = e.touches[0].clientX; _figPy = e.touches[0].clientY;
+          figClamp(); figApply(); e.preventDefault();
+        }
+      }, { passive: false });
+
+      const end = e => {
+        if (e.touches.length < 2) _figPinch = false;
+        if (e.touches.length === 0) {
+          _figDrag = false;
+          if (_figS < 1.08) figReset();
+        }
+      };
+      ov.addEventListener('touchend', end);
+      ov.addEventListener('touchcancel', end);
+
+      // PC: 휠로 확대, 배경 클릭으로 닫기
+      ov.addEventListener('wheel', e => {
+        _figS = Math.max(1, Math.min(6, _figS * (e.deltaY < 0 ? 1.12 : 0.89)));
+        figClamp(); figApply(); e.preventDefault();
+      }, { passive: false });
+      ov.addEventListener('click', e => {
+        if (e.target === ov && _figS <= 1) ov.style.display = 'none';
+      });
     }
     document.getElementById('fig-zoom-body').innerHTML = src.innerHTML;
+    figReset();
     ov.style.display = 'flex';
   }
 
@@ -3228,12 +3309,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // ===== 🥁 리듬게임 (미니게임) =====
   // 1회 10P · 하루 3번. 정확도 등급에 따라 보상.
   //   S 15P / A 12P / B 9P / C 4P / D 0P  → 아무리 잘해도 한 판 최대 +5P
-  // 모드: 노트가 내려오는 기본 모드, Lv.60부터 '리듬천국 모드'(콜앤리스폰스) 추가
+  // 4버튼. 곡은 저작권이 풀린 클래식을 브라우저가 직접 연주한다(음원 파일 없음).
+  // 모드: 노트가 내려오는 기본 모드 + Lv.60부터 '리듬천국 모드'(듣고 따라 치기)
   // ※ 리듬게임 P는 명성·레벨에 반영되지 않음
   const RHYTHM_COST = 10;
   const RHYTHM_DAILY = 3;
+  const RHY_LANES = 4;
   const RHY_FEE_REASON = '🥁 리듬게임 참가비';
   const RHY_WIN_REASON = '🥁 리듬게임 보상';
+  const RHY_LANE_COLORS = ['#38BDF8', '#34D399', '#FBBF24', '#F43F5E'];
+  const RHY_KEYS = ['d', 'f', 'j', 'k'];
   const RHY_GRADES = [
     { key: 'S', min: 0.95, pay: 15, c: '#F43F5E', msg: '완벽해!! 🎉' },
     { key: 'A', min: 0.85, pay: 12, c: '#FBBF24', msg: '훌륭해! ✨' },
@@ -3241,13 +3326,48 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     { key: 'C', min: 0.50, pay: 4,  c: '#38BDF8', msg: '조금만 더!' },
     { key: 'D', min: 0,    pay: 0,  c: '#94A3B8', msg: '다음엔 잘 될 거야' },
   ];
-  // 판정 창(초). 기기 지연 보정을 한 뒤에 적용된다.
+  // 판정 창(초). 곡이 빠르면 아래에서 자동으로 좁혀진다.
   const RHY_WINDOWS = [[0.055, 'PERFECT', 1.0, '#FBBF24'], [0.100, 'GOOD', 0.7, '#34D399'], [0.150, 'OK', 0.4, '#38BDF8']];
   const RHY_APPROACH = 1.5;   // 노트가 위에서 판정선까지 내려오는 시간(초)
+
+  // ---- 곡 (모두 저작권이 소멸한 고전 · 간단히 편곡함) ----
+  // [MIDI 음높이, 길이(8분음표 단위)] · 0은 쉼표
+  const RHY_SONGS = {
+    ode: {
+      name: '환희의 송가', by: '베토벤', bpm: 100, diff: '쉬움', color: '#38BDF8',
+      mel: [[64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[64,3],[62,1],[62,4],
+            [64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[62,3],[60,1],[60,4]],
+      bass: [48,55,48,55,53,55,48,55],
+    },
+    twinkle: {
+      name: '작은별 변주곡', by: '모차르트', bpm: 112, diff: '보통', color: '#34D399',
+      mel: [[60,2],[60,2],[67,2],[67,2],[69,2],[69,2],[67,4],[65,2],[65,2],[64,2],[64,2],[62,2],[62,2],[60,4],
+            [67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],[67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],
+            [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],[65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]],
+      bass: [48,48,53,48,55,53,55,48],
+    },
+    nacht: {
+      name: '아이네 클라이네 나흐트무지크', by: '모차르트', bpm: 120, diff: '어려움', color: '#F43F5E',
+      mel: [[67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,4],
+            [69,1],[62,1],[69,1],[62,1],[69,1],[62,1],[69,1],[72,1],[74,4],
+            [67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,2],[74,2],
+            [76,1],[74,1],[72,1],[71,1],[69,2],[67,2],[62,2],[67,4]],
+      bass: [55,55,50,50,55,55,50,55],
+    },
+    minuet: {
+      name: '미뉴에트 G장조', by: '바흐(페촐트)', bpm: 108, diff: '리듬천국', color: '#A78BFA',
+      mel: [[74,2],[67,1],[69,1],[71,1],[72,1],[74,2],[67,2],[67,2],
+            [76,2],[72,1],[74,1],[76,1],[77,1],[79,2],[67,2],[67,2],
+            [72,2],[74,1],[72,1],[71,1],[69,1],[71,2],[72,1],[71,1],
+            [69,2],[67,1],[69,1],[71,1],[67,1],[71,2],[74,2]],
+      bass: [55,50,55,47,48,50,55,55],
+    },
+  };
 
   let _rhyCtx = null, _rhyRunning = false, _rhyState = null, _rhyRaf = null;
 
   // ---- 소리 합성 (음원 파일 없이 브라우저가 직접 만든다) ----
+  const rhyFreq = m => 440 * Math.pow(2, (m - 69) / 12);
   function rhyAudio() {
     if (!_rhyCtx) _rhyCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (_rhyCtx.state === 'suspended') _rhyCtx.resume();
@@ -3256,7 +3376,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   function rhyKick(t) {
     const c = rhyAudio(), o = c.createOscillator(), g = c.createGain();
     o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    g.gain.setValueAtTime(0.55, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.2);
   }
   function rhyHat(t, vol) {
@@ -3265,22 +3385,43 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
     const src = c.createBufferSource(); src.buffer = buf;
     const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
-    const g = c.createGain(); g.gain.value = vol == null ? 0.16 : vol;
+    const g = c.createGain(); g.gain.value = vol == null ? 0.13 : vol;
     src.connect(hp); hp.connect(g); g.connect(c.destination); src.start(t);
   }
-  function rhyNote(t, freq) {
-    const c = rhyAudio(), o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain();
-    o.type = 'triangle'; o.frequency.value = freq || 880;
-    o2.type = 'sine'; o2.frequency.value = (freq || 880) * 2;
-    const g2 = c.createGain(); g2.gain.value = 0.3; o2.connect(g2); g2.connect(g);
-    g.gain.setValueAtTime(0.34, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  // 멜로디 음 (오르골 느낌)
+  function rhyTone(t, midi, dur, vol) {
+    const c = rhyAudio(), f = rhyFreq(midi), len = Math.max(0.18, dur);
+    const o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), g2 = c.createGain();
+    o.type = 'triangle'; o.frequency.value = f;
+    o2.type = 'sine'; o2.frequency.value = f * 2.01;
+    g2.gain.value = 0.28; o2.connect(g2); g2.connect(g);
+    const v = vol == null ? 0.26 : vol;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     o.connect(g); g.connect(c.destination);
-    o.start(t); o.stop(t + 0.25); o2.start(t); o2.stop(t + 0.25);
+    o.start(t); o.stop(t + len + 0.05); o2.start(t); o2.stop(t + len + 0.05);
+  }
+  function rhyBass(t, midi, dur) {
+    const c = rhyAudio(), o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = rhyFreq(midi);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  // 잘 쳤을 때 나는 짧은 타격음
+  function rhyClick(lane) {
+    const c = rhyAudio(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+    o.type = 'square'; o.frequency.value = [520, 640, 780, 940][lane] || 640;
+    g.gain.setValueAtTime(0.14, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.08);
+    rhyHat(t, 0.10);
   }
   function rhyMiss() {
     const c = rhyAudio(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'square'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.1);
-    g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.type = 'square'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(85, t + 0.1);
+    g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
     o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.13);
   }
 
@@ -3288,50 +3429,57 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   const rhyOffset = () => parseFloat(localStorage.getItem('rhy_offset') || '0') || 0;
   const rhySetOffset = v => localStorage.setItem('rhy_offset', String(v));
 
-  // ---- 채보 만들기 ----
-  // '-'는 쉼, 'x'는 노트. 한 마디를 8칸(8분음표)으로 나눈다.
-  const RHY_PATTERNS = {
-    easy:   ['x---x---', 'x---x-x-', 'x-x-x---', 'x---x-xx'],
-    normal: ['x-x-x-x-', 'x-x-x-xx', 'xx-x-x-x', 'x-xx-xx-'],
-    hard:   ['x-xx-x-x', 'xxx-x-xx', 'x-xxx-xx', 'xx-xxx-x'],
-  };
-  function rhyBuildChart(diff, bpm, startAt) {
-    const pats = RHY_PATTERNS[diff] || RHY_PATTERNS.normal;
-    const beat = 60 / bpm, step = beat / 2;       // 8분음표 간격
-    const measure = beat * 4;
-    const leadIn = measure * 2;                    // 시작 전 2마디 카운트인
-    const notes = [];
-    let lane = 0;
-    for (let m = 0; m < 8; m++) {
-      const pat = pats[m % pats.length];
-      for (let i = 0; i < 8; i++) {
-        if (pat[i] !== 'x') continue;
-        // 연타 구간은 좌우 번갈아, 정박은 같은 쪽으로 (치기 편하게)
-        if (i % 2 === 1) lane = 1 - lane; else lane = (m % 2);
-        notes.push({ t: startAt + leadIn + m * measure + i * step, lane, hit: null });
-      }
+  // ---- 채보 만들기 : 멜로디 자체가 채보가 된다 ----
+  // 음이 낮으면 왼쪽, 높으면 오른쪽 레인. 같은 음은 같은 레인이라 손이 안 꼬인다.
+  function rhyBuildChart(songKey, startAt, heaven) {
+    const song = RHY_SONGS[songKey];
+    const beat = 60 / song.bpm, unit = beat / 2, measure = beat * 4;
+    const leadIn = measure * 2;                       // 카운트인 2마디
+    const pitches = song.mel.map(m => m[0]);
+    const lo = Math.min(...pitches), hi = Math.max(...pitches);
+    const laneOf = m => hi === lo ? 0 : Math.min(RHY_LANES - 1, Math.floor((m - lo) / (hi - lo + 0.001) * RHY_LANES));
+
+    const notes = [], cues = [], music = [];
+    let t = startAt + leadIn;
+    if (!heaven) {
+      song.mel.forEach(([m, d]) => {
+        notes.push({ t, lane: laneOf(m), midi: m, dur: d * unit, hit: null });
+        music.push({ t, midi: m, dur: d * unit });
+        t += d * unit;
+      });
+    } else {
+      // 리듬천국 모드: 4마디 듣고 → 4마디 따라 치기
+      const phraseLen = measure * 2;
+      let acc = 0, phrase = [];
+      const flush = () => {
+        if (!phrase.length) return;
+        const callStart = t, respStart = t + phraseLen;
+        phrase.forEach(n => {
+          cues.push({ t: callStart + n.o, midi: n.m, dur: n.d });
+          music.push({ t: callStart + n.o, midi: n.m, dur: n.d });
+          notes.push({ t: respStart + n.o, lane: laneOf(n.m), midi: n.m, dur: n.d, hit: null });
+        });
+        t += phraseLen * 2; phrase = []; acc = 0;
+      };
+      song.mel.forEach(([m, d]) => {
+        if (acc + d * unit > phraseLen) flush();
+        phrase.push({ o: acc, m, d: d * unit });
+        acc += d * unit;
+      });
+      flush();
     }
-    return { notes, beat, measure, leadIn, bpm, endsAt: startAt + leadIn + measure * 8 + beat };
-  }
-  // 리듬천국 모드: 2마디 '콜'(앱이 들려줌) → 2마디 '리스폰스'(따라 치기)
-  function rhyBuildCallChart(bpm, startAt) {
-    const beat = 60 / bpm, step = beat / 2, measure = beat * 4;
-    const calls = ['x-x-x-x-', 'x-xx-x--', 'xx-x-x-x', 'x-x-xx-x'];
-    const notes = [], cues = [];
-    let lane = 0, t0 = startAt + measure * 2;      // 카운트인 2마디
-    calls.forEach((pat, k) => {
-      const callStart = t0 + k * measure * 4;
-      const respStart = callStart + measure * 2;
-      for (let m = 0; m < 2; m++) {
-        for (let i = 0; i < 8; i++) {
-          if (pat[i] !== 'x') continue;
-          lane = i % 2 === 1 ? 1 - lane : (m % 2);
-          cues.push({ t: callStart + m * measure + i * step, lane });
-          notes.push({ t: respStart + m * measure + i * step, lane, hit: null });
-        }
-      }
-    });
-    return { notes, cues, beat, measure, leadIn: measure * 2, bpm, endsAt: t0 + calls.length * measure * 4 + beat };
+    const endsAt = (notes.length ? notes[notes.length - 1].t + notes[notes.length - 1].dur : t) + beat * 2;
+
+    // 같은 레인 최소 간격에 맞춰 판정창을 좁힌다 (넓으면 앞 노트가 탭을 가로챈다)
+    let minGap = 99;
+    for (let L = 0; L < RHY_LANES; L++) {
+      const ts = notes.filter(n => n.lane === L).map(n => n.t).sort((a, b) => a - b);
+      for (let i = 1; i < ts.length; i++) minGap = Math.min(minGap, ts[i] - ts[i - 1]);
+    }
+    const scale = Math.min(1, (minGap * 0.45) / RHY_WINDOWS[RHY_WINDOWS.length - 1][0]);
+    const windows = RHY_WINDOWS.map(w => [w[0] * scale, w[1], w[2], w[3]]);
+
+    return { song, notes, cues, music, beat, measure, unit, leadIn, endsAt, windows, minGap };
   }
 
   // ---- 오늘 사용 횟수 (localStorage가 아니라 DB 기록으로 판정) ----
@@ -3352,29 +3500,31 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const limit = isUnlimited(sid) ? Infinity : RHYTHM_DAILY;
     const left = limit === Infinity ? '∞' : Math.max(0, limit - used);
     const out = used >= limit;
-    const lv = _myLevel();
-    const heaven = lv >= PERK.RHYTHM_HEAVEN;
+    const heaven = _myLevel() >= PERK.RHYTHM_HEAVEN;
     const best = localStorage.getItem(`rhy_best_${sid}`);
     const cal = rhyOffset();
+    const btn = (k, sg) => {
+      const s = RHY_SONGS[k];
+      return `<button onclick="rhyStart('${k}',${sg ? 'true' : 'false'})" ${out ? 'disabled' : ''}
+        style="width:100%;padding:11px 13px;border-radius:12px;border:none;margin-bottom:7px;text-align:left;cursor:${out ? 'default' : 'pointer'};
+        background:${out ? 'var(--bg3)' : s.color};color:${out ? 'var(--text4)' : '#0B1020'};">
+        <div style="font-size:13px;font-weight:900;">${sg ? '🎧 ' : ''}${s.name}</div>
+        <div style="font-size:10.5px;font-weight:700;opacity:.72;">${s.by} · ${s.diff}${sg ? ' · 듣고 따라 치기' : ''}</div>
+      </button>`;
+    };
 
     box.innerHTML = `
       <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
         <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🥁 리듬 게임</div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">1회 ${RHYTHM_COST}P · 하루 ${RHYTHM_DAILY}번 · 오늘 <b style="color:var(--pink);">${left}</b>번 남음${best ? ` · 최고 <b style="color:#FBBF24;">${best}</b>` : ''}</div>
 
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          ${['easy','normal','hard'].map((d, i) => `<button onclick="rhyStart('${d}')" ${out ? 'disabled' : ''}
-            style="flex:1;padding:11px 6px;border-radius:11px;border:none;font-size:12.5px;font-weight:800;cursor:${out ? 'default' : 'pointer'};
-            background:${out ? 'var(--bg3)' : ['linear-gradient(135deg,#38BDF8,#0284C7)','linear-gradient(135deg,#34D399,#059669)','linear-gradient(135deg,#F43F5E,#9F1239)'][i]};
-            color:${out ? 'var(--text4)' : 'white'};">${['🌱 쉬움','🔥 보통','💀 어려움'][i]}</button>`).join('')}
-        </div>
-
-        ${heaven ? `<button onclick="rhyStart('heaven')" ${out ? 'disabled' : ''} style="width:100%;padding:11px;border-radius:11px;border:none;font-size:12.5px;font-weight:800;margin-bottom:10px;cursor:${out ? 'default' : 'pointer'};background:${out ? 'var(--bg3)' : 'linear-gradient(135deg,#A78BFA,#6D28D9)'};color:${out ? 'var(--text4)' : 'white'};">🎧 리듬천국 모드 <span style="font-weight:600;opacity:.85;">— 듣고 따라 치기</span></button>`
-          : `<div style="padding:9px 12px;border-radius:10px;background:var(--bg3);font-size:11.5px;color:var(--text4);margin-bottom:10px;">🔒 Lv.${PERK.RHYTHM_HEAVEN} — 🎧 리듬천국 모드 (노트 없이 소리만 듣고 따라 치기)</div>`}
+        ${btn('ode')}${btn('twinkle')}${btn('nacht')}
+        ${heaven ? btn('minuet', true)
+          : `<div style="padding:9px 12px;border-radius:10px;background:var(--bg3);font-size:11.5px;color:var(--text4);margin-bottom:7px;">🔒 Lv.${PERK.RHYTHM_HEAVEN} — 🎧 리듬천국 모드 (노트 없이 듣고 따라 치기)</div>`}
 
         ${out ? '<div style="text-align:center;font-size:12.5px;color:var(--text4);padding:4px 0 8px;">오늘은 다 했어요 · 내일 또 만나요 🌙</div>' : ''}
 
-        <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;">
+        <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;margin-top:4px;">
           🎧 박자 맞추기 ${cal ? `(현재 ${Math.round(cal * 1000)}ms 보정됨)` : '— 처음이면 먼저 해주세요'}
         </button>
 
@@ -3385,13 +3535,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       </div>`;
   }
 
-  // ---- 전체화면 판 만들기 ----
+  // ---- 전체화면 판 ----
   function rhyOverlay(inner) {
     let el = document.getElementById('rhy-overlay');
     if (!el) {
       el = document.createElement('div');
       el.id = 'rhy-overlay';
-      el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0B1020;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;user-select:none;-webkit-user-select:none;';
+      el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#0B1020;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;user-select:none;-webkit-user-select:none;';
       document.body.appendChild(el);
     }
     el.innerHTML = inner;
@@ -3401,6 +3551,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   function rhyClose() {
     _rhyRunning = false;
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
+    if (_rhyState && _rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
     const el = document.getElementById('rhy-overlay');
     if (el) { el.style.display = 'none'; el.innerHTML = ''; }
   }
@@ -3408,14 +3559,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // ---- 박자 맞추기 (기기 지연 보정) ----
   function rhyCalibrate() {
     const c = rhyAudio();
-    const beat = 0.6, n = 8;
-    const start = c.currentTime + 1.0;
-    const beats = [];
+    const beat = 0.6, n = 8, start = c.currentTime + 1.0, beats = [];
     for (let i = 0; i < n; i++) {
       const t = start + i * beat;
       beats.push(t);
       if (i % 4 === 0) rhyKick(t); else rhyHat(t, 0.2);
-      rhyNote(t, i % 4 === 0 ? 660 : 440);
+      rhyTone(t, i % 4 === 0 ? 76 : 69, 0.2, 0.22);
     }
     const taps = [];
     const el = rhyOverlay(`
@@ -3427,17 +3576,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         <button onclick="rhyClose()" style="padding:9px 18px;border-radius:10px;border:1px solid #334155;background:none;color:#94A3B8;font-size:12.5px;font-weight:700;cursor:pointer;">그만두기</button>
       </div>`);
 
-    const dot = () => {
-      const d = document.getElementById('rhy-cal-dot');
-      if (d) { d.style.transform = 'scale(1.18)'; setTimeout(() => { d.style.transform = 'scale(1)'; }, 90); }
-    };
     const onTap = () => {
       const now = c.currentTime;
-      // 가장 가까운 비트와의 차이
       let bestD = 9;
       beats.forEach(b => { if (Math.abs(now - b) < Math.abs(bestD)) bestD = now - b; });
       if (Math.abs(bestD) < 0.35) taps.push(bestD);
-      dot();
+      const d = document.getElementById('rhy-cal-dot');
+      if (d) { d.style.transform = 'scale(1.18)'; setTimeout(() => { d.style.transform = 'scale(1)'; }, 90); }
       const cnt = document.getElementById('rhy-cal-count');
       if (cnt) cnt.textContent = `${taps.length} / ${n}`;
       if (taps.length >= n) {
@@ -3458,8 +3603,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     el.addEventListener('pointerdown', onTap);
   }
 
-  // ---- 게임 시작 ----
-  async function rhyStart(diff) {
+  // ---- 시작 (참가비 차감) ----
+  async function rhyStart(songKey, heaven) {
     if (_rhyRunning) return;
     const sid = document.getElementById('student-select').value;
     if (!sid) return;
@@ -3476,7 +3621,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         alert(`포인트가 부족해요! (${RHYTHM_COST}P 필요 · 현재 ${cur}P)`);
         _rhyRunning = false; await loadRhythm(); return;
       }
-      // 참가비 먼저 차감 — 실패하면 시작하지 않음
       const r1 = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}`, {
         method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ mission_points: cur - RHYTHM_COST })
@@ -3487,8 +3631,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         body: JSON.stringify({ student_id: sid, amount: -RHYTHM_COST, reason: RHY_FEE_REASON })
       });
       if (!r2.ok) throw new Error(await r2.text());
-
-      rhyPlay(diff, sid);
+      rhyPlay(songKey, sid, !!heaven);
     } catch (e) {
       console.error('rhyStart:', e);
       alert('시작하지 못했어요. 잠시 후 다시 시도해주세요.');
@@ -3497,77 +3640,78 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }
   }
 
-  function rhyPlay(diff, sid) {
+  function rhyPlay(songKey, sid, heaven) {
     const c = rhyAudio();
-    const bpm = diff === 'easy' ? 92 : diff === 'hard' ? 132 : 112;
-    const heaven = diff === 'heaven';
     const startAt = c.currentTime + 0.35;
-    const chart = heaven ? rhyBuildCallChart(104, startAt) : rhyBuildChart(diff, bpm, startAt);
-    const beat = chart.beat;
+    const chart = rhyBuildChart(songKey, startAt, heaven);
+    const song = chart.song, beat = chart.beat;
+    _rhyState = { chart, sid, songKey, heaven, judged: [], combo: 0, maxCombo: 0 };
 
-    _rhyState = { chart, sid, diff, heaven, judged: [], combo: 0, maxCombo: 0, startAt };
-
+    const padW = (100 / RHY_LANES).toFixed(2);
     rhyOverlay(`
-      <div style="width:100%;max-width:460px;height:100%;display:flex;flex-direction:column;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;color:#E2E8F0;">
-          <div style="font-size:13px;font-weight:800;">${heaven ? '🎧 리듬천국' : ({easy:'🌱 쉬움',normal:'🔥 보통',hard:'💀 어려움'})[diff]}</div>
-          <div id="rhy-combo" style="font-size:15px;font-weight:900;color:#FBBF24;"></div>
-          <button onclick="rhyAbort()" style="padding:5px 11px;border-radius:8px;border:1px solid #334155;background:none;color:#94A3B8;font-size:11.5px;font-weight:700;cursor:pointer;">포기</button>
+      <div style="width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;color:#E2E8F0;gap:8px;">
+          <div style="min-width:0;">
+            <div style="font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${heaven ? '🎧 ' : ''}${song.name}</div>
+            <div style="font-size:10px;opacity:.6;font-weight:700;">${song.by}</div>
+          </div>
+          <div id="rhy-combo" style="font-size:15px;font-weight:900;color:#FBBF24;white-space:nowrap;"></div>
+          <button onclick="rhyAbort()" style="padding:5px 11px;border-radius:8px;border:1px solid #334155;background:none;color:#94A3B8;font-size:11.5px;font-weight:700;cursor:pointer;flex-shrink:0;">포기</button>
         </div>
         <div id="rhy-field" style="flex:1;position:relative;overflow:hidden;">
-          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.07);"></div>
+          ${Array.from({ length: RHY_LANES - 1 }, (_, i) => `<div style="position:absolute;left:${((i + 1) * 100 / RHY_LANES).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06);"></div>`).join('')}
           <div id="rhy-line" style="position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.5);"></div>
           <div id="rhy-notes" style="position:absolute;inset:0;"></div>
           <div id="rhy-judge" style="position:absolute;left:0;right:0;text-align:center;font-size:26px;font-weight:900;opacity:0;transition:opacity .12s;"></div>
-          <div id="rhy-msg" style="position:absolute;left:0;right:0;top:38%;text-align:center;color:#E2E8F0;font-size:22px;font-weight:900;"></div>
+          <div id="rhy-msg" style="position:absolute;left:0;right:0;top:36%;text-align:center;color:#E2E8F0;font-size:22px;font-weight:900;"></div>
         </div>
-        <div style="display:flex;gap:8px;padding:0 12px 18px;">
-          <div id="rhy-pad0" style="flex:1;height:82px;border-radius:14px;background:rgba(56,189,248,.16);border:2px solid rgba(56,189,248,.45);display:flex;align-items:center;justify-content:center;font-size:26px;">◀</div>
-          <div id="rhy-pad1" style="flex:1;height:82px;border-radius:14px;background:rgba(244,63,94,.16);border:2px solid rgba(244,63,94,.45);display:flex;align-items:center;justify-content:center;font-size:26px;">▶</div>
+        <div style="display:flex;gap:6px;padding:0 8px 16px;">
+          ${Array.from({ length: RHY_LANES }, (_, i) => `<div id="rhy-pad${i}" style="flex:1;height:88px;border-radius:13px;background:${RHY_LANE_COLORS[i]}26;border:2px solid ${RHY_LANE_COLORS[i]}73;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;color:${RHY_LANE_COLORS[i]};">${RHY_KEYS[i].toUpperCase()}</div>`).join('')}
         </div>
       </div>`);
 
     const field = document.getElementById('rhy-field');
     const H = field.clientHeight;
-    const LINE = Math.round(H * 0.80);
+    const LINE = Math.round(H * 0.82);
     document.getElementById('rhy-line').style.top = LINE + 'px';
-    document.getElementById('rhy-judge').style.top = (LINE - 62) + 'px';
+    document.getElementById('rhy-judge').style.top = (LINE - 60) + 'px';
 
-    // 노트 DOM 미리 만들기
     const notesEl = document.getElementById('rhy-notes');
+    const laneW = 100 / RHY_LANES;
     chart.notes.forEach((n, i) => {
       const d = document.createElement('div');
       d.id = 'rhy-n' + i;
-      d.style.cssText = `position:absolute;width:38%;height:16px;border-radius:8px;left:${n.lane ? '55%' : '7%'};top:-40px;background:${n.lane ? '#F43F5E' : '#38BDF8'};box-shadow:0 0 12px ${n.lane ? 'rgba(244,63,94,.6)' : 'rgba(56,189,248,.6)'};${heaven ? 'display:none;' : ''}`;
+      d.style.cssText = `position:absolute;height:15px;border-radius:8px;left:${(n.lane * laneW + 1.4).toFixed(2)}%;width:${(laneW - 2.8).toFixed(2)}%;top:-40px;background:${RHY_LANE_COLORS[n.lane]};box-shadow:0 0 10px ${RHY_LANE_COLORS[n.lane]}99;${heaven ? 'display:none;' : ''}`;
       notesEl.appendChild(d);
     });
 
-    // 반주 + (리듬천국이면) 콜 소리 예약
+    // 반주(킥·하이햇) + 베이스 + 멜로디 예약
     for (let b = 0; b * beat < chart.endsAt - startAt; b++) {
       const t = startAt + b * beat;
       if (b % 2 === 0) rhyKick(t);
-      rhyHat(t, b % 4 === 0 ? 0.22 : 0.12);
+      rhyHat(t, b % 4 === 0 ? 0.2 : 0.11);
+      if (b % 2 === 0) rhyBass(t, song.bass[(b / 2) % song.bass.length], beat * 1.8);
     }
-    if (heaven) chart.cues.forEach(q => rhyNote(q.t, q.lane ? 700 : 520));
+    chart.music.forEach(m => rhyTone(m.t, m.midi, m.dur * 0.92));
 
-    const flash = (lane, color) => {
+    const flash = (lane, strong) => {
       const p = document.getElementById('rhy-pad' + lane);
       if (!p) return;
-      p.style.background = color;
-      setTimeout(() => { p.style.background = lane ? 'rgba(244,63,94,.16)' : 'rgba(56,189,248,.16)'; }, 90);
+      p.style.background = strong ? RHY_LANE_COLORS[lane] + '99' : 'rgba(148,163,184,.28)';
+      setTimeout(() => { p.style.background = RHY_LANE_COLORS[lane] + '26'; }, 90);
     };
     const showJudge = (txt, color) => {
       const j = document.getElementById('rhy-judge');
       if (!j) return;
       j.textContent = txt; j.style.color = color; j.style.opacity = '1';
-      clearTimeout(j._t); j._t = setTimeout(() => { j.style.opacity = '0'; }, 260);
+      clearTimeout(j._t); j._t = setTimeout(() => { j.style.opacity = '0'; }, 250);
     };
 
     const tap = lane => {
       if (!_rhyRunning) return;
       const now = c.currentTime - rhyOffset();
-      const win = RHY_WINDOWS[RHY_WINDOWS.length - 1][0];
-      // 판정창 안에 있는 노트 중 '가장 먼저 와야 할' 것부터 처리한다.
+      const win = chart.windows[chart.windows.length - 1][0];
+      // 판정창 안에서 '가장 먼저 와야 할' 노트부터 처리한다.
       // (가장 가까운 것을 고르면, 살짝 늦게 친 탭이 다음 노트를 먼저 먹어버린다)
       let best = -1;
       chart.notes.forEach((n, i) => {
@@ -3576,15 +3720,15 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (d < -win || d > win) return;
         if (best < 0 || n.t < chart.notes[best].t) best = i;
       });
-      if (best < 0) { flash(lane, 'rgba(148,163,184,.3)'); rhyMiss(); return; }
+      if (best < 0) { flash(lane, false); rhyMiss(); return; }
       const bestD = Math.abs(now - chart.notes[best].t);
-      const g = RHY_WINDOWS.find(w => bestD <= w[0]);
+      const g = chart.windows.find(w => bestD <= w[0]);
       chart.notes[best].hit = g[2];
       _rhyState.judged.push(g[2]);
       _rhyState.combo++;
       _rhyState.maxCombo = Math.max(_rhyState.maxCombo, _rhyState.combo);
-      rhyNote(c.currentTime, lane ? 700 : 520);
-      flash(lane, lane ? 'rgba(244,63,94,.5)' : 'rgba(56,189,248,.5)');
+      rhyClick(lane);
+      flash(lane, true);
       showJudge(g[1], g[3]);
       const el = document.getElementById('rhy-n' + best);
       if (el) el.style.display = 'none';
@@ -3592,36 +3736,29 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       if (cb) cb.textContent = _rhyState.combo >= 3 ? `${_rhyState.combo} COMBO` : '';
     };
 
-    const pd = e => {
-      const el = e.currentTarget;
-      tap(el.id === 'rhy-pad1' ? 1 : 0);
-      e.preventDefault();
-    };
-    document.getElementById('rhy-pad0').addEventListener('pointerdown', pd);
-    document.getElementById('rhy-pad1').addEventListener('pointerdown', pd);
-    // 키보드(PC)도 지원
+    const pd = e => { tap(parseInt(e.currentTarget.id.replace('rhy-pad', ''), 10)); e.preventDefault(); };
+    for (let i = 0; i < RHY_LANES; i++) document.getElementById('rhy-pad' + i).addEventListener('pointerdown', pd);
     _rhyState.keyHandler = e => {
       if (e.repeat) return;
-      const k = e.key.toLowerCase();
-      if (k === 'arrowleft' || k === 'f') tap(0);
-      else if (k === 'arrowright' || k === 'j') tap(1);
+      const i = RHY_KEYS.indexOf(e.key.toLowerCase());
+      if (i >= 0) { tap(i); return; }
+      const a = ['arrowleft', 'arrowdown', 'arrowup', 'arrowright'].indexOf(e.key.toLowerCase());
+      if (a >= 0) tap(a);
     };
     window.addEventListener('keydown', _rhyState.keyHandler);
 
     _rhyRunning = true;
+    const missWin = chart.windows[chart.windows.length - 1][0];
     const loop = () => {
       if (!_rhyRunning) return;
       const now = c.currentTime;
       const msg = document.getElementById('rhy-msg');
-
-      // 카운트인 안내
       if (msg) {
         const untilFirst = chart.leadIn - (now - startAt);
         if (untilFirst > 0) msg.textContent = ['시작!', '1', '2', '3', '4'][Math.min(4, Math.ceil(untilFirst / beat))] || '';
         else if (heaven) {
-          // 콜 구간인지 리스폰스 구간인지 표시
-          const cyc = chart.measure * 4, into = (now - (startAt + chart.leadIn)) % cyc;
-          msg.textContent = into < chart.measure * 2 ? '👂 잘 들어봐' : '👏 따라 쳐!';
+          const nx = chart.notes.find(n => n.hit === null);
+          msg.textContent = nx && now < nx.t - chart.measure * 1.2 ? '👂 잘 들어봐' : '👏 따라 쳐!';
         } else msg.textContent = '';
       }
 
@@ -3630,15 +3767,15 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (!el || n.hit !== null) return;
         const left = n.t - now;
         if (left > RHY_APPROACH) return;
-        if (left < -RHY_WINDOWS[RHY_WINDOWS.length - 1][0]) {   // 놓침
+        if (left < -missWin) {
           n.hit = 0; _rhyState.judged.push(0); _rhyState.combo = 0;
           el.style.display = 'none';
           const cb = document.getElementById('rhy-combo'); if (cb) cb.textContent = '';
           showJudge('MISS', '#94A3B8');
           return;
         }
-        if (heaven) return;                                     // 리듬천국은 노트를 안 보여줌
-        el.style.top = Math.round(LINE - (left / RHY_APPROACH) * LINE - 8) + 'px';
+        if (heaven) return;
+        el.style.top = Math.round(LINE - (left / RHY_APPROACH) * LINE - 7) + 'px';
       });
 
       if (now > chart.endsAt) { rhyFinish(); return; }
@@ -3659,13 +3796,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (_rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
     const { chart, sid, judged, maxCombo } = _rhyState;
     const total = chart.notes.length;
-    const score = judged.reduce((s, v) => s + v, 0);
-    const acc = total ? score / total : 0;
+    const acc = total ? judged.reduce((s, v) => s + v, 0) / total : 0;
     const grade = aborted ? RHY_GRADES[RHY_GRADES.length - 1] : RHY_GRADES.find(g => acc >= g.min);
-    const pay = grade.pay;
-    const net = pay - RHYTHM_COST;
+    const pay = grade.pay, net = pay - RHYTHM_COST;
 
-    // 최고 기록 (참고용이라 기기에만 저장)
     if (!aborted) {
       const prev = localStorage.getItem(`rhy_best_${sid}`);
       const prevAcc = parseFloat((prev || '').replace(/[^\d.]/g, '')) || 0;
@@ -3677,6 +3811,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         <div style="font-size:64px;font-weight:900;color:${grade.c};line-height:1;margin-bottom:6px;">${grade.key}</div>
         <div style="font-size:15px;font-weight:800;margin-bottom:16px;color:${grade.c};">${aborted ? '중간에 그만뒀어요' : grade.msg}</div>
         <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;font-size:13px;line-height:2;text-align:left;margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">곡</span><b>${chart.song.name}</b></div>
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">정확도</span><b>${Math.round(acc * 100)}%</b></div>
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">최대 콤보</span><b>${maxCombo}</b></div>
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">노트</span><b>${judged.filter(v => v > 0).length} / ${total}</b></div>
@@ -3687,7 +3822,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       </div>`);
     document.getElementById('rhy-done').onclick = () => { rhyClose(); loadMissions(); };
 
-    // 보상 지급
     try {
       if (pay > 0) {
         const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=mission_points`, { headers: sbHeaders() }).then(r => r.json());
@@ -4003,9 +4137,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       : Math.max(0, missionLimitFor(_myLevel()) - attempts.length);
     box.innerHTML = picked.slice(0, showCount).map((v,i) => `
       <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:12px;padding:12px;">
-        ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;" />` : '<span style="font-size:26px;">📝</span>'}
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:var(--text1);">변형문제 도전</div>
+        ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" onclick="openModal('${v.wrong_notes.image_url}','원본 오답 문제')" style="width:52px;height:52px;border-radius:8px;object-fit:cover;cursor:zoom-in;flex-shrink:0;" />` : '<span style="font-size:26px;">📝</span>'}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">변형문제 도전 ${v.wrong_notes?.image_url ? '<span style="font-size:10.5px;color:var(--text4);font-weight:600;">· 사진을 누르면 원본 문제</span>' : ''}</div>
           <div style="font-size:11px;color:var(--text3);">제한시간 ${Math.round(((v.time_limit_sec||300)+timerBonusFor(_myLevel()))/60)}분${timerBonusFor(_myLevel())?' <span style="color:#F59E0B;font-weight:700;">(+'+(timerBonusFor(_myLevel())/60)+'분)</span>':''} · 성공시 +${POINT_PER_PROBLEM}P</div>
         </div>
         <button onclick="startMission('${v.id}')" style="padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:white;font-size:12.5px;font-weight:700;cursor:pointer;">도전!</button>
