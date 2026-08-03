@@ -281,19 +281,59 @@
     .rhy-pop { animation: none; opacity: 1; }
   }
 
-  /* 레벨 혜택: 금테두리(Lv.50) 이름 반짝임 · 왕관(Lv.100) 연출 */
-  @keyframes rankShine {
-    0%,100% { text-shadow: 0 0 0 rgba(255,255,255,0); }
-    50%     { text-shadow: 0 0 12px rgba(255,240,180,.95), 0 0 22px rgba(255,200,80,.55); }
+  /* ===== 명성 테두리 · 이름 반짝임 ===== */
+  @keyframes rankSweep { from { background-position: 0% 50%; } to { background-position: -200% 50%; } }
+
+  /* 금속 테두리: 그라데이션이 천천히 흘러가며 빛이 지나가는 느낌 */
+  .rank-frame { position:relative; border-radius:19px; padding:3px; background-size:200% 100%;
+    animation: rankSweep 3.4s linear infinite; }
+  .rank-frame.bronze  { background-image:linear-gradient(100deg,#8C4A12,#F0B27A,#FFE0BD,#C77B2E,#8C4A12,#F0B27A,#FFE0BD,#C77B2E,#8C4A12);
+    box-shadow:0 4px 18px rgba(180,83,9,.4); }
+  .rank-frame.silver  { background-image:linear-gradient(100deg,#8B99A8,#E8EEF5,#FFFFFF,#AEBAC7,#8B99A8,#E8EEF5,#FFFFFF,#AEBAC7,#8B99A8);
+    box-shadow:0 4px 20px rgba(203,213,225,.42); }
+  .rank-frame.gold    { background-image:linear-gradient(100deg,#8A5A00,#FFD75E,#FFFBEA,#E0A800,#8A5A00,#FFD75E,#FFFBEA,#E0A800,#8A5A00);
+    box-shadow:0 4px 26px rgba(251,191,36,.55); animation-duration:2.8s; }
+  .rank-frame.rainbow { background-image:linear-gradient(100deg,#F87171,#FBBF24,#34D399,#38BDF8,#A78BFA,#F87171,#FBBF24,#34D399,#38BDF8,#A78BFA,#F87171);
+    box-shadow:0 4px 28px rgba(167,139,250,.5); animation-duration:4.2s; }
+
+  /* 테두리 위로 흰 빛줄기가 스쳐 지나간다 */
+  @keyframes rankGlare { 0% { transform:translateX(-130%) skewX(-18deg); } 55%,100% { transform:translateX(230%) skewX(-18deg); } }
+  .rank-frame::after { content:''; position:absolute; inset:0; border-radius:19px; overflow:hidden; pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent); width:26%;
+    animation: rankGlare 3.6s ease-in-out infinite; mix-blend-mode:screen; }
+  .rank-frame.gold::after { animation-duration:2.9s; }
+
+  /* 이름: 금속 질감 글자 + 은은한 발광 */
+  .rank-name { background-size:220% 100%; -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent; animation: rankSweep 3s linear infinite; }
+  .rank-name.silver  { background-image:linear-gradient(100deg,#F1F5F9,#FFFFFF,#B6C2CF,#FFFFFF,#F1F5F9,#FFFFFF,#B6C2CF);
+    filter:drop-shadow(0 0 7px rgba(226,232,240,.85)); }
+  .rank-name.gold    { background-image:linear-gradient(100deg,#FFF6D0,#FFFFFF,#FBBF24,#FFFFFF,#FFF6D0,#FFFFFF,#FBBF24);
+    filter:drop-shadow(0 0 9px rgba(251,191,36,.9)) drop-shadow(0 0 18px rgba(245,158,11,.45)); }
+  .rank-name.rainbow { background-image:linear-gradient(100deg,#FCA5A5,#FDE68A,#6EE7B7,#93C5FD,#C4B5FD,#FCA5A5,#FDE68A,#6EE7B7,#93C5FD);
+    filter:drop-shadow(0 0 10px rgba(196,181,253,.9)); animation-duration:4s; }
+
+  /* 이름 주변에서 톡톡 터지는 별 */
+  @keyframes rankTwinkle {
+    0%,100% { opacity:0; transform:scale(.4) rotate(0deg); }
+    45%     { opacity:1; transform:scale(1.15) rotate(20deg); }
   }
-  .rank-shine { animation: rankShine 2.6s ease-in-out infinite; }
+  .rank-star { position:absolute; font-size:11px; pointer-events:none; animation: rankTwinkle 2.2s ease-in-out infinite; }
+
   @keyframes rankCrown {
-    0%,100% { transform: translateY(0) rotate(-6deg); }
-    50%     { transform: translateY(-3px) rotate(6deg); }
+    0%,100% { transform: translateY(0) rotate(-8deg); }
+    50%     { transform: translateY(-4px) rotate(8deg); }
   }
-  .rank-crown { display:inline-block; animation: rankCrown 1.8s ease-in-out infinite; }
+  .rank-crown { display:inline-block; animation: rankCrown 1.8s ease-in-out infinite;
+    filter:drop-shadow(0 0 8px rgba(251,191,36,.9)); }
+
+  /* 게시판 이름표도 같은 결로 */
+  .rank-chip { background-size:220% 100%; animation: rankSweep 3.4s linear infinite; }
+
   @media (prefers-reduced-motion: reduce) {
-    .rank-shine, .rank-crown { animation: none; }
+    .rank-frame, .rank-name, .rank-chip, .rank-star, .rank-crown { animation: none; }
+    .rank-frame::after { display:none; }
+    .rank-name { -webkit-text-fill-color:currentColor; color:inherit; }
   }
 
   @keyframes rejectPulse {
@@ -903,11 +943,15 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
   // 레벨 → 배지 테두리 등급
   function rankTier(lv) {
-    if (lv >= PERK.FRAME_RAINBOW) return { key:'rainbow', label:'무지개', ring:'linear-gradient(90deg,#F87171,#FBBF24,#34D399,#38BDF8,#A78BFA,#F87171)', text:'#fff', chip:'linear-gradient(90deg,#F87171,#FBBF24,#34D399,#38BDF8,#A78BFA)' };
-    if (lv >= PERK.FRAME_GOLD)    return { key:'gold',    label:'금',     ring:'linear-gradient(135deg,#FDE68A,#F59E0B,#FDE68A)', text:'#78350F', chip:'linear-gradient(135deg,#FBBF24,#D97706)' };
-    if (lv >= PERK.FRAME_SILVER)  return { key:'silver',  label:'은',     ring:'linear-gradient(135deg,#F1F5F9,#94A3B8,#F1F5F9)', text:'#334155', chip:'linear-gradient(135deg,#CBD5E1,#64748B)' };
-    if (lv >= PERK.FRAME_BRONZE)  return { key:'bronze',  label:'동',     ring:'linear-gradient(135deg,#FCD9B6,#B45309,#FCD9B6)', text:'#fff',    chip:'linear-gradient(135deg,#D97706,#92400E)' };
-    return { key:'none', label:'', ring:'', text:'', chip:'' };
+    if (lv >= PERK.FRAME_RAINBOW) return { key:'rainbow', label:'무지개', text:'#fff',
+      chip:'linear-gradient(100deg,#F87171,#FBBF24,#34D399,#38BDF8,#A78BFA,#F87171,#FBBF24,#34D399)' };
+    if (lv >= PERK.FRAME_GOLD)    return { key:'gold', label:'금', text:'#5A3A00',
+      chip:'linear-gradient(100deg,#FFD75E,#FFFBEA,#E0A800,#FFD75E,#FFFBEA,#E0A800)' };
+    if (lv >= PERK.FRAME_SILVER)  return { key:'silver', label:'은', text:'#2A3644',
+      chip:'linear-gradient(100deg,#E8EEF5,#FFFFFF,#AEBAC7,#E8EEF5,#FFFFFF,#AEBAC7)' };
+    if (lv >= PERK.FRAME_BRONZE)  return { key:'bronze', label:'동', text:'#fff',
+      chip:'linear-gradient(100deg,#C77B2E,#FFE0BD,#8C4A12,#C77B2E,#FFE0BD,#8C4A12)' };
+    return { key:'none', label:'', text:'', chip:'' };
   }
 
   // 내 레벨로 계산하는 혜택값
@@ -1004,7 +1048,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const crown = rank.level >= PERK.CROWN ? '👑 ' : '';
     const chip = t.key === 'none'
       ? `<span style="font-size:${fs - 1}px;font-weight:700;color:var(--text3);">${rank.title} 수학자</span>`
-      : `<span style="font-size:${fs - 1.5}px;font-weight:800;color:${t.text};background:${t.chip};padding:1.5px 7px;border-radius:6px;white-space:nowrap;">${crown}${rank.title} 수학자</span>`;
+      : `<span class="rank-chip" style="font-size:${fs - 1.5}px;font-weight:800;color:${t.text};background-image:${t.chip};padding:1.5px 7px;border-radius:6px;white-space:nowrap;">${crown}${rank.title} 수학자</span>`;
     return `${chip} <span style="font-size:${fs}px;font-weight:700;color:var(--text1);">${name}</span>`;
   }
 
@@ -1029,9 +1073,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           : `최고 명성 달성! 👑`;
         const t = rankTier(prog.level);
         const crown = prog.level >= PERK.CROWN ? '<span class="rank-crown">👑</span> ' : '';
-        const shine = prog.level >= PERK.FRAME_GOLD ? 'rank-shine' : '';
-        const frame = t.key === 'none' ? '' :
-          `padding:3px;background:${t.ring};box-shadow:0 6px 20px rgba(0,0,0,.3);`;
+        // 은(Lv.30)부터 이름에도 금속 질감 + 발광
+        const nameCls = ['silver', 'gold', 'rainbow'].includes(t.key) ? `rank-name ${t.key}` : '';
+        const stars = ['gold', 'rainbow'].includes(t.key)
+          ? `<span class="rank-star" style="left:-9px;top:-4px;animation-delay:0s;">✦</span>
+             <span class="rank-star" style="right:-6px;top:2px;animation-delay:.7s;">✦</span>
+             <span class="rank-star" style="left:34%;top:-9px;font-size:9px;animation-delay:1.4s;">✦</span>` : '';
         const perks = [];
         if (prog.level >= PERK.ROULETTE_1 || prog.level >= PERK.ROULETTE_2) perks.push(`🎡 룰렛 하루 ${roulLimitFor(prog.level)}번`);
         if (missionBonusFor(prog.level)) perks.push(`📝 미션 하루 ${missionLimitFor(prog.level)}문제`);
@@ -1041,10 +1088,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         const nextPerk = nextPerkLine(prog.level);
 
         badge.innerHTML = `
-          <div style="border-radius:19px;${frame}margin-bottom:14px;">
-          <div style="background:linear-gradient(135deg,#B45309,#7C2D12);border-radius:16px;padding:1.1rem 1.3rem;color:white;${t.key === 'none' ? 'box-shadow:0 6px 20px rgba(180,83,9,0.35);' : ''}">
+          <div class="${t.key === 'none' ? '' : `rank-frame ${t.key}`}" style="border-radius:19px;margin-bottom:14px;${t.key === 'none' ? '' : ''}">
+          <div style="position:relative;background:linear-gradient(135deg,#B45309,#7C2D12);border-radius:16px;padding:1.1rem 1.3rem;color:white;${t.key === 'none' ? 'box-shadow:0 6px 20px rgba(180,83,9,0.35);' : ''}">
             <div style="font-size:12px;opacity:.8;font-weight:600;margin-bottom:2px;">🏅 나의 명성</div>
-            <div class="${shine}" style="font-size:20px;font-weight:800;margin-bottom:2px;">${crown}${prog.title} 수학자 ${name}</div>
+            <div style="position:relative;display:inline-block;font-size:20px;font-weight:800;margin-bottom:2px;">${stars}<span class="${nameCls}">${crown}${prog.title} 수학자 ${name}</span></div>
             <div style="font-size:12px;opacity:.85;font-weight:600;margin-bottom:10px;white-space:nowrap;">Lv.${prog.level} · 명성 ${total}P <span style="opacity:.65;font-weight:500;">(오답·변형문제만)</span></div>
             <div style="height:7px;background:rgba(255,255,255,0.25);border-radius:7px;overflow:hidden;margin-bottom:6px;">
               <div style="height:100%;width:${prog.intoLevel}%;background:white;border-radius:7px;transition:width .6s;"></div>
@@ -3359,199 +3406,295 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       mel: [[60,2],[60,2],[67,2],[67,2],[69,2],[69,2],[67,4],[65,2],[65,2],[64,2],[64,2],[62,2],[62,2],[60,4],
             [67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],[67,2],[67,2],[65,2],[65,2],[64,2],[64,2],[62,4],
             [60,2],[60,2],[67,2],[67,2],[69,2],[69,2],[67,4],[65,2],[65,2],[64,2],[64,2],[62,2],[62,2],[60,4]],
-      bass: [48,53,55,48,55,55,53,48] },
+      bass: [48,53,55,48,55,55,53,48],
+      chords: [[48,0],[53,0],[55,0],[48,0],[55,0],[55,2],[53,0],[48,0]], style: 'arp' },
 
     ode: { name: '환희의 송가', by: '베토벤', lv: 1, bpm: 100, meter: 4, color: '#38BDF8',
       mel: [[64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[64,3],[62,1],[62,4],
             [64,2],[64,2],[65,2],[67,2],[67,2],[65,2],[64,2],[62,2],[60,2],[60,2],[62,2],[64,2],[62,3],[60,1],[60,4]],
-      bass: [48,55,48,55,53,55,48,55] },
+      bass: [48,55,48,55,53,55,48,55],
+      chords: [[48,0],[55,0],[48,0],[55,0],[53,0],[55,2],[48,0],[55,0]], style: 'arp' },
 
     mary: { name: '비행기', by: '전래 동요', lv: 1, bpm: 108, meter: 4, color: '#38BDF8',
       mel: [[64,2],[62,2],[60,2],[62,2],[64,2],[64,2],[64,4],[62,2],[62,2],[62,4],[64,2],[67,2],[67,4],
             [64,2],[62,2],[60,2],[62,2],[64,2],[64,2],[64,2],[64,2],[62,2],[62,2],[64,2],[62,2],[60,8]],
-      bass: [48,48,55,48,48,53,55,48] },
+      bass: [48,48,55,48,48,53,55,48],
+      chords: [[48,0],[48,0],[55,2],[48,0],[48,0],[53,0],[55,2],[48,0]], style: 'arp' },
 
     butterfly: { name: '나비야', by: '독일 민요', lv: 1, bpm: 106, meter: 4, color: '#38BDF8',
       mel: [[67,2],[64,2],[64,4],[65,2],[62,2],[62,4],[60,2],[62,2],[64,2],[65,2],[67,2],[67,2],[67,4],
             [67,2],[64,2],[64,4],[65,2],[62,2],[62,4],[60,2],[64,2],[67,2],[67,2],[64,4],[60,4]],
-      bass: [48,53,55,48,48,53,55,48] },
+      bass: [48,53,55,48,48,53,55,48],
+      chords: [[48,0],[53,0],[55,2],[48,0],[48,0],[53,0],[55,2],[48,0]], style: 'arp' },
 
     canon: { name: '캐논', by: '파헬벨', lv: 1, bpm: 96, meter: 4, color: '#38BDF8',
       mel: [[78,4],[76,4],[74,4],[73,4],[71,4],[69,4],[71,4],[73,4],
             [74,4],[73,4],[71,4],[69,4],[67,4],[66,4],[67,4],[64,4],
             [62,4],[66,4],[69,4],[73,4],[74,4],[71,4],[74,8]],
-      bass: [50,45,47,42,43,38,43,45] },
+      bass: [50,45,47,42,43,38,43,45],
+      chords: [[50,0],[45,0],[47,1],[42,1],[43,0],[38,1],[43,0],[45,0]], style: 'arp' },
 
     jingle: { name: '징글벨', by: '피어폰트', lv: 2, bpm: 120, meter: 4, color: '#34D399',
       mel: [[64,2],[64,2],[64,4],[64,2],[64,2],[64,4],[64,2],[67,2],[60,3],[62,1],[64,8],
             [65,2],[65,2],[65,3],[65,1],[65,2],[64,2],[64,2],[64,2],[64,2],[62,2],[62,2],[64,2],[62,4],[67,4]],
-      bass: [48,48,55,48,53,53,55,48] },
+      bass: [48,48,55,48,53,53,55,48],
+      chords: [[48,0],[48,0],[55,2],[48,0],[53,0],[53,0],[55,2],[48,0]], style: 'arp' },
 
     susanna: { name: '오 수재너', by: '포스터', lv: 2, bpm: 118, meter: 4, color: '#34D399',
       mel: [[60,1],[62,1],[64,2],[67,2],[67,2],[69,2],[67,2],[64,2],[60,2],[62,2],[64,2],[64,2],[62,2],[60,2],[62,4],
             [60,1],[62,1],[64,2],[67,2],[67,2],[69,2],[67,2],[64,2],[60,2],[62,2],[64,2],[64,2],[62,2],[62,2],[60,4]],
-      bass: [48,48,55,55,48,53,55,48] },
+      bass: [48,48,55,55,48,53,55,48],
+      chords: [[48,0],[48,0],[55,2],[55,2],[48,0],[53,0],[55,2],[48,0]], style: 'arp' },
 
     auld: { name: '올드 랭 사인', by: '스코틀랜드 민요', lv: 2, bpm: 100, meter: 4, color: '#34D399',
       mel: [[67,2],[72,3],[72,1],[72,2],[76,2],[74,3],[72,1],[74,2],[76,2],[72,3],[72,1],[76,2],[79,2],[81,6],
             [79,2],[76,3],[76,1],[72,2],[74,2],[76,3],[74,1],[72,2],[74,2],[69,3],[69,1],[67,2],[72,6]],
-      bass: [48,53,48,55,48,53,55,48] },
+      bass: [48,53,48,55,48,53,55,48],
+      chords: [[48,0],[53,0],[48,0],[55,2],[48,0],[53,0],[55,2],[48,0]], style: 'arp' },
 
     surprise: { name: '놀람 교향곡', by: '하이든', lv: 2, bpm: 108, meter: 4, color: '#34D399',
       mel: [[60,2],[60,2],[64,2],[64,2],[67,2],[67,2],[64,4],
             [65,2],[65,2],[62,2],[62,2],[71,2],[71,2],[67,4],
             [60,2],[60,2],[64,2],[64,2],[67,2],[67,2],[64,4],
             [65,2],[62,2],[71,2],[62,2],[60,8]],
-      bass: [48,48,53,55,48,48,55,48] },
+      bass: [48,48,53,55,48,48,55,48],
+      chords: [[48,0],[48,0],[53,0],[55,2],[48,0],[48,0],[55,2],[48,0]], style: 'arp' },
 
     morning: { name: '페르귄트 「아침」', by: '그리그', lv: 2, bpm: 100, meter: 4, color: '#34D399',
       mel: [[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],
             [67,2],[69,2],[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],
             [67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],[72,4]],
-      bass: [55,55,48,48,55,55,53,48] },
+      bass: [55,55,48,48,55,55,53,48],
+      chords: [[55,0],[55,0],[48,0],[48,0],[55,0],[55,0],[53,0],[48,0]], style: 'arp' },
 
     winter: { name: '사계 「겨울」 1악장', by: '비발디', lv: 4, bpm: 138, meter: 4, color: '#60A5FA',
       // 얼어붙은 맥박(같은 음 반복) → 몰아치는 하강 → 치솟는 상승 → 격렬한 마무리
-      mel: [[65,1],[65,1],[65,1],[65,1],[68,1],[68,1],[68,1],[68,1],
-            [72,1],[72,1],[72,1],[72,1],[77,2],[76,2],
+      mel: [[65,4],[68,4],[72,4],[77,4],
+            [76,1],[77,1],[76,1],[77,1],[76,2],[72,2],
             [77,1],[75,1],[73,1],[72,1],[70,1],[68,1],[67,1],[65,1],[64,2],[65,4],
-            [65,1],[68,1],[72,1],[77,1],[76,1],[73,1],[72,1],[70,1],
-            [68,1],[67,1],[65,1],[64,1],[65,4],
+            [65,1],[68,1],[72,1],[77,1],[80,1],[77,1],[73,1],[72,1],
+            [70,1],[68,1],[67,1],[65,1],[64,2],[65,4],
             [77,1],[76,1],[77,1],[75,1],[73,1],[72,1],[70,1],[68,1],
-            [80,1],[77,1],[73,1],[72,1],[70,1],[68,1],[67,1],[65,1],
+            [80,2],[77,2],[73,2],[72,2],[70,1],[68,1],[67,1],[65,1],
             [67,2],[65,2],[64,2],[65,6]],
-      bass: [41,41,44,44,48,48,41,41] },
+      bass: [41,41,44,44,48,48,41,41],
+      chords: [[41,1],[41,1],[44,0],[44,0],[48,1],[48,2],[41,1],[41,1]], style: 'tremolo' },
 
     spring: { name: '사계 「봄」', by: '비발디', lv: 3, bpm: 116, meter: 4, color: '#FBBF24',
-      mel: [[76,1],[76,1],[76,2],[71,1],[71,2],[76,1],[76,1],[76,2],[71,1],[71,2],
-            [76,1],[78,1],[80,1],[78,1],[76,2],[78,1],[76,1],[75,1],[76,4],
-            [83,1],[83,1],[83,2],[80,1],[80,2],[83,1],[83,1],[83,2],[80,1],[80,2],
-            [83,1],[81,1],[80,1],[78,1],[76,4]],
-      bass: [52,52,59,52,52,59,52,52] },
+      mel: [[76,2],[76,2],[76,2],[71,2],[71,4],
+            [76,2],[76,2],[76,2],[71,2],[71,4],
+            [76,1],[78,1],[80,1],[80,1],[78,1],[76,1],[75,2],[76,4],
+            [76,1],[78,1],[80,1],[81,1],[80,1],[78,1],[76,2],[75,2],[76,4],
+            [83,2],[83,2],[83,2],[80,2],[80,4],
+            [83,1],[81,1],[80,1],[78,1],[76,2],[75,2],[76,4]],
+      bass: [52,52,59,52,52,59,52,52],
+      chords: [[52,0],[52,0],[59,2],[52,0],[52,0],[59,2],[52,0],[52,0]], style: 'arp' },
 
     swan: { name: '백조의 호수', by: '차이콥스키', lv: 3, bpm: 104, meter: 4, color: '#FBBF24',
       mel: [[71,6],[76,1],[78,1],[79,2],[81,2],[83,4],[83,2],[83,2],
             [83,2],[81,2],[79,2],[78,2],[76,8],
             [71,6],[76,1],[78,1],[79,2],[81,2],[83,4],[83,2],[86,2],[85,2],[83,2],[81,4]],
-      bass: [47,47,54,47,43,50,47,47] },
+      bass: [47,47,54,47,43,50,47,47],
+      chords: [[47,1],[47,1],[54,2],[47,1],[43,0],[50,0],[47,1],[47,1]], style: 'arp' },
 
     nacht: { name: '아이네 클라이네 나흐트무지크', by: '모차르트', lv: 3, bpm: 120, meter: 4, color: '#FBBF24',
       mel: [[67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,4],
             [69,1],[62,1],[69,1],[62,1],[69,1],[62,1],[69,1],[72,1],[74,4],
             [67,1],[62,1],[67,1],[62,1],[67,1],[62,1],[67,1],[71,1],[74,2],[74,2],
             [76,1],[74,1],[72,1],[71,1],[69,2],[67,2],[62,2],[67,4]],
-      bass: [55,55,50,50,55,55,50,55] },
+      bass: [55,55,50,50,55,55,50,55],
+      chords: [[55,0],[55,0],[50,2],[50,2],[55,0],[55,0],[50,2],[55,0]], style: 'arp' },
 
     chopsticks: { name: '젓가락 행진곡', by: '앨런', lv: 3, bpm: 132, meter: 3, color: '#FBBF24',
       mel: [[65,1],[67,1],[65,1],[67,1],[65,1],[67,1],[65,1],[67,1],
             [64,1],[69,1],[64,1],[69,1],[64,1],[69,1],[64,1],[69,1],
             [62,1],[71,1],[62,1],[71,1],[62,1],[71,1],[62,1],[71,1],
             [60,2],[72,2],[60,2],[72,2],[60,4]],
-      bass: [48,48,48,48,55,55,48,48] },
+      bass: [48,48,48,48,55,55,48,48],
+      chords: [[48,0],[48,0],[48,0],[48,0],[55,2],[55,2],[48,0],[48,0]], style: 'waltz' },
 
     turkish: { name: '터키 행진곡', by: '모차르트', lv: 4, bpm: 126, meter: 4, color: '#F43F5E',
       mel: [[71,1],[69,1],[68,1],[69,1],[72,2],[71,1],[69,1],[71,1],
             [74,2],[72,1],[71,1],[72,1],[76,2],[74,1],[72,1],[74,1],
             [77,1],[76,1],[75,1],[76,1],[83,2],[81,1],[80,1],[81,1],
             [83,1],[81,1],[80,1],[81,1],[76,2],[72,2],[76,2],[69,4]],
-      bass: [45,45,52,45,45,52,45,45] },
+      bass: [45,45,52,45,45,52,45,45],
+      chords: [[45,1],[45,1],[52,2],[45,1],[45,1],[52,2],[45,1],[45,1]], style: 'arp' },
 
     elise: { name: '엘리제를 위하여', by: '베토벤', lv: 4, bpm: 132, meter: 3, color: '#F43F5E',
       mel: [[76,1],[75,1],[76,1],[75,1],[76,1],[71,1],[74,1],[72,1],[69,2],
             [60,1],[64,1],[69,1],[71,2],[64,1],[68,1],[71,1],[72,2],
             [64,1],[76,1],[75,1],[76,1],[75,1],[76,1],[71,1],[74,1],[72,1],[69,2],
             [60,1],[64,1],[69,1],[71,2],[64,1],[72,1],[71,1],[69,4]],
-      bass: [45,45,52,52,45,45,52,45] },
+      bass: [45,45,52,52,45,45,52,45],
+      chords: [[45,1],[45,1],[52,0],[52,0],[45,1],[45,1],[52,2],[45,1]], style: 'waltz' },
 
     minuet: { name: '미뉴에트 G장조', by: '바흐(페촐트)', lv: 4, bpm: 116, meter: 3, color: '#F43F5E',
       mel: [[74,2],[67,1],[69,1],[71,1],[72,1],[74,2],[67,2],[67,2],
             [76,2],[72,1],[74,1],[76,1],[77,1],[79,2],[67,2],[67,2],
             [72,2],[74,1],[72,1],[71,1],[69,1],[71,2],[72,1],[71,1],
             [69,2],[67,1],[69,1],[71,1],[67,1],[71,2],[74,2],[67,4]],
-      bass: [55,50,55,47,48,50,55,55] },
+      bass: [55,50,55,47,48,50,55,55],
+      chords: [[55,0],[50,0],[55,0],[47,1],[48,0],[50,0],[55,0],[55,0]], style: 'waltz' },
 
     arirang: { name: '아리랑', by: '한국 전래', lv: 2, bpm: 96, meter: 3, color: '#34D399',
       mel: [[67,2],[69,1],[72,3],[72,2],[69,1],[67,3],[69,2],[72,1],[69,2],[67,1],[64,6],
             [72,2],[72,1],[74,3],[76,2],[74,1],[72,3],[74,2],[76,1],[74,2],[72,1],[69,6]],
-      bass: [48,48,55,55,48,53,55,48] },
+      bass: [48,48,55,55,48,53,55,48],
+      chords: [[48,0],[48,0],[55,0],[55,0],[48,0],[53,0],[55,2],[48,0]], style: 'waltz' },
 
     amazing: { name: '어메이징 그레이스', by: '찬송가', lv: 2, bpm: 92, meter: 3, color: '#34D399',
       mel: [[62,2],[67,4],[71,1],[67,1],[71,4],[69,2],[67,4],[64,2],[62,6],
             [62,2],[67,4],[71,1],[67,1],[71,4],[69,2],[74,6],
             [74,2],[74,4],[71,1],[74,1],[71,4],[69,2],[67,4],[64,2],[62,6]],
-      bass: [55,55,48,55,55,50,55,55] },
+      bass: [55,55,48,55,55,50,55,55],
+      chords: [[55,0],[55,0],[48,0],[55,0],[55,0],[50,1],[55,2],[55,0]], style: 'waltz' },
 
     silent: { name: '고요한 밤 거룩한 밤', by: '그루버', lv: 1, bpm: 88, meter: 3, color: '#38BDF8',
       mel: [[67,3],[69,1],[67,2],[64,6],[67,3],[69,1],[67,2],[64,6],
             [74,4],[74,2],[71,6],[72,4],[72,2],[67,6],
             [69,4],[69,2],[72,3],[71,1],[69,2],[67,3],[69,1],[67,2],[64,6]],
-      bass: [48,48,48,48,55,55,48,48] },
+      bass: [48,48,48,48,55,55,48,48],
+      chords: [[48,0],[48,0],[48,0],[48,0],[55,2],[55,2],[48,0],[48,0]], style: 'waltz' },
   };
   const RHY_LV_LABEL = ['', '🌱 쉬움', '🔥 보통', '⚡ 어려움', '💀 매우 어려움'];
 
-  let _rhyCtx = null, _rhyRunning = false, _rhyState = null, _rhyRaf = null;
+  let _rhyCtx = null, _rhyRunning = false, _rhyState = null, _rhyRaf = null, _rhyPlanTimer = null;
 
-  // ---- 소리 합성 (음원 파일 없이 브라우저가 직접 만든다) ----
+  // ---- 소리 엔진 (음원 파일 없이 브라우저가 직접 연주) ----
+  // 모든 소리는 마스터 버스를 거친다 → 중간에 그만둬도 한 번에 끌 수 있다.
   const rhyFreq = m => 440 * Math.pow(2, (m - 69) / 12);
+  let _rhyBus = null, _rhySrc = [];
+
   function rhyAudio() {
-    if (!_rhyCtx) _rhyCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!_rhyCtx) {
+      _rhyCtx = new (window.AudioContext || window.webkitAudioContext)();
+      _rhyBus = _rhyCtx.createGain();
+      _rhyBus.gain.value = 0.9;
+      _rhyBus.connect(_rhyCtx.destination);
+      // 간이 잔향 — 홀에서 연주하는 느낌
+      try {
+        const len = Math.floor(_rhyCtx.sampleRate * 1.7);
+        const buf = _rhyCtx.createBuffer(2, len, _rhyCtx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+          const d = buf.getChannelData(ch);
+          for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+        }
+        const verb = _rhyCtx.createConvolver(); verb.buffer = buf;
+        const wet = _rhyCtx.createGain(); wet.gain.value = 0.30;
+        _rhyBus.connect(verb); verb.connect(wet); wet.connect(_rhyCtx.destination);
+      } catch (e) { /* 잔향은 없어도 그만 */ }
+    }
     if (_rhyCtx.state === 'suspended') _rhyCtx.resume();
     return _rhyCtx;
   }
-  function rhyKick(t) {
+  // 예약한 소리를 기록해 둔다 (포기했을 때 전부 멈추려고)
+  function rhyReg(node, stopAt) {
+    _rhySrc.push(node);
+    node.onended = () => { const i = _rhySrc.indexOf(node); if (i >= 0) _rhySrc.splice(i, 1); };
+    if (stopAt != null) { try { node.stop(stopAt); } catch (e) {} }
+    return node;
+  }
+  // 예약된 소리를 즉시 전부 정지
+  function rhyStopAll() {
+    if (_rhyPlanTimer) { clearInterval(_rhyPlanTimer); _rhyPlanTimer = null; }   // 남은 예약 계획 폐기
+    if (!_rhyCtx) return;
+    const t = _rhyCtx.currentTime;
+    if (_rhyBus) {
+      try {
+        _rhyBus.gain.cancelScheduledValues(t);
+        _rhyBus.gain.setValueAtTime(_rhyBus.gain.value, t);
+        _rhyBus.gain.linearRampToValueAtTime(0.0001, t + 0.12);
+      } catch (e) {}
+    }
+    _rhySrc.slice().forEach(n => { try { n.stop(t + 0.13); } catch (e) {} });
+    _rhySrc = [];
+    setTimeout(() => {                                  // 다음 판을 위해 볼륨 복구
+      if (_rhyBus) { try { _rhyBus.gain.cancelScheduledValues(_rhyCtx.currentTime); _rhyBus.gain.value = 0.9; } catch (e) {} }
+    }, 200);
+  }
+
+  // 공통 소리 만들기: 오실레이터 + 필터 + 엔벨로프
+  function rhyVoice(t, freq, dur, opt) {
     const c = rhyAudio(), o = c.createOscillator(), g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.2);
+    o.type = opt.type || 'triangle';
+    o.frequency.setValueAtTime(freq, t);
+    if (opt.detune) o.detune.value = opt.detune;
+    let node = o;
+    if (opt.cutoff) {
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.setValueAtTime(opt.cutoff, t); f.Q.value = opt.q || 0.8;
+      if (opt.sweep) f.frequency.exponentialRampToValueAtTime(Math.max(220, opt.cutoff * opt.sweep), t + dur);
+      o.connect(f); node = f;
+    }
+    node.connect(g); g.connect(_rhyBus);
+    const a = opt.attack == null ? 0.012 : opt.attack;
+    const v = opt.vol == null ? 0.2 : opt.vol;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + a);
+    if (opt.sustain) {                                   // 길게 끄는 소리(현악 패드)
+      g.gain.setValueAtTime(v, t + Math.max(a, dur * 0.6));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.25);
+    } else {
+      g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.09, dur));
+    }
+    o.start(t);
+    rhyReg(o, t + dur + 0.35);
+    return o;
+  }
+
+  function rhyKick(t, vol) {
+    const c = rhyAudio(), o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(155, t); o.frequency.exponentialRampToValueAtTime(44, t + 0.13);
+    g.gain.setValueAtTime(vol == null ? 0.5 : vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    o.connect(g); g.connect(_rhyBus); o.start(t); rhyReg(o, t + 0.22);
   }
   function rhyHat(t, vol) {
     const c = rhyAudio(), len = Math.floor(c.sampleRate * 0.05);
     const buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
     const src = c.createBufferSource(); src.buffer = buf;
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
-    const g = c.createGain(); g.gain.value = vol == null ? 0.13 : vol;
-    src.connect(hp); hp.connect(g); g.connect(c.destination); src.start(t);
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7200;
+    const g = c.createGain(); g.gain.value = vol == null ? 0.11 : vol;
+    src.connect(hp); hp.connect(g); g.connect(_rhyBus); src.start(t); rhyReg(src, t + 0.08);
   }
-  // 멜로디 음 (오르골 느낌)
+  // 멜로디 — 바이올린 느낌 (두 겹 디튠 + 배음)
   function rhyTone(t, midi, dur, vol) {
-    const c = rhyAudio(), f = rhyFreq(midi), len = Math.max(0.18, dur);
-    const o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), g2 = c.createGain();
-    o.type = 'triangle'; o.frequency.value = f;
-    o2.type = 'sine'; o2.frequency.value = f * 2.01;
-    g2.gain.value = 0.28; o2.connect(g2); g2.connect(g);
-    const v = vol == null ? 0.26 : vol;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(v, t + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    o.connect(g); g.connect(c.destination);
-    o.start(t); o.stop(t + len + 0.05); o2.start(t); o2.stop(t + len + 0.05);
+    const f = rhyFreq(midi), v = vol == null ? 0.20 : vol;
+    rhyVoice(t, f, dur, { type: 'sawtooth', cutoff: Math.min(7000, f * 7), sweep: 0.55, vol: v, attack: 0.02 });
+    rhyVoice(t, f, dur, { type: 'triangle', vol: v * 0.75, attack: 0.014, detune: 7 });
+    rhyVoice(t, f * 2, dur * 0.55, { type: 'sine', vol: v * 0.16, attack: 0.01 });
   }
-  function rhyBass(t, midi, dur) {
-    const c = rhyAudio(), o = c.createOscillator(), g = c.createGain();
-    o.type = 'sine'; o.frequency.value = rhyFreq(midi);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+  // 반주 화음 — 길게 깔리는 현악 패드
+  function rhyPad(t, midis, dur, vol) {
+    const v = (vol == null ? 0.052 : vol);
+    midis.forEach((m, i) => {
+      const f = rhyFreq(m);
+      rhyVoice(t, f, dur, { type: 'sawtooth', cutoff: Math.min(2600, f * 5), vol: v, attack: 0.09, sustain: true, detune: i % 2 ? 6 : -6 });
+    });
   }
-  // 잘 쳤을 때 나는 소리 — 그 노트의 '실제 음'을 한 옥타브 위로 튕겨준다.
-  // (레인마다 고정된 음을 내면 반주와 음이 부딪힌다)
+  // 반주 분산화음 — 통통 튀는 하프시코드 느낌
+  function rhyPluck(t, midi, dur, vol) {
+    const f = rhyFreq(midi);
+    rhyVoice(t, f, dur, { type: 'triangle', cutoff: Math.min(5200, f * 6), sweep: 0.35, vol: vol == null ? 0.075 : vol, attack: 0.006 });
+  }
+  function rhyBass(t, midi, dur, vol) {
+    const f = rhyFreq(midi);
+    rhyVoice(t, f, dur, { type: 'sine', vol: vol == null ? 0.17 : vol, attack: 0.02, sustain: true });
+    rhyVoice(t, f, dur * 0.5, { type: 'triangle', cutoff: 700, vol: (vol == null ? 0.17 : vol) * 0.3, attack: 0.01 });
+  }
+  // 잘 쳤을 때 — 그 노트의 실제 음을 한 옥타브 위로 튕겨준다
   function rhyClick(midi) {
-    const c = rhyAudio(), t = c.currentTime;
-    const o = c.createOscillator(), g = c.createGain();
-    o.type = 'triangle'; o.frequency.value = rhyFreq((midi == null ? 72 : midi) + 12);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.17, t + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.18);
-    rhyHat(t, 0.07);
+    const c = rhyAudio(), t = c.currentTime, f = rhyFreq((midi == null ? 72 : midi) + 12);
+    rhyVoice(t, f, 0.19, { type: 'triangle', vol: 0.15, attack: 0.005, cutoff: 8000 });
+    rhyVoice(t, f * 1.5, 0.11, { type: 'sine', vol: 0.05, attack: 0.004 });
+    rhyHat(t, 0.06);
   }
   function rhyMiss() {
     const c = rhyAudio(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'square'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(85, t + 0.1);
-    g.gain.setValueAtTime(0.1, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.13);
+    o.type = 'square'; o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(82, t + 0.1);
+    g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g); g.connect(_rhyBus); o.start(t); rhyReg(o, t + 0.14);
   }
 
   // ---- 기기 소리 지연 보정 (폰마다 30~150ms씩 밀린다) ----
@@ -3692,6 +3835,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
   function rhyClose() {
     _rhyRunning = false;
+    rhyStopAll();
     if (_calTimer) { clearInterval(_calTimer); _calTimer = null; }
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
     if (_rhyState) {
@@ -3769,6 +3913,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // ---- 시작 (참가비 차감) ----
   async function rhyStart(songKey) {
     if (_rhyRunning) return;
+    rhyStopAll();                      // 이전 판의 잔여 소리 정리
     const sid = document.getElementById('student-select').value;
     if (!sid) return;
     _rhyRunning = true;
@@ -3807,7 +3952,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const c = rhyAudio();
     const startAt = c.currentTime + 0.4;
     const chart = rhyBuildChart(songKey, startAt);
-    const song = chart.song, beat = chart.beat;
+    const song = chart.song, beat = chart.beat, measure = chart.measure;
     const total = chart.notes.length;
     _rhyState = { chart, sid, songKey, judged: [], combo: 0, maxCombo: 0,
                   counts: { PERFECT: 0, GOOD: 0, OK: 0, MISS: 0 }, score: 0 };
@@ -3876,19 +4021,79 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       n.el = d; n.tailPx = tailPx;
     });
 
-    // 반주 + 멜로디 예약 — 바퀴가 돌수록 두꺼워진다
+    // ---- 반주 편곡 : 베이스 + 화음 패드 + 분산화음 + 드럼 ----
+    // 곡 전체를 한꺼번에 예약하면 오실레이터가 수천 개라 폰이 버벅인다.
+    // 그래서 '언제 무엇을 연주할지'만 목록으로 만들어 두고, 2초 앞까지만 그때그때 예약한다.
+    const plan = [];
+    const at = (t, fn) => plan.push({ t, fn });
     const M = song.meter || 4;
-    for (let b = 0; b * beat < chart.endsAt - startAt; b++) {
-      const t = startAt + b * beat, inBar = b % M;
-      if (inBar === 0 || (M === 4 && inBar === 2)) rhyKick(t);
-      rhyHat(t, inBar === 0 ? 0.2 : 0.11);
-      if (inBar === 0) rhyBass(t, song.bass[Math.floor(b / M) % song.bass.length], beat * (M - 0.4));
+    const CHORD_SHAPE = { 0: [0, 4, 7], 1: [0, 3, 7], 2: [0, 4, 7, 10], 3: [0, 3, 6] };
+    const chordAt = bar => {
+      const ch = (song.chords || [[song.bass[0], 0]])[bar % (song.chords ? song.chords.length : 1)];
+      const shape = CHORD_SHAPE[ch[1]] || CHORD_SHAPE[0];
+      return { root: ch[0], notes: shape.map(iv => ch[0] + 12 + iv) };   // 한 옥타브 위에서 울림
+    };
+    const totalBars = Math.ceil((chart.endsAt - startAt) / measure);
+
+    for (let bar = 0; bar < totalBars; bar++) {
+      const t0 = startAt + bar * measure;
+      const { root, notes } = chordAt(bar);
+      const intro = t0 < startAt + chart.leadIn;          // 카운트인 구간은 얇게
+      const thick = Math.min(1, (t0 - startAt) / (chart.endsAt - startAt) * 1.6 + 0.45);
+
+      // 베이스 (마디 첫 박, 4/4는 3박에 한 번 더)
+      at(t0, t => rhyBass(t, root, beat * (M - 0.35), intro ? 0.09 : 0.17));
+      if (M === 4 && !intro) at(t0 + beat * 2, t => rhyBass(t, root + 7, beat * 1.6, 0.10));
+
+      // 화음 패드 — 마디 전체를 감싼다
+      at(t0, t => rhyPad(t, notes, measure * 0.95, (intro ? 0.028 : 0.052) * thick));
+
+      // 스타일별 반주
+      if (song.style === 'waltz') {                       // 3박자: 쿵-짝-짝
+        for (let bt = 1; bt < M; bt++) at(t0 + bt * beat, t => notes.forEach(m => rhyPluck(t, m, beat * 0.7, intro ? 0.03 : 0.055)));
+      } else if (song.style === 'tremolo') {              // 겨울: 얼어붙은 16분음표 떨림
+        const step = beat / 4;
+        for (let i = 0; i < M * 4; i++) {
+          const m = notes[i % notes.length];
+          at(t0 + i * step, t => rhyPluck(t, m, step * 1.3, (intro ? 0.02 : 0.042) * thick));
+        }
+      } else {                                            // 기본: 분산화음이 8분음표로 흐른다
+        const step = beat / 2, seqUp = notes.concat(notes.slice(0, -1).reverse());
+        for (let i = 0; i < M * 2; i++) {
+          const mm = seqUp[i % seqUp.length];
+          at(t0 + i * step, t => rhyPluck(t, mm, step * 1.5, (intro ? 0.028 : 0.062) * thick));
+        }
+      }
+
+      // 드럼
+      for (let bt = 0; bt < M; bt++) {
+        const t = t0 + bt * beat;
+        if (bt === 0 || (M === 4 && bt === 2)) at(t, tt => rhyKick(tt, intro ? 0.28 : 0.45));
+        at(t, tt => rhyHat(tt, (bt === 0 ? 0.16 : 0.09) * (intro ? 0.6 : 1)));
+        if (!intro && song.style !== 'waltz') at(t + beat / 2, tt => rhyHat(tt, 0.055));
+      }
     }
+
+    // ---- 멜로디 (바퀴가 돌수록 두꺼워진다) ----
     chart.music.forEach(m => {
-      rhyTone(m.t, m.midi, m.dur * 0.92);
-      if (m.loop >= 1) rhyTone(m.t, m.midi - 12, m.dur * 0.9, 0.10);   // 2바퀴부터 옥타브 아래 겹치기
-      if (m.loop >= 2) rhyTone(m.t, m.midi + 12, m.dur * 0.5, 0.06);   // 3바퀴부터 반짝임 추가
+      at(m.t, t => {
+        rhyTone(t, m.midi, m.dur * 0.92);
+        if (m.loop >= 1) rhyTone(t, m.midi - 12, m.dur * 0.9, 0.075);   // 2바퀴부터 옥타브 아래 겹치기
+        if (m.loop >= 2) rhyTone(t, m.midi + 12, m.dur * 0.5, 0.045);   // 3바퀴부터 위쪽 반짝임
+      });
     });
+
+    // 시간순으로 정렬해 두고 조금씩 흘려보낸다
+    plan.sort((a, b) => a.t - b.t);
+    let planIdx = 0;
+    clearInterval(_rhyPlanTimer);
+    const pump = () => {
+      const ahead = c.currentTime + 2.0;
+      while (planIdx < plan.length && plan[planIdx].t < ahead) { const e = plan[planIdx++]; e.fn(Math.max(e.t, c.currentTime)); }
+      if (planIdx >= plan.length) { clearInterval(_rhyPlanTimer); _rhyPlanTimer = null; }
+    };
+    pump();
+    _rhyPlanTimer = setInterval(pump, 350);
 
     // ---- 화면 효과 ----
     const burst = (lane, color, big) => {
@@ -4072,12 +4277,14 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
   function rhyAbort() {
     if (!confirm('그만둘까요? 참가비는 돌려받지 못해요.')) return;
+    rhyStopAll();                      // 예약해 둔 반주·멜로디를 즉시 끈다
     rhyFinish(true);
   }
 
   async function rhyFinish(aborted) {
     if (!_rhyState) return;
     _rhyRunning = false;
+    rhyStopAll();                      // 곡이 끝나면 남은 예약 소리도 정리
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
     if (_rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
     if (_rhyState.keyUpHandler) window.removeEventListener('keyup', _rhyState.keyUpHandler);
