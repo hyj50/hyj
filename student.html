@@ -255,6 +255,32 @@
     border: 2.5px solid #FF453A !important;
     animation: rejectPulse 1.6s ease-in-out infinite;
   }
+  /* 리듬게임 이펙트 */
+  .rhy-pad { transition: background .09s, transform .09s; }
+  @keyframes rhyRing {
+    from { width:14px; height:14px; opacity:.9; border-width:3px; }
+    to   { width:112px; height:112px; opacity:0; border-width:1px; }
+  }
+  .rhy-ring { position:absolute; transform:translate(-50%,-50%); border-radius:50%;
+    border-style:solid; animation: rhyRing .42s ease-out forwards; }
+  @keyframes rhySpark {
+    from { transform:translate(-50%,-50%) translate(0,0) scale(1); opacity:1; }
+    to   { transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(.2); opacity:0; }
+  }
+  .rhy-spark { position:absolute; width:7px; height:7px; border-radius:50%;
+    animation: rhySpark .5s cubic-bezier(.2,.7,.4,1) forwards; }
+  @keyframes rhyPop {
+    0%   { transform:scale(.7); opacity:0; }
+    28%  { transform:scale(1.14); opacity:1; }
+    70%  { transform:scale(1); opacity:1; }
+    100% { transform:scale(1); opacity:0; }
+  }
+  .rhy-pop { animation: rhyPop .5s ease-out forwards; }
+  @media (prefers-reduced-motion: reduce) {
+    .rhy-ring, .rhy-spark { display:none; }
+    .rhy-pop { animation: none; opacity: 1; }
+  }
+
   /* 레벨 혜택: 금테두리(Lv.50) 이름 반짝임 · 왕관(Lv.100) 연출 */
   @keyframes rankShine {
     0%,100% { text-shadow: 0 0 0 rgba(255,255,255,0); }
@@ -862,7 +888,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     TIMER_2:      45,   // 제한시간 +2분
     FRAME_GOLD:   50,   // 금테두리 + 이름 반짝임
     MISSION_3:    55,   // 미션 하루 6문제
-    RHYTHM_HEAVEN:60,   // 🎧 리듬천국 모드 해금
     SHOP_SALE_3:  70,   // 상점 15% 할인
     TIMER_3:      70,   // 제한시간 +3분
     MISSION_4:    75,   // 미션 하루 7문제
@@ -931,7 +956,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       [PERK.ROULETTE_2,   `룰렛 하루 ${ROULETTE_DAILY + ROULETTE_BONUS_PER_TIER * 2}번`],
       [PERK.TIMER_2,      '변형문제 제한시간 +2분'],
       [PERK.MISSION_3,    `미션 하루 ${missionLimitFor(PERK.MISSION_3)}문제`],
-      [PERK.RHYTHM_HEAVEN,'🎧 리듬천국 모드'],
       [PERK.FRAME_GOLD,   '금테두리 + 이름 반짝임'],
       [PERK.SHOP_SALE_3,  '상점 15% 할인'],
       [PERK.TIMER_3,      '변형문제 제한시간 +3분'],
@@ -1013,7 +1037,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (missionBonusFor(prog.level)) perks.push(`📝 미션 하루 ${missionLimitFor(prog.level)}문제`);
         if (timerBonusFor(prog.level)) perks.push(`⏱️ 제한시간 +${timerBonusFor(prog.level) / 60}분`);
         if (shopRateFor(prog.level)) perks.push(`🏪 상점 ${Math.round(shopRateFor(prog.level) * 100)}% 할인`);
-        if (prog.level >= PERK.RHYTHM_HEAVEN) perks.push('🎧 리듬천국');
         if (t.key !== 'none') perks.push(`${t.label}테두리`);
         const nextPerk = nextPerkLine(prog.level);
 
@@ -3310,7 +3333,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // 1회 10P · 하루 3번. 정확도 등급에 따라 보상.
   //   S 15P / A 12P / B 9P / C 4P / D 0P  → 아무리 잘해도 한 판 최대 +5P
   // 4버튼. 곡은 저작권이 풀린 클래식을 브라우저가 직접 연주한다(음원 파일 없음).
-  // 모드: 노트가 내려오는 기본 모드 + Lv.60부터 '리듬천국 모드'(듣고 따라 치기)
   // ※ 리듬게임 P는 명성·레벨에 반영되지 않음
   const RHYTHM_COST = 10;
   const RHYTHM_DAILY = 3;
@@ -3387,6 +3409,18 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
             [67,2],[69,2],[67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],
             [67,2],[64,2],[62,2],[60,2],[62,2],[64,2],[67,4],[72,4]],
       bass: [55,55,48,48,55,55,53,48] },
+
+    winter: { name: '사계 「겨울」 1악장', by: '비발디', lv: 4, bpm: 138, meter: 4, color: '#60A5FA',
+      // 얼어붙은 맥박(같은 음 반복) → 몰아치는 하강 → 치솟는 상승 → 격렬한 마무리
+      mel: [[65,1],[65,1],[65,1],[65,1],[68,1],[68,1],[68,1],[68,1],
+            [72,1],[72,1],[72,1],[72,1],[77,2],[76,2],
+            [77,1],[75,1],[73,1],[72,1],[70,1],[68,1],[67,1],[65,1],[64,2],[65,4],
+            [65,1],[68,1],[72,1],[77,1],[76,1],[73,1],[72,1],[70,1],
+            [68,1],[67,1],[65,1],[64,1],[65,4],
+            [77,1],[76,1],[77,1],[75,1],[73,1],[72,1],[70,1],[68,1],
+            [80,1],[77,1],[73,1],[72,1],[70,1],[68,1],[67,1],[65,1],
+            [67,2],[65,2],[64,2],[65,6]],
+      bass: [41,41,44,44,48,48,41,41] },
 
     spring: { name: '사계 「봄」', by: '비발디', lv: 3, bpm: 116, meter: 4, color: '#FBBF24',
       mel: [[76,1],[76,1],[76,2],[71,1],[71,2],[76,1],[76,1],[76,2],[71,1],[71,2],
@@ -3525,65 +3559,57 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   const rhySetOffset = v => localStorage.setItem('rhy_offset', String(v));
 
   // ---- 채보 만들기 : 멜로디 자체가 채보가 된다 ----
-  // 음이 낮으면 왼쪽, 높으면 오른쪽 레인. 같은 음은 같은 레인이라 손이 안 꼬인다.
-  function rhyBuildChart(songKey, startAt, heaven) {
+  const RHY_MIN_LEN = 62;      // 한 판 최소 길이(초) — 짧으면 멜로디를 반복해서 채운다
+  const RHY_HOLD_SEC = 0.66;   // 이 길이 이상인 음은 '꾹 누르는' 롱노트가 된다
+
+  function rhyBuildChart(songKey, startAt) {
     const song = RHY_SONGS[songKey];
     const beat = 60 / song.bpm, unit = beat / 2, measure = beat * (song.meter || 4);
     const leadIn = measure * 2;                       // 카운트인 2마디
-    // 레인 배정: 음이 낮으면 왼쪽, 높으면 오른쪽.
-    // 단순히 음역을 4등분하면 곡에 따라 빈 레인이나 한쪽 몰림이 생기므로,
-    // '나오는 음' 기준으로 노트 수가 네 레인에 고루 퍼지게 자른다.
-    const laneMap = (() => {
-      const cnt = {};
-      song.mel.forEach(([m]) => { cnt[m] = (cnt[m] || 0) + 1; });
-      const uniq = Object.keys(cnt).map(Number).sort((a, b) => a - b);
-      const total = song.mel.length, per = total / RHY_LANES;
-      const map = {};
-      let acc = 0, lane = 0;
-      uniq.forEach((m, i) => {
-        const lanesLeft = RHY_LANES - 1 - lane;         // 아직 안 쓴 레인 수
-        const uniqLeft = uniq.length - i;               // 이 음 포함, 남은 음 종류 수
-        // 남은 음 종류가 남은 레인 수까지 줄면 무조건 한 칸 밀어야 빈 레인이 안 생긴다
-        if (lane < RHY_LANES - 1 && (uniqLeft <= lanesLeft || acc >= per * (lane + 1))) lane++;
-        map[m] = lane;
-        acc += cnt[m];
-      });
-      return map;
-    })();
-    const laneOf = m => laneMap[m] || 0;
 
-    const notes = [], cues = [], music = [];
+    // ① 한 바퀴 길이를 재서, 1분이 넘도록 반복 횟수를 정한다
+    const oneLoop = song.mel.reduce((s, m) => s + m[1], 0) * unit;
+    const loops = Math.max(1, Math.min(8, Math.ceil(RHY_MIN_LEN / oneLoop)));
+
+    // ② 반복을 펼쳐 전체 멜로디를 만든다 (반복마다 반주가 두꺼워진다)
+    const seq = [];
     let t = startAt + leadIn;
-    if (!heaven) {
+    for (let L = 0; L < loops; L++) {
       song.mel.forEach(([m, d]) => {
-        notes.push({ t, lane: laneOf(m), midi: m, dur: d * unit, hit: null });
-        music.push({ t, midi: m, dur: d * unit });
+        seq.push({ t, midi: m, dur: d * unit, loop: L });
         t += d * unit;
       });
-    } else {
-      // 리듬천국 모드: 4마디 듣고 → 4마디 따라 치기
-      const phraseLen = measure * 2;
-      let acc = 0, phrase = [];
-      const flush = () => {
-        if (!phrase.length) return;
-        const callStart = t, respStart = t + phraseLen;
-        phrase.forEach(n => {
-          cues.push({ t: callStart + n.o, midi: n.m, dur: n.d });
-          music.push({ t: callStart + n.o, midi: n.m, dur: n.d });
-          notes.push({ t: respStart + n.o, lane: laneOf(n.m), midi: n.m, dur: n.d, hit: null });
-        });
-        t += phraseLen * 2; phrase = []; acc = 0;
-      };
-      song.mel.forEach(([m, d]) => {
-        if (acc + d * unit > phraseLen) flush();
-        phrase.push({ o: acc, m, d: d * unit });
-        acc += d * unit;
-      });
-      flush();
+      t += beat;                                      // 바퀴 사이 한 박 숨 고르기
     }
-    const endsAt = (notes.length ? notes[notes.length - 1].t + notes[notes.length - 1].dur : t) + beat * 2;
 
-    // 같은 레인 최소 간격에 맞춰 판정창을 좁힌다 (넓으면 앞 노트가 탭을 가로챈다)
+    // ③ 레인 배정: 음이 낮으면 왼쪽, 높으면 오른쪽.
+    //    음역을 그냥 4등분하면 곡에 따라 빈 레인이나 한쪽 몰림이 생기므로,
+    //    '나오는 음' 기준으로 노트 수가 네 레인에 고루 퍼지게 자른다.
+    const cnt = {};
+    seq.forEach(n => { cnt[n.midi] = (cnt[n.midi] || 0) + 1; });
+    const uniq = Object.keys(cnt).map(Number).sort((a, b) => a - b);
+    const per = seq.length / RHY_LANES;
+    const laneMap = {};
+    let acc = 0, lane = 0;
+    uniq.forEach((m, i) => {
+      const lanesLeft = RHY_LANES - 1 - lane;         // 아직 안 쓴 레인 수
+      const uniqLeft = uniq.length - i;               // 이 음 포함, 남은 음 종류 수
+      // 남은 음 종류가 남은 레인 수까지 줄면 무조건 한 칸 밀어야 빈 레인이 안 생긴다
+      if (lane < RHY_LANES - 1 && (uniqLeft <= lanesLeft || acc >= per * (lane + 1))) lane++;
+      laneMap[m] = lane;
+      acc += cnt[m];
+    });
+
+    const notes = [], music = [];
+    seq.forEach(n => {
+      const hold = n.dur >= RHY_HOLD_SEC;
+      notes.push({ t: n.t, lane: laneMap[n.midi] || 0, midi: n.midi, dur: n.dur,
+                   hold, end: n.t + n.dur, hit: null, holding: false, done: false, loop: n.loop });
+      music.push({ t: n.t, midi: n.midi, dur: n.dur, loop: n.loop });
+    });
+    const endsAt = (notes.length ? notes[notes.length - 1].end : t) + beat * 2;
+
+    // ④ 같은 레인 최소 간격에 맞춰 판정창을 좁힌다 (넓으면 앞 노트가 탭을 가로챈다)
     let minGap = 99;
     for (let L = 0; L < RHY_LANES; L++) {
       const ts = notes.filter(n => n.lane === L).map(n => n.t).sort((a, b) => a - b);
@@ -3592,7 +3618,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const scale = Math.min(1, (minGap * 0.45) / RHY_WINDOWS[RHY_WINDOWS.length - 1][0]);
     const windows = RHY_WINDOWS.map(w => [w[0] * scale, w[1], w[2], w[3]]);
 
-    return { song, notes, cues, music, beat, measure, unit, leadIn, endsAt, windows, minGap };
+    return { song, notes, music, beat, measure, unit, leadIn, endsAt, windows, minGap, loops, startAt };
   }
 
   // ---- 오늘 사용 횟수 (localStorage가 아니라 DB 기록으로 판정) ----
@@ -3613,7 +3639,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const limit = isUnlimited(sid) ? Infinity : RHYTHM_DAILY;
     const left = limit === Infinity ? '∞' : Math.max(0, limit - used);
     const out = used >= limit;
-    const canHeaven = _myLevel() >= PERK.RHYTHM_HEAVEN;
     const best = localStorage.getItem(`rhy_best_${sid}`);
     const cal = rhyOffset();
     const keys = Object.keys(RHY_SONGS).sort((x, y) => RHY_SONGS[x].lv - RHY_SONGS[y].lv);
@@ -3622,12 +3647,6 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
         <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🥁 리듬 게임 <span style="font-size:11px;color:var(--text4);font-weight:600;">· ${keys.length}곡</span></div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">1회 ${RHYTHM_COST}P · 하루 ${RHYTHM_DAILY}번 · 오늘 <b style="color:var(--pink);">${left}</b>번 남음${best ? ` · 최고 <b style="color:#FBBF24;">${best}</b>` : ''}</div>
-
-        ${canHeaven ? `<label for="rhy-heaven" style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.4);margin-bottom:10px;cursor:pointer;">
-            <input type="checkbox" id="rhy-heaven" style="width:16px;height:16px;accent-color:#A78BFA;cursor:pointer;flex-shrink:0;" />
-            <span style="font-size:12px;font-weight:800;color:#A78BFA;">🎧 리듬천국 모드 <span style="font-weight:600;opacity:.8;">— 노트 없이 듣고 따라 치기</span></span>
-          </label>`
-          : `<div style="padding:9px 12px;border-radius:10px;background:var(--bg3);font-size:11.5px;color:var(--text4);margin-bottom:10px;">🔒 Lv.${PERK.RHYTHM_HEAVEN} — 🎧 리듬천국 모드 (노트 없이 듣고 따라 치기)</div>`}
 
         <div style="max-height:264px;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:11px;border:1px solid var(--border);">
           ${keys.map((k, i) => {
@@ -3656,11 +3675,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       </div>`;
   }
 
-  // 목록에서 곡을 고르면 리듬천국 토글 상태와 함께 시작
-  function rhySongPick(key) {
-    const hv = document.getElementById('rhy-heaven');
-    rhyStart(key, !!(hv && hv.checked));
-  }
+  function rhySongPick(key) { rhyStart(key); }
 
   // ---- 전체화면 판 ----
   function rhyOverlay(inner) {
@@ -3679,7 +3694,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     _rhyRunning = false;
     if (_calTimer) { clearInterval(_calTimer); _calTimer = null; }
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
-    if (_rhyState && _rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
+    if (_rhyState) {
+      if (_rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
+      if (_rhyState.keyUpHandler) window.removeEventListener('keyup', _rhyState.keyUpHandler);
+    }
     const el = document.getElementById('rhy-overlay');
     if (el) { el.style.display = 'none'; el.innerHTML = ''; }
   }
@@ -3749,7 +3767,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // ---- 시작 (참가비 차감) ----
-  async function rhyStart(songKey, heaven) {
+  async function rhyStart(songKey) {
     if (_rhyRunning) return;
     const sid = document.getElementById('student-select').value;
     if (!sid) return;
@@ -3776,7 +3794,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         body: JSON.stringify({ student_id: sid, amount: -RHYTHM_COST, reason: RHY_FEE_REASON })
       });
       if (!r2.ok) throw new Error(await r2.text());
-      rhyPlay(songKey, sid, !!heaven);
+      rhyPlay(songKey, sid);
     } catch (e) {
       console.error('rhyStart:', e);
       alert('시작하지 못했어요. 잠시 후 다시 시도해주세요.');
@@ -3785,52 +3803,80 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }
   }
 
-  function rhyPlay(songKey, sid, heaven) {
+  function rhyPlay(songKey, sid) {
     const c = rhyAudio();
-    const startAt = c.currentTime + 0.35;
-    const chart = rhyBuildChart(songKey, startAt, heaven);
+    const startAt = c.currentTime + 0.4;
+    const chart = rhyBuildChart(songKey, startAt);
     const song = chart.song, beat = chart.beat;
-    _rhyState = { chart, sid, songKey, heaven, judged: [], combo: 0, maxCombo: 0 };
+    const total = chart.notes.length;
+    _rhyState = { chart, sid, songKey, judged: [], combo: 0, maxCombo: 0,
+                  counts: { PERFECT: 0, GOOD: 0, OK: 0, MISS: 0 }, score: 0 };
 
-    const padW = (100 / RHY_LANES).toFixed(2);
     rhyOverlay(`
       <div style="width:100%;max-width:520px;height:100%;display:flex;flex-direction:column;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;color:#E2E8F0;gap:8px;">
-          <div style="min-width:0;">
-            <div style="font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${heaven ? '🎧 ' : ''}${song.name}</div>
-            <div style="font-size:10px;opacity:.6;font-weight:700;">${song.by}</div>
+        <div style="padding:10px 14px 6px;color:#E2E8F0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <div style="min-width:0;">
+              <div style="font-size:12.5px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${song.name}</div>
+              <div style="font-size:10px;opacity:.55;font-weight:700;">${song.by} · ${RHY_LV_LABEL[song.lv]}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div id="rhy-score" style="font-size:15px;font-weight:900;letter-spacing:.5px;">0</div>
+              <div style="font-size:9.5px;opacity:.5;font-weight:700;">SCORE</div>
+            </div>
+            <button onclick="rhyAbort()" style="padding:5px 10px;border-radius:8px;border:1px solid #334155;background:none;color:#94A3B8;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">포기</button>
           </div>
-          <div id="rhy-combo" style="font-size:15px;font-weight:900;color:#FBBF24;white-space:nowrap;"></div>
-          <button onclick="rhyAbort()" style="padding:5px 11px;border-radius:8px;border:1px solid #334155;background:none;color:#94A3B8;font-size:11.5px;font-weight:700;cursor:pointer;flex-shrink:0;">포기</button>
+          <div style="height:4px;border-radius:3px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden;">
+            <div id="rhy-prog" style="height:100%;width:0%;background:linear-gradient(90deg,#38BDF8,#F43F5E);border-radius:3px;"></div>
+          </div>
         </div>
+
         <div id="rhy-field" style="flex:1;position:relative;overflow:hidden;">
-          ${Array.from({ length: RHY_LANES - 1 }, (_, i) => `<div style="position:absolute;left:${((i + 1) * 100 / RHY_LANES).toFixed(2)}%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06);"></div>`).join('')}
-          <div id="rhy-line" style="position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.5);"></div>
+          ${Array.from({ length: RHY_LANES }, (_, i) => `<div style="position:absolute;left:${(i * 100 / RHY_LANES).toFixed(2)}%;width:${(100 / RHY_LANES).toFixed(2)}%;top:0;bottom:0;background:linear-gradient(180deg,transparent 55%,${RHY_LANE_COLORS[i]}0F 100%);border-right:${i < RHY_LANES - 1 ? '1px solid rgba(255,255,255,.05)' : 'none'};box-sizing:border-box;"></div>`).join('')}
+          <div id="rhy-glow" style="position:absolute;left:0;right:0;height:80px;pointer-events:none;"></div>
+          <div id="rhy-line" style="position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.45);box-shadow:0 0 14px rgba(255,255,255,.25);"></div>
           <div id="rhy-notes" style="position:absolute;inset:0;"></div>
-          <div id="rhy-judge" style="position:absolute;left:0;right:0;text-align:center;font-size:26px;font-weight:900;opacity:0;transition:opacity .12s;"></div>
-          <div id="rhy-msg" style="position:absolute;left:0;right:0;top:36%;text-align:center;color:#E2E8F0;font-size:22px;font-weight:900;"></div>
+          <div id="rhy-fx" style="position:absolute;inset:0;pointer-events:none;"></div>
+          <div id="rhy-combo" style="position:absolute;left:0;right:0;text-align:center;pointer-events:none;">
+            <div id="rhy-combo-n" style="font-size:38px;font-weight:900;color:#FBBF24;line-height:1;text-shadow:0 2px 14px rgba(251,191,36,.5);opacity:0;"></div>
+            <div id="rhy-combo-t" style="font-size:11px;font-weight:800;color:#FBBF24;opacity:0;letter-spacing:3px;">COMBO</div>
+          </div>
+          <div id="rhy-judge" style="position:absolute;left:0;right:0;text-align:center;font-size:24px;font-weight:900;opacity:0;"></div>
+          <div id="rhy-msg" style="position:absolute;left:0;right:0;top:34%;text-align:center;color:#E2E8F0;font-size:40px;font-weight:900;"></div>
         </div>
+
         <div style="display:flex;gap:6px;padding:0 8px 16px;">
-          ${Array.from({ length: RHY_LANES }, (_, i) => `<div id="rhy-pad${i}" style="flex:1;height:88px;border-radius:13px;background:${RHY_LANE_COLORS[i]}26;border:2px solid ${RHY_LANE_COLORS[i]}73;display:flex;align-items:center;justify-content:center;"><div style="width:34px;height:5px;border-radius:3px;background:${RHY_LANE_COLORS[i]}88;"></div></div>`).join('')}
+          ${Array.from({ length: RHY_LANES }, (_, i) => `<div id="rhy-pad${i}" class="rhy-pad" style="flex:1;height:88px;border-radius:13px;background:${RHY_LANE_COLORS[i]}22;border:2px solid ${RHY_LANE_COLORS[i]}66;display:flex;align-items:center;justify-content:center;"><div style="width:32px;height:5px;border-radius:3px;background:${RHY_LANE_COLORS[i]}99;"></div></div>`).join('')}
         </div>
       </div>`);
 
     const field = document.getElementById('rhy-field');
     const H = field.clientHeight;
-    const LINE = Math.round(H * 0.82);
+    const LINE = Math.round(H * 0.80);
+    const fx = document.getElementById('rhy-fx');
     document.getElementById('rhy-line').style.top = LINE + 'px';
-    document.getElementById('rhy-judge').style.top = (LINE - 60) + 'px';
+    document.getElementById('rhy-glow').style.top = (LINE - 78) + 'px';
+    document.getElementById('rhy-judge').style.top = (LINE - 58) + 'px';
+    document.getElementById('rhy-combo').style.top = Math.round(H * 0.30) + 'px';
 
+    // 노트 DOM (롱노트는 길이만큼 늘어난 막대)
     const notesEl = document.getElementById('rhy-notes');
     const laneW = 100 / RHY_LANES;
     chart.notes.forEach((n, i) => {
+      const tailPx = n.hold ? Math.round(n.dur / RHY_APPROACH * LINE) : 0;
       const d = document.createElement('div');
       d.id = 'rhy-n' + i;
-      d.style.cssText = `position:absolute;height:15px;border-radius:8px;left:${(n.lane * laneW + 1.4).toFixed(2)}%;width:${(laneW - 2.8).toFixed(2)}%;top:-40px;background:${RHY_LANE_COLORS[n.lane]};box-shadow:0 0 10px ${RHY_LANE_COLORS[n.lane]}99;${heaven ? 'display:none;' : ''}`;
+      d.style.cssText = `position:absolute;left:${(n.lane * laneW + 1.6).toFixed(2)}%;width:${(laneW - 3.2).toFixed(2)}%;`
+        + `height:${16 + tailPx}px;border-radius:9px;top:-600px;`
+        + (n.hold
+            ? `background:linear-gradient(180deg,${RHY_LANE_COLORS[n.lane]}55,${RHY_LANE_COLORS[n.lane]});border:2px solid ${RHY_LANE_COLORS[n.lane]};box-sizing:border-box;`
+            : `background:linear-gradient(180deg,#fff6,${RHY_LANE_COLORS[n.lane]});`)
+        + `box-shadow:0 0 12px ${RHY_LANE_COLORS[n.lane]}AA;`;
       notesEl.appendChild(d);
+      n.el = d; n.tailPx = tailPx;
     });
 
-    // 반주(킥·하이햇) + 베이스 + 멜로디 예약 — 곡의 박자(3/4·4/4)를 따른다
+    // 반주 + 멜로디 예약 — 바퀴가 돌수록 두꺼워진다
     const M = song.meter || 4;
     for (let b = 0; b * beat < chart.endsAt - startAt; b++) {
       const t = startAt + b * beat, inBar = b % M;
@@ -3838,19 +3884,74 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       rhyHat(t, inBar === 0 ? 0.2 : 0.11);
       if (inBar === 0) rhyBass(t, song.bass[Math.floor(b / M) % song.bass.length], beat * (M - 0.4));
     }
-    chart.music.forEach(m => rhyTone(m.t, m.midi, m.dur * 0.92));
+    chart.music.forEach(m => {
+      rhyTone(m.t, m.midi, m.dur * 0.92);
+      if (m.loop >= 1) rhyTone(m.t, m.midi - 12, m.dur * 0.9, 0.10);   // 2바퀴부터 옥타브 아래 겹치기
+      if (m.loop >= 2) rhyTone(m.t, m.midi + 12, m.dur * 0.5, 0.06);   // 3바퀴부터 반짝임 추가
+    });
 
-    const flash = (lane, strong) => {
+    // ---- 화면 효과 ----
+    const burst = (lane, color, big) => {
+      if (fx.childElementCount > 90) return;          // 저사양 기기 보호
+      const cx = (lane + 0.5) * (100 / RHY_LANES);
+      const ring = document.createElement('div');
+      ring.className = 'rhy-ring';
+      ring.style.cssText = `left:${cx}%;top:${LINE}px;border-color:${color};`;
+      fx.appendChild(ring);
+      setTimeout(() => ring.remove(), 460);
+      const n = big ? 8 : 5;
+      for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        const a = (Math.PI * 2 * i) / n + Math.random() * 0.6;
+        const r = (big ? 46 : 30) + Math.random() * 22;
+        p.className = 'rhy-spark';
+        p.style.cssText = `left:${cx}%;top:${LINE}px;background:${color};--dx:${Math.cos(a) * r}px;--dy:${Math.sin(a) * r - 14}px;`;
+        fx.appendChild(p);
+        setTimeout(() => p.remove(), 520);
+      }
+    };
+    const padHit = (lane, strong) => {
       const p = document.getElementById('rhy-pad' + lane);
       if (!p) return;
-      p.style.background = strong ? RHY_LANE_COLORS[lane] + '99' : 'rgba(148,163,184,.28)';
-      setTimeout(() => { p.style.background = RHY_LANE_COLORS[lane] + '26'; }, 90);
+      p.style.background = strong ? RHY_LANE_COLORS[lane] + 'AA' : 'rgba(148,163,184,.3)';
+      p.style.transform = 'scale(0.96)';
+      setTimeout(() => { p.style.background = RHY_LANE_COLORS[lane] + '22'; p.style.transform = ''; }, 100);
     };
     const showJudge = (txt, color) => {
       const j = document.getElementById('rhy-judge');
       if (!j) return;
-      j.textContent = txt; j.style.color = color; j.style.opacity = '1';
-      clearTimeout(j._t); j._t = setTimeout(() => { j.style.opacity = '0'; }, 250);
+      j.textContent = txt; j.style.color = color;
+      j.classList.remove('rhy-pop'); void j.offsetWidth; j.classList.add('rhy-pop');
+    };
+    const bumpCombo = () => {
+      const st = _rhyState, n = document.getElementById('rhy-combo-n'), t2 = document.getElementById('rhy-combo-t');
+      if (!n) return;
+      if (st.combo < 3) { n.style.opacity = '0'; t2.style.opacity = '0'; n.textContent = ''; return; }
+      n.textContent = st.combo;
+      const hot = st.combo >= 30 ? '#F43F5E' : st.combo >= 15 ? '#FB923C' : '#FBBF24';
+      n.style.color = hot; t2.style.color = hot;
+      n.style.opacity = '.92'; t2.style.opacity = '.7';
+      n.classList.remove('rhy-pop'); void n.offsetWidth; n.classList.add('rhy-pop');
+    };
+    const addScore = w => {
+      const st = _rhyState;
+      st.score += Math.round(w * 100 * (1 + Math.min(st.combo, 50) / 100));
+      const el = document.getElementById('rhy-score');
+      if (el) el.textContent = st.score.toLocaleString();
+    };
+
+    // ---- 판정 ----
+    const st = _rhyState;
+    const down = [false, false, false, false];
+
+    const settle = (n, ratio) => {                    // 롱노트 마무리
+      if (n.done) return;
+      n.done = true;
+      const v = n.hit * (0.55 + 0.45 * Math.max(0, Math.min(1, ratio)));
+      st.judged.push(v);
+      addScore(v);
+      if (ratio < 0.5) { st.combo = 0; bumpCombo(); showJudge('놓침', '#94A3B8'); }
+      if (n.el) n.el.style.display = 'none';
     };
 
     const tap = lane => {
@@ -3866,63 +3967,102 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (d < -win || d > win) return;
         if (best < 0 || n.t < chart.notes[best].t) best = i;
       });
-      if (best < 0) { flash(lane, false); rhyMiss(); return; }
-      const bestD = Math.abs(now - chart.notes[best].t);
-      const g = chart.windows.find(w => bestD <= w[0]);
-      chart.notes[best].hit = g[2];
-      _rhyState.judged.push(g[2]);
-      _rhyState.combo++;
-      _rhyState.maxCombo = Math.max(_rhyState.maxCombo, _rhyState.combo);
-      rhyClick(chart.notes[best].midi);
-      flash(lane, true);
+      if (best < 0) { padHit(lane, false); rhyMiss(); return; }
+      const n = chart.notes[best];
+      const g = chart.windows.find(w => Math.abs(now - n.t) <= w[0]);
+      n.hit = g[2];
+      st.counts[g[1]]++;
+      st.combo++;
+      st.maxCombo = Math.max(st.maxCombo, st.combo);
+      rhyClick(n.midi);
+      padHit(lane, true);
+      burst(lane, RHY_LANE_COLORS[lane], g[1] === 'PERFECT');
       showJudge(g[1], g[3]);
-      const el = document.getElementById('rhy-n' + best);
-      if (el) el.style.display = 'none';
-      const cb = document.getElementById('rhy-combo');
-      if (cb) cb.textContent = _rhyState.combo >= 3 ? `${_rhyState.combo} COMBO` : '';
+      bumpCombo();
+      if (n.hold) { n.holding = true; if (n.el) n.el.style.opacity = '.75'; }
+      else { n.done = true; st.judged.push(g[2]); addScore(g[2]); if (n.el) n.el.style.display = 'none'; }
     };
 
-    const pd = e => { tap(parseInt(e.currentTarget.id.replace('rhy-pad', ''), 10)); e.preventDefault(); };
-    for (let i = 0; i < RHY_LANES; i++) document.getElementById('rhy-pad' + i).addEventListener('pointerdown', pd);
-    _rhyState.keyHandler = e => {
-      if (e.repeat) return;
-      const i = RHY_KEYS.indexOf(e.key.toLowerCase());
-      if (i >= 0) { tap(i); return; }
-      const a = ['arrowleft', 'arrowdown', 'arrowup', 'arrowright'].indexOf(e.key.toLowerCase());
-      if (a >= 0) tap(a);
+    const press = lane => { if (!down[lane]) { down[lane] = true; tap(lane); } };
+    const release = lane => {
+      down[lane] = false;
+      chart.notes.forEach(n => {
+        if (n.hold && n.holding && !n.done && n.lane === lane) {
+          const now = c.currentTime - rhyOffset();
+          n.holding = false;
+          settle(n, (now - n.t) / n.dur);
+        }
+      });
     };
-    window.addEventListener('keydown', _rhyState.keyHandler);
 
+    for (let i = 0; i < RHY_LANES; i++) {
+      const p = document.getElementById('rhy-pad' + i);
+      p.addEventListener('pointerdown', e => { press(i); e.preventDefault(); });
+      p.addEventListener('pointerup', e => { release(i); e.preventDefault(); });
+      p.addEventListener('pointercancel', () => release(i));
+      p.addEventListener('pointerleave', () => release(i));
+    }
+    const keyLane = k => {
+      const i = RHY_KEYS.indexOf(k);
+      if (i >= 0) return i;
+      return ['arrowleft', 'arrowdown', 'arrowup', 'arrowright'].indexOf(k);
+    };
+    st.keyHandler = e => { if (e.repeat) return; const i = keyLane(e.key.toLowerCase()); if (i >= 0) press(i); };
+    st.keyUpHandler = e => { const i = keyLane(e.key.toLowerCase()); if (i >= 0) release(i); };
+    window.addEventListener('keydown', st.keyHandler);
+    window.addEventListener('keyup', st.keyUpHandler);
+
+    // ---- 루프 ----
     _rhyRunning = true;
     const missWin = chart.windows[chart.windows.length - 1][0];
+    const prog = document.getElementById('rhy-prog');
+    const glow = document.getElementById('rhy-glow');
     const loop = () => {
       if (!_rhyRunning) return;
       const now = c.currentTime;
+
       const msg = document.getElementById('rhy-msg');
       if (msg) {
         const untilFirst = chart.leadIn - (now - startAt);
-        if (untilFirst > 0) { const n = Math.ceil(untilFirst / beat); msg.textContent = n <= 0 ? '시작!' : (n <= 8 ? String(n) : ''); }
-        else if (heaven) {
-          const nx = chart.notes.find(n => n.hit === null);
-          msg.textContent = nx && now < nx.t - chart.measure * 1.2 ? '👂 잘 들어봐' : '👏 따라 쳐!';
-        } else msg.textContent = '';
+        if (untilFirst > 0) {
+          const n = Math.ceil(untilFirst / beat);
+          const txt = n <= 0 ? 'GO!' : (n <= 8 ? String(n) : '');
+          if (msg.textContent !== txt) { msg.textContent = txt; msg.classList.remove('rhy-pop'); void msg.offsetWidth; msg.classList.add('rhy-pop'); }
+        } else if (msg.textContent) msg.textContent = '';
       }
 
-      chart.notes.forEach((n, i) => {
-        const el = document.getElementById('rhy-n' + i);
-        if (!el || n.hit !== null) return;
+      if (prog) prog.style.width = Math.max(0, Math.min(100, (now - startAt) / (chart.endsAt - startAt) * 100)).toFixed(1) + '%';
+
+      let holdingAny = -1;
+      chart.notes.forEach(n => {
+        const el = n.el;
+        if (!el || n.done) return;
         const left = n.t - now;
+
+        if (n.holding) {                              // 꾹 누르는 중
+          holdingAny = n.lane;
+          if (now >= n.end) { n.holding = false; settle(n, 1); return; }
+          const h = Math.max(0, Math.round((n.end - now) / RHY_APPROACH * LINE));
+          el.style.top = (LINE - h) + 'px';
+          el.style.height = (h + 6) + 'px';
+          if (now - (n.lastFx || 0) > 0.13) { n.lastFx = now; burst(n.lane, RHY_LANE_COLORS[n.lane], false); }
+          return;
+        }
+        if (n.hit !== null) return;
         if (left > RHY_APPROACH) return;
-        if (left < -missWin) {
-          n.hit = 0; _rhyState.judged.push(0); _rhyState.combo = 0;
+        if (left < -missWin) {                        // 놓침
+          n.done = true; n.hit = 0;
+          st.judged.push(0); st.counts.MISS++;
+          st.combo = 0; bumpCombo();
           el.style.display = 'none';
-          const cb = document.getElementById('rhy-combo'); if (cb) cb.textContent = '';
           showJudge('MISS', '#94A3B8');
           return;
         }
-        if (heaven) return;
-        el.style.top = Math.round(LINE - (left / RHY_APPROACH) * LINE - 7) + 'px';
+        el.style.top = Math.round(LINE - (left / RHY_APPROACH) * LINE - n.tailPx - 8) + 'px';
       });
+
+      if (glow) glow.style.background = holdingAny >= 0
+        ? `linear-gradient(180deg,transparent,${RHY_LANE_COLORS[holdingAny]}33)` : '';
 
       if (now > chart.endsAt) { rhyFinish(); return; }
       _rhyRaf = requestAnimationFrame(loop);
@@ -3940,8 +4080,11 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     _rhyRunning = false;
     if (_rhyRaf) cancelAnimationFrame(_rhyRaf);
     if (_rhyState.keyHandler) window.removeEventListener('keydown', _rhyState.keyHandler);
-    const { chart, sid, judged, maxCombo } = _rhyState;
+    if (_rhyState.keyUpHandler) window.removeEventListener('keyup', _rhyState.keyUpHandler);
+    const { chart, sid, judged, maxCombo, counts, score } = _rhyState;
     const total = chart.notes.length;
+    // 아직 안 끝난 롱노트는 누른 만큼만 인정
+    chart.notes.forEach(n => { if (!n.done && n.hit) { n.done = true; judged.push(n.hit * 0.55); } });
     const acc = total ? judged.reduce((s, v) => s + v, 0) / total : 0;
     const grade = aborted ? RHY_GRADES[RHY_GRADES.length - 1] : RHY_GRADES.find(g => acc >= g.min);
     const pay = grade.pay, net = pay - RHYTHM_COST;
@@ -3958,9 +4101,15 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         <div style="font-size:15px;font-weight:800;margin-bottom:16px;color:${grade.c};">${aborted ? '중간에 그만뒀어요' : grade.msg}</div>
         <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;font-size:13px;line-height:2;text-align:left;margin-bottom:18px;">
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">곡</span><b>${chart.song.name}</b></div>
+          <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">점수</span><b>${(score || 0).toLocaleString()}</b></div>
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">정확도</span><b>${Math.round(acc * 100)}%</b></div>
           <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">최대 콤보</span><b>${maxCombo}</b></div>
-          <div style="display:flex;justify-content:space-between;"><span style="opacity:.7;">노트</span><b>${judged.filter(v => v > 0).length} / ${total}</b></div>
+          <div style="display:flex;justify-content:space-between;gap:6px;padding-top:4px;">
+            <span style="color:#FBBF24;font-weight:800;font-size:11.5px;">PERFECT ${counts.PERFECT}</span>
+            <span style="color:#34D399;font-weight:800;font-size:11.5px;">GOOD ${counts.GOOD}</span>
+            <span style="color:#38BDF8;font-weight:800;font-size:11.5px;">OK ${counts.OK}</span>
+            <span style="color:#94A3B8;font-weight:800;font-size:11.5px;">MISS ${counts.MISS}</span>
+          </div>
           <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,.12);margin-top:6px;padding-top:6px;">
             <span style="opacity:.7;">보상</span><b style="color:${pay > 0 ? '#34D399' : '#94A3B8'};">+${pay}P <span style="opacity:.6;font-weight:600;">(${net >= 0 ? '+' : ''}${net}P)</span></b></div>
         </div>
