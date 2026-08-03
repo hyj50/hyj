@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🎼 채보 제작기</title>
+<style>
+  :root{
+    --bg:#0B1020; --bg2:#151B2E; --bg3:#1E2740; --line:#2A3450;
+    --t1:#E8EDF7; --t2:#A9B4CC; --t3:#6B7896; --pink:#F43F5E;
+    --l0:#38BDF8; --l1:#34D399; --l2:#FBBF24; --l3:#F43F5E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--t1);
+    font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    -webkit-user-select:none;user-select:none;}
+  .wrap{max-width:820px;margin:0 auto;padding:14px 14px 40px;}
+  h1{font-size:19px;margin:4px 0 2px;font-weight:900;}
+  .sub{font-size:12px;color:var(--t3);margin-bottom:14px;}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:11px;}
+  .card h2{font-size:12.5px;margin:0 0 9px;color:var(--t2);font-weight:800;letter-spacing:.3px;}
+  label{font-size:11px;color:var(--t3);font-weight:700;display:block;margin-bottom:3px;}
+  input[type=text],input[type=number],select{width:100%;padding:8px 10px;border-radius:9px;
+    border:1px solid var(--line);background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;}
+  .row>div{flex:1;min-width:90px;}
+  button{border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;
+    background:var(--bg3);color:var(--t2);padding:9px 13px;font-size:12.5px;transition:filter .1s;}
+  button:hover:not(:disabled){filter:brightness(1.25);}
+  button:disabled{opacity:.35;cursor:default;}
+  button.on{background:var(--pink);color:#fff;}
+  button.go{background:linear-gradient(135deg,#38BDF8,#0284C7);color:#fff;}
+  button.rec{background:linear-gradient(135deg,#F43F5E,#9F1239);color:#fff;}
+  .hint{font-size:11px;color:var(--t3);line-height:1.65;}
+  #field{position:relative;height:340px;background:linear-gradient(180deg,#080C18,#101728);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;touch-action:none;}
+  .lane{position:absolute;top:0;bottom:0;width:25%;border-right:1px solid rgba(255,255,255,.05);}
+  #line{position:absolute;left:0;right:0;height:3px;background:rgba(255,255,255,.55);box-shadow:0 0 14px rgba(255,255,255,.3);}
+  .note{position:absolute;border-radius:7px;}
+  #pads{display:flex;gap:6px;margin-top:8px;}
+  .pad{flex:1;height:66px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    border-width:2px;border-style:solid;transition:background .07s,transform .07s;}
+  .pad .bar{width:28px;height:5px;border-radius:3px;}
+  #tl{position:relative;height:34px;background:var(--bg3);border-radius:8px;margin-top:9px;overflow:hidden;cursor:pointer;}
+  #tlFill{position:absolute;left:0;top:0;bottom:0;background:rgba(56,189,248,.18);}
+  #tlHead{position:absolute;top:0;bottom:0;width:2px;background:#fff;}
+  .tlNote{position:absolute;bottom:2px;width:2px;border-radius:1px;}
+  textarea{width:100%;height:120px;padding:9px;border-radius:9px;border:1px solid var(--line);
+    background:var(--bg3);color:var(--t2);font-size:11px;font-family:ui-monospace,Menlo,monospace;resize:vertical;}
+  .stat{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--t2);font-weight:700;}
+  .stat b{color:var(--t1);}
+  .big{font-size:15px;font-weight:900;}
+  #msg{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:44px;font-weight:900;
+    color:#fff;text-shadow:0 3px 20px rgba(0,0,0,.6);pointer-events:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎼 채보 제작기</h1>
+  <div class="sub">음악을 틀어놓고 <b>D F J K</b>(또는 아래 패드)를 박자에 맞춰 치면 채보가 만들어져요. 누르고 있으면 롱노트가 돼요.</div>
+
+  <!-- 1. 음악 -->
+  <div class="card">
+    <h2>① 음악 불러오기</h2>
+    <input type="file" id="file" accept="audio/*" style="font-size:12px;color:var(--t2);width:100%;" />
+    <div id="fileInfo" class="hint" style="margin-top:7px;">아직 파일을 안 골랐어요. (파일은 어디에도 올라가지 않고 이 화면에서만 재생돼요)</div>
+    <div class="row" style="margin-top:9px;">
+      <div><label>곡 이름</label><input type="text" id="sName" placeholder="예: 캐논 변주곡" /></div>
+      <div><label>작곡/아티스트</label><input type="text" id="sBy" placeholder="예: 파헬벨" /></div>
+      <div style="max-width:110px;"><label>난이도</label>
+        <select id="sLv"><option value="1">🌱 쉬움</option><option value="2" selected>🔥 보통</option><option value="3">⚡ 어려움</option><option value="4">💀 매우 어려움</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 건반음 -->
+  <div class="card">
+    <h2>② 건반음 — 누를 때 나는 소리</h2>
+    <div class="row">
+      <div><label>조 (기준음)</label>
+        <select id="kRoot">
+          <option value="60">다장조 C</option><option value="62">라장조 D</option><option value="64">마장조 E</option>
+          <option value="65">바장조 F</option><option value="67" selected>사장조 G</option><option value="69">가장조 A</option>
+        </select>
+      </div>
+      <div><label>음계</label>
+        <select id="kScale">
+          <option value="major">장음계 (밝게)</option>
+          <option value="minor">단음계 (어둡게)</option>
+          <option value="penta" selected>5음계 (뭐든 어울림)</option>
+        </select>
+      </div>
+      <div><label>음색</label>
+        <select id="kTimbre">
+          <option value="piano" selected>피아노</option>
+          <option value="marimba">마림바</option>
+          <option value="synth">신스</option>
+        </select>
+      </div>
+      <div style="max-width:120px;"><label>소리 크기</label><input type="number" id="kVol" value="70" min="0" max="100" step="5" /></div>
+    </div>
+    <div class="hint" style="margin-top:7px;">레인마다 다른 음이 나요. 5음계는 어떤 곡에 얹어도 어울려서 무난해요. <button id="kTest" style="padding:5px 10px;font-size:11px;margin-left:4px;">🔊 들어보기</button></div>
+  </div>
+
+  <!-- 3. 박자 맞추기 -->
+  <div class="card">
+    <h2>③ 박자 정리 (선택)</h2>
+    <div class="row">
+      <div><label>BPM</label><input type="number" id="bpm" value="120" min="40" max="260" step="1" /></div>
+      <div><label>첫 박 위치(초)</label><input type="number" id="ofs" value="0" step="0.01" /></div>
+      <div><label>격자에 맞추기</label>
+        <select id="snap"><option value="0">안 함</option><option value="4">4분음표</option><option value="8" selected>8분음표</option><option value="16">16분음표</option></select>
+      </div>
+      <div style="display:flex;align-items:flex-end;"><button id="doSnap" style="width:100%;">📐 지금 채보 정리</button></div>
+    </div>
+    <div class="hint" style="margin-top:7px;">손으로 친 타이밍을 격자에 딱 맞춰 줍니다. BPM을 모르면 <button id="tapBpm" style="padding:5px 10px;font-size:11px;">👆 탭해서 BPM 재기</button> <span id="tapInfo"></span></div>
+  </div>
+
+  <!-- 4. 녹음 -->
+  <div class="card">
+    <h2>④ 채보 찍기</h2>
+    <div id="field">
+      <div id="notes" style="position:absolute;inset:0;"></div>
+      <div id="line"></div>
+      <div id="msg"></div>
+    </div>
+    <div id="pads"></div>
+
+    <div id="tl" title="눌러서 그 지점으로 이동">
+      <div id="tlFill"></div><div id="tlNotes" style="position:absolute;inset:0;"></div><div id="tlHead"></div>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <button id="btnRec" class="rec" style="flex:2;">⏺ 녹음 시작</button>
+      <button id="btnPlay" class="go" style="flex:2;">▶ 미리듣기</button>
+      <button id="btnStop" style="flex:1;">⏹</button>
+    </div>
+    <div class="row" style="margin-top:7px;">
+      <button id="btnUndo">↩ 되돌리기</button>
+      <button id="btnDelHere">✂ 이 근처 지우기</button>
+      <button id="btnClear">🗑 전체 지우기</button>
+      <div style="flex:1;min-width:120px;"><label style="margin-bottom:2px;">노트 낙하 속도</label>
+        <select id="fall"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+      </div>
+    </div>
+    <div class="stat" style="margin-top:10px;">
+      <span>시간 <b id="tNow" class="big">0.0</b> / <b id="tAll">0.0</b>초</span>
+      <span>노트 <b id="nCnt" class="big">0</b>개</span>
+      <span>롱노트 <b id="hCnt">0</b>개</span>
+      <span id="recFlag" style="color:var(--pink);"></span>
+    </div>
+    <div class="hint" style="margin-top:7px;">
+      키보드 <b>D F J K</b> · 길게 누르면 롱노트 · <b>스페이스</b> 재생/정지 · <b>Ctrl+Z</b> 되돌리기<br>
+      녹음을 다시 시작해도 이미 찍은 노트는 남아요. 특정 구간만 다시 찍고 싶으면 타임라인을 눌러 그 지점으로 옮긴 뒤 녹음하세요.
+    </div>
+  </div>
+
+  <!-- 4.5 자동 배치 -->
+  <div class="card">
+    <h2>⑤ 재미있게 다듬기 — 박자는 그대로, 배치만 새로</h2>
+    <div class="hint" style="margin-bottom:9px;">
+      아무 손가락으로 <b>박자만</b> 찍어두면, 여기서 <b>레인 배치</b>를 손맛 좋게 다시 짜 드려요.
+      빠른 구간은 계단으로, 강박은 동시치기로, 긴 여백은 롱노트로 바꿔요. <b>박자(치는 시점)는 절대 안 건드려요.</b>
+    </div>
+    <div class="row">
+      <div><label>난이도</label>
+        <select id="aLv">
+          <option value="1">🌱 쉬움 — 좌우로 편하게</option>
+          <option value="2" selected>🔥 보통 — 계단 + 가끔 동시치기</option>
+          <option value="3">⚡ 어려움 — 계단 많고 동시치기 자주</option>
+          <option value="4">💀 매우 어려움 — 손이 바쁘게</option>
+        </select>
+      </div>
+      <div style="max-width:150px;"><label>긴 여백 → 롱노트</label>
+        <select id="aHold"><option value="0">안 함</option><option value="1" selected>적당히</option><option value="2">많이</option></select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:9px;">
+      <button id="btnArrange" class="go" style="flex:2;">✨ 배치 다시 짜기</button>
+      <button id="btnReroll" style="flex:1;">🎲 다른 느낌으로</button>
+      <button id="btnArrUndo" style="flex:1;">↩ 되돌리기</button>
+    </div>
+    <div id="arrInfo" class="hint" style="margin-top:8px;"></div>
+  </div>
+
+  <!-- 5. 내보내기 -->
+  <div class="card">
+    <h2>⑥ 내보내기</h2>
+    <div class="row">
+      <button id="btnExport" class="go" style="flex:2;">📤 채보 만들기</button>
+      <button id="btnCopy" style="flex:1;">📋 복사</button>
+      <button id="btnSave" style="flex:1;">💾 파일로 저장</button>
+    </div>
+    <textarea id="out" placeholder="여기에 채보가 나와요. 복사해서 저에게 붙여넣어 주세요." style="margin-top:9px;"></textarea>
+    <div class="hint" style="margin-top:6px;">이 내용을 저에게 주시면 학생 앱에 넣어드릴게요. 음악 파일(mp3)도 같이 GitHub에 올려야 해요.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  const LANES = 4, KEYS = ['d','f','j','k'];
+  const COLORS = ['#38BDF8','#34D399','#FBBF24','#F43F5E'];
+  const SCALES = { major:[0,4,7,12], minor:[0,3,7,12], penta:[0,4,7,9] };
+  const HOLD_MIN = 0.24;                 // 이보다 길게 누르면 롱노트
+
+  let ctx=null, buf=null, src=null;
+  let playing=false, recording=false, startCtxT=0, startPos=0, raf=null;
+  let notes=[];                          // {t, lane, dur}
+  let held=[null,null,null,null];        // 누르고 있는 중인 노트
+  let undoStack=[];
+
+  const $ = id => document.getElementById(id);
+  const audio = () => { if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==='suspended') ctx.resume(); return ctx; };
+  const pos = () => playing ? Math.min(buf?buf.duration:0, ctx.currentTime - startCtxT + startPos) : startPos;
+  const laneNote = i => (+$('kRoot').value) + SCALES[$('kScale').value][i];
+
+  // ---------- 건반음 ----------
+  function key(midi){
+    const c=audio(), t=c.currentTime, f=440*Math.pow(2,(midi-69)/12);
+    const v=(+$('kVol').value)/100*0.34, tim=$('kTimbre').value;
+    const mk=(type,freq,vol,dur,cut)=>{
+      const o=c.createOscillator(), g=c.createGain(); o.type=type; o.frequency.value=freq;
+      let n=o;
+      if(cut){ const bf=c.createBiquadFilter(); bf.type='lowpass'; bf.frequency.setValueAtTime(cut,t);
+        bf.frequency.exponentialRampToValueAtTime(Math.max(200,cut*0.3),t+dur); o.connect(bf); n=bf; }
+      n.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.start(t); o.stop(t+dur+0.05);
+    };
+    if(tim==='piano'){ mk('triangle',f,v,1.1,f*7); mk('sine',f*2,v*0.28,0.55); mk('sine',f*3.01,v*0.10,0.3); }
+    else if(tim==='marimba'){ mk('sine',f,v,0.5); mk('sine',f*4,v*0.22,0.16); }
+    else { mk('sawtooth',f,v*0.8,0.5,f*6); mk('square',f*1.005,v*0.3,0.4,f*4); }
+  }
+  $('kTest').onclick = () => { for(let i=0;i<LANES;i++) setTimeout(()=>key(laneNote(i)), i*140); };
+
+  // ---------- 패드 ----------
+  const padsEl = $('pads');
+  for(let i=0;i<LANES;i++){
+    const d=document.createElement('div');
+    d.className='pad'; d.id='pad'+i;
+    d.style.borderColor=COLORS[i]+'88'; d.style.background=COLORS[i]+'1F';
+    d.innerHTML='<div class="bar" style="background:'+COLORS[i]+'"></div>';
+    d.addEventListener('pointerdown',e=>{ down(i); e.preventDefault(); });
+    d.addEventListener('pointerup',e=>{ up(i); e.preventDefault(); });
+    d.addEventListener('pointercancel',()=>up(i));
+    d.addEventListener('pointerleave',()=>up(i));
+    padsEl.appendChild(d);
+  }
+  function padFlash(i,on){
+    const p=$('pad'+i); if(!p) return;
+    p.style.background = on ? COLORS[i]+'99' : COLORS[i]+'1F';
+    p.style.transform = on ? 'scale(.97)' : '';
+  }
+
+  // ---------- 입력 ----------
+  function down(i){
+    if(held[i]!==null) return;
+    key(laneNote(i));
+    padFlash(i,true);
+    if(recording && playing){
+      const n={t:+pos().toFixed(4), lane:i, dur:0};
+      notes.push(n); held[i]=n;
+      undoStack.push({type:'add', n});
+      refresh();
+    } else held[i]='tap';
+  }
+  function up(i){
+    padFlash(i,false);
+    const n=held[i]; held[i]=null;
+    if(n && n!=='tap' && recording && playing){
+      n.dur = Math.max(0, +(pos()-n.t).toFixed(4));
+      if(n.dur < HOLD_MIN) n.dur=0;
+      refresh();
+    }
+  }
+  window.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
+    if(e.key===' '){ e.preventDefault(); playing?stop():preview(); return; }
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+    const i=KEYS.indexOf(e.key.toLowerCase());
+    if(i>=0 && !e.repeat){ e.preventDefault(); down(i); }
+  });
+  window.addEventListener('keyup',e=>{
+    const i=KEYS.indexOf(e.key.toLowerCase());
+    if(i>=0) up(i);
+  });
+
+  // ---------- 파일 ----------
+  $('file').onchange = async e => {
+    const f=e.target.files[0]; if(!f) return;
+    $('fileInfo').textContent='읽는 중...';
+    try{
+      const ab=await f.arrayBuffer();
+      buf=await audio().decodeAudioData(ab);
+      $('fileInfo').innerHTML='✅ <b>'+f.name+'</b> · '+buf.duration.toFixed(1)+'초 · '+(f.size/1048576).toFixed(1)+'MB';
+      if(!$('sName').value) $('sName').value=f.name.replace(/\.[^.]+$/,'');
+      startPos=0; refresh();
+    }catch(err){
+      console.error(err);
+      $('fileInfo').textContent='❌ 이 파일은 못 읽었어요. mp3 / m4a / wav 로 다시 시도해 주세요.';
+    }
+  };
+
+  // ---------- 재생 ----------
+  function startAudio(from){
+    stopAudio();
+    if(!buf) return false;
+    const c=audio();
+    src=c.createBufferSource(); src.buffer=buf; src.connect(c.destination);
+    startCtxT=c.currentTime; startPos=from;
+    src.start(0, from);
+    src.onended=()=>{ if(playing && pos()>=buf.duration-0.05) stop(); };
+    playing=true;
+    return true;
+  }
+  function stopAudio(){ if(src){ try{src.onended=null; src.stop();}catch(e){} src=null; } }
+
+  function countIn(then){
+    const c=audio(); let n=3;
+    $('msg').textContent=n;
+    const iv=setInterval(()=>{
+      n--;
+      $('msg').textContent = n>0 ? n : 'GO!';
+      key(n>0?72:79);
+      if(n<=0){ clearInterval(iv); setTimeout(()=>{ $('msg').textContent=''; then(); }, 380); }
+    }, 620);
+    key(72);
+  }
+
+  function record(){
+    if(!buf){ alert('먼저 음악 파일을 골라주세요.'); return; }
+    if(playing) stop();
+    recording=true; $('recFlag').textContent='⏺ 녹음 중';
+    $('btnRec').classList.add('on');
+    countIn(()=>{ startAudio(startPos); loop(); });
+  }
+  function preview(){
+    if(!buf){ alert('먼저 음악 파일을 골라주세요.'); return; }
+    if(playing) stop();
+    recording=false; $('recFlag').textContent='▶ 미리듣기';
+    $('btnRec').classList.remove('on');
+    startAudio(startPos); loop();
+  }
+  function stop(){
+    if(playing) startPos=pos();
+    playing=false; recording=false;
+    stopAudio();
+    if(raf) cancelAnimationFrame(raf);
+    held=[null,null,null,null];
+    for(let i=0;i<LANES;i++) padFlash(i,false);
+    $('recFlag').textContent=''; $('btnRec').classList.remove('on');
+    $('msg').textContent='';
+    refresh();
+  }
+  $('btnRec').onclick=record; $('btnPlay').onclick=preview; $('btnStop').onclick=stop;
+
+  // ---------- 편집 ----------
+  function undo(){
+    const last=undoStack.pop(); if(!last) return;
+    if(last.type==='add'){ const i=notes.indexOf(last.n); if(i>=0) notes.splice(i,1); }
+    else if(last.type==='bulk'){ notes=last.before; }
+    refresh();
+  }
+  $('btnUndo').onclick=undo;
+  $('btnDelHere').onclick=()=>{
+    const p=pos(), before=notes.slice();
+    const kept=notes.filter(n=>Math.abs(n.t-p)>1.0);
+    if(kept.length===notes.length){ alert('이 근처(±1초)에 지울 노트가 없어요.'); return; }
+    undoStack.push({type:'bulk', before}); notes=kept; refresh();
+  };
+  $('btnClear').onclick=()=>{
+    if(!notes.length) return;
+    if(!confirm('찍은 노트를 전부 지울까요?')) return;
+    undoStack.push({type:'bulk', before:notes.slice()}); notes=[]; refresh();
+  };
+
+  // BPM 탭 재기
+  let taps=[];
+  $('tapBpm').onclick=()=>{
+    const now=performance.now();
+    if(taps.length && now-taps[taps.length-1]>2200) taps=[];
+    taps.push(now);
+    if(taps.length>=2){
+      const d=[]; for(let i=1;i<taps.length;i++) d.push(taps[i]-taps[i-1]);
+      const avg=d.reduce((a,b)=>a+b,0)/d.length;
+      const bpm=Math.round(60000/avg);
+      $('bpm').value=bpm;
+      $('tapInfo').textContent=' → '+bpm+' BPM ('+taps.length+'번)';
+    } else $('tapInfo').textContent=' → 계속 눌러주세요';
+  };
+
+  // 격자 정리
+  $('doSnap').onclick=()=>{
+    const div=+$('snap').value;
+    if(!div){ alert('격자를 먼저 골라주세요.'); return; }
+    if(!notes.length){ alert('찍은 노트가 없어요.'); return; }
+    const step=60/(+$('bpm').value)*(4/div), o=+$('ofs').value;
+    const before=notes.slice().map(n=>({...n}));
+    undoStack.push({type:'bulk', before});
+    notes.forEach(n=>{
+      n.t=+(Math.round((n.t-o)/step)*step+o).toFixed(4);
+      if(n.dur>0) n.dur=Math.max(step,+(Math.round(n.dur/step)*step).toFixed(4));
+    });
+    // 같은 레인 같은 시각 중복 제거
+    const seen=new Set();
+    notes=notes.filter(n=>{ const k=n.lane+'@'+n.t; if(seen.has(k)) return false; seen.add(k); return true; });
+    refresh();
+    alert('격자에 맞췄어요! (' + div + '분음표 기준)');
+  };
+
+  // ---------- 타임라인 클릭 이동 ----------
+  $('tl').onclick=e=>{
+    if(!buf) return;
+    const r=$('tl').getBoundingClientRect();
+    const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    const wasPlaying=playing, wasRec=recording;
+    stop(); startPos=p*buf.duration;
+    if(wasPlaying){ recording=wasRec; startAudio(startPos); loop(); }
+    refresh();
+  };
+
+  // ---------- 그리기 ----------
+  const field=$('field'), notesEl=$('notes');
+  for(let i=0;i<LANES;i++){
+    const l=document.createElement('div');
+    l.className='lane'; l.style.left=(i*25)+'%';
+    l.style.background='linear-gradient(180deg,transparent 60%,'+COLORS[i]+'12)';
+    field.insertBefore(l, notesEl);
+  }
+  let LINE_Y=0;
+  function layout(){ LINE_Y=Math.round(field.clientHeight*0.82); $('line').style.top=LINE_Y+'px'; }
+  layout(); window.addEventListener('resize',layout);
+
+  function draw(){
+    const p=pos(), APP=1.6/(+$('fall').value);
+    let html='';
+    notes.forEach(n=>{
+      const left=n.t-p;
+      if(left>APP || left< -0.9) return;
+      const tail=n.dur>0 ? Math.round(n.dur/APP*LINE_Y) : 0;
+      const y=Math.round(LINE_Y-(left/APP)*LINE_Y);
+      const c=COLORS[n.lane];
+      html+='<div class="note" style="left:'+(n.lane*25+2)+'%;width:21%;top:'+(y-tail-7)+'px;height:'
+        +(14+tail)+'px;background:'+(n.dur>0?'linear-gradient(180deg,'+c+'66,'+c+')':'linear-gradient(180deg,#fff8,'+c+')')
+        +';box-shadow:0 0 10px '+c+'AA;'+(n.dur>0?'border:2px solid '+c+';':'')+'"></div>';
+    });
+    notesEl.innerHTML=html;
+  }
+  function drawTl(){
+    if(!buf){ $('tlNotes').innerHTML=''; return; }
+    const w=$('tl').clientWidth;
+    let html='';
+    notes.forEach(n=>{
+      const x=(n.t/buf.duration)*w;
+      html+='<div class="tlNote" style="left:'+x.toFixed(1)+'px;height:'+(8+n.lane*6)+'px;background:'+COLORS[n.lane]+'"></div>';
+    });
+    $('tlNotes').innerHTML=html;
+  }
+  function refresh(){
+    notes.sort((a,b)=>a.t-b.t);
+    $('nCnt').textContent=notes.length;
+    $('hCnt').textContent=notes.filter(n=>n.dur>0).length;
+    $('tAll').textContent=buf?buf.duration.toFixed(1):'0.0';
+    $('tNow').textContent=pos().toFixed(1);
+    if(buf){
+      const r=(pos()/buf.duration*100).toFixed(2)+'%';
+      $('tlFill').style.width=r; $('tlHead').style.left=r;
+    }
+    drawTl(); draw();
+  }
+  function loop(){
+    if(!playing) return;
+    const p=pos();
+    // 미리듣기일 땐 노트가 판정선을 지날 때 건반음을 들려준다
+    if(!recording){
+      notes.forEach(n=>{
+        if(n._p===undefined) n._p=0;
+        if(n._p<p && n.t<=p && n.t>p-0.14){ if(!n._played){ key(laneNote(n.lane)); n._played=true;
+          padFlash(n.lane,true); setTimeout(()=>padFlash(n.lane,false),90); } }
+        n._p=p;
+      });
+    }
+    $('tNow').textContent=p.toFixed(1);
+    if(buf){ const r=(p/buf.duration*100).toFixed(2)+'%'; $('tlFill').style.width=r; $('tlHead').style.left=r; }
+    draw();
+    raf=requestAnimationFrame(loop);
+  }
+  // 미리듣기 다시 시작할 때 재생 표시 초기화
+  const _preview=preview;
+  preview=function(){ notes.forEach(n=>{ n._played=false; n._p=undefined; }); _preview(); };
+  $('btnPlay').onclick=()=>preview();
+
+  // ---------- 자동 배치 : 박자는 그대로, 레인만 새로 짠다 ----------
+  let arrSeed = 1;
+  function rnd(){ arrSeed = (arrSeed * 1103515245 + 12345) & 0x7fffffff; return arrSeed / 0x7fffffff; }
+
+  function arrange(){
+    if(notes.length < 2){ alert('찍은 노트가 너무 적어요.'); return; }
+    const lv = +$('aLv').value, holdMode = +$('aHold').value;
+    const before = notes.map(n=>({...n}));
+    undoStack.push({type:'bulk', before});
+
+    // 박자(시점)만 뽑아 새로 짠다. 같은 시각의 중복은 하나로 합친다.
+    const times=[...new Set(notes.map(n=>+n.t.toFixed(3)))].sort((a,b)=>a-b);
+    const gaps=[]; for(let i=1;i<times.length;i++) gaps.push(times[i]-times[i-1]);
+    const med = gaps.length ? gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)] : 0.3;
+    const FAST = Math.max(0.09, med*1.25);       // 이보다 촘촘하면 '빠른 구간'
+    const chordP = [0, 0.04, 0.10, 0.18, 0.28][lv];
+    const stairP = [0, 0.35, 0.62, 0.80, 0.92][lv];
+
+    const out=[];
+    let lane = 1, dir = 1, runLen = 0, stairing = false;
+    let stats={stair:0, chord:0, hold:0};
+
+    times.forEach((t,i)=>{
+      const prevGap = i>0 ? t-times[i-1] : 9;
+      const nextGap = i<times.length-1 ? times[i+1]-t : 9;
+      const fast = prevGap <= FAST;
+
+      if(!fast){ runLen = 0; stairing = false; }
+      else runLen++;
+
+      if(fast){
+        // 빠른 구간: 계단으로 훑기 (손이 자연스럽게 흐른다)
+        if(runLen === 1) { stairing = rnd() < stairP; dir = rnd() < 0.5 ? 1 : -1; }
+        if(stairing){
+          lane += dir;
+          if(lane > 3){ lane = 2; dir = -1; }
+          if(lane < 0){ lane = 1; dir = 1; }
+          stats.stair++;
+        } else {
+          // 계단이 아니면 반대손으로 넘겨 연타를 피한다
+          lane = (lane <= 1) ? (rnd()<0.5?2:3) : (rnd()<0.5?0:1);
+        }
+      } else {
+        // 여유 있는 구간: 한두 칸 움직여 자연스럽게
+        let cand = lane + (rnd()<0.5?-1:1)*(rnd()<0.65?1:2);
+        if(cand<0) cand += 2; if(cand>3) cand -= 2;
+        if(cand === lane) cand = (lane+2)%4;
+        lane = Math.max(0, Math.min(3, cand));
+      }
+
+      const n = { t, lane, dur:0 };
+      out.push(n);
+
+      // 강박(앞뒤가 넉넉한 자리)에 동시치기 한 방
+      if(prevGap > FAST*1.6 && nextGap > FAST*1.6 && rnd() < chordP){
+        let l2 = lane + (lane<2 ? 2 : -2);
+        l2 = Math.max(0, Math.min(3, l2));
+        if(l2 !== lane){ out.push({t, lane:l2, dur:0}); stats.chord++; }
+      }
+
+      // 긴 여백은 롱노트로 채운다
+      if(holdMode){
+        const need = holdMode===1 ? 0.85 : 0.6;
+        if(nextGap >= need){
+          n.dur = +(Math.min(nextGap - 0.18, holdMode===1 ? 2.2 : 3.2)).toFixed(3);
+          if(n.dur < HOLD_MIN) n.dur = 0; else stats.hold++;
+        }
+      }
+    });
+
+    // 롱노트 꼬리가 다음 노트와 겹치지 않게 자르기
+    out.sort((a,b)=>a.t-b.t);
+    out.forEach((n,i)=>{
+      if(!n.dur) return;
+      for(let j=i+1;j<out.length;j++){
+        if(out[j].t >= n.t+n.dur+0.12) break;
+        n.dur = Math.max(0, +(out[j].t - n.t - 0.12).toFixed(3));
+        if(n.dur < HOLD_MIN) n.dur = 0;
+        break;
+      }
+    });
+
+    notes = out;
+    const spread=[0,0,0,0]; notes.forEach(n=>spread[n.lane]++);
+    $('arrInfo').innerHTML = '✅ 배치 완료 — 노트 <b>'+notes.length+'</b>개 · 계단 <b>'+stats.stair
+      +'</b> · 동시치기 <b>'+stats.chord+'</b> · 롱노트 <b>'+notes.filter(n=>n.dur>0).length
+      +'</b><br>레인 분포 '+spread.join(' / ')+' · 마음에 안 들면 <b>다른 느낌으로</b>를 눌러보세요.';
+    refresh();
+  }
+  $('btnArrange').onclick = () => { arrSeed = (Date.now()|0) & 0x7fffffff; arrange(); };
+  $('btnReroll').onclick  = () => { arrSeed = (arrSeed*7919 + 13) & 0x7fffffff; arrange(); };
+  $('btnArrUndo').onclick = undo;
+
+  // ---------- 내보내기 ----------
+  $('btnExport').onclick=()=>{
+    if(!notes.length){ alert('찍은 노트가 없어요.'); return; }
+    const id=($('sName').value||'song').toLowerCase().replace(/[^a-z0-9가-힣]+/g,'-').replace(/^-|-$/g,'')||'song';
+    const data={
+      id, name:$('sName').value||'제목없음', by:$('sBy').value||'',
+      lv:+$('sLv').value,
+      audio:'songs/'+id+'.mp3',
+      duration:buf?+buf.duration.toFixed(2):0,
+      bpm:+$('bpm').value, offset:+$('ofs').value,
+      keysound:{ root:+$('kRoot').value, scale:$('kScale').value, timbre:$('kTimbre').value,
+                 lanes:[0,1,2,3].map(laneNote) },
+      notes: notes.map(n=>[+n.t.toFixed(3), n.lane, +(n.dur||0).toFixed(3)])
+    };
+    $('out').value=JSON.stringify(data);
+    $('out').scrollIntoView({behavior:'smooth',block:'center'});
+  };
+  $('btnCopy').onclick=async()=>{
+    if(!$('out').value){ alert('먼저 "채보 만들기"를 눌러주세요.'); return; }
+    try{ await navigator.clipboard.writeText($('out').value); alert('복사했어요!'); }
+    catch(e){ $('out').select(); document.execCommand('copy'); alert('복사했어요!'); }
+  };
+  $('btnSave').onclick=()=>{
+    if(!$('out').value){ alert('먼저 "채보 만들기"를 눌러주세요.'); return; }
+    const blob=new Blob([$('out').value],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=(($('sName').value||'chart')+'.json');
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+
+  refresh();
+})();
+</script>
+</body>
+</html>
