@@ -57,7 +57,7 @@
 <body>
 <div class="wrap">
   <h1>🎼 채보 제작기</h1>
-  <div class="sub">음악을 틀어놓고 <b>D F J K</b>(또는 아래 패드)를 박자에 맞춰 치면 채보가 만들어져요. 누르고 있으면 롱노트가 돼요.</div>
+  <div class="sub">① 음악 파일 고르기 → ② <b>버튼 하나</b> 누르기 → ③ 나온 채보 복사해서 저한테 주기. 끝이에요.</div>
 
   <!-- 1. 음악 -->
   <div class="card">
@@ -73,9 +73,40 @@
     </div>
   </div>
 
+  <!-- 자동 생성 -->
+  <div class="card" style="border-color:#38BDF8;background:linear-gradient(160deg,#15243E,#151B2E);">
+    <h2 style="color:#7DD3FC;">② 자동으로 채보 만들기 — 이것만 누르면 돼요</h2>
+    <div class="hint" style="margin-bottom:10px;">
+      음악을 <b>직접 들어보고</b> 박자를 찾아서 채보를 만들어요. 손으로 찍을 필요 없어요.
+    </div>
+    <div class="row">
+      <div><label>노트 수</label>
+        <select id="autoDense">
+          <option value="1.6">🌱 아주 쉽게 — 초당 1.6개</option>
+          <option value="2.2" selected>🔥 적당히 — 초당 2.2개</option>
+          <option value="2.9">⚡ 빡세게 — 초당 2.9개</option>
+          <option value="3.8">💀 미친듯이 — 초당 3.8개</option>
+        </select>
+      </div>
+      <div style="max-width:170px;"><label>배치 스타일</label>
+        <select id="autoStyle">
+          <option value="1">좌우로 편하게</option>
+          <option value="2" selected>계단 + 가끔 동시치기</option>
+          <option value="3">계단 많고 동시치기 자주</option>
+          <option value="4">손이 바쁘게</option>
+        </select>
+      </div>
+    </div>
+    <button id="btnAuto" class="go" style="width:100%;margin-top:10px;padding:14px;font-size:15px;">🪄 음악 듣고 채보 만들기</button>
+    <div id="autoInfo" class="hint" style="margin-top:9px;"></div>
+  </div>
+
+  <details style="margin-bottom:11px;">
+    <summary style="cursor:pointer;padding:11px 13px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;font-size:12.5px;font-weight:800;color:var(--t2);">⚙️ 세부 설정 · 직접 찍기 <span style="font-weight:600;opacity:.7;">— 자동으로 만들면 안 눌러도 돼요</span></summary>
+    <div style="padding-top:11px;">
   <!-- 2. 건반음 -->
   <div class="card">
-    <h2>② 건반음 — 누를 때 나는 소리</h2>
+    <h2>③ 건반음 — 누를 때 나는 소리</h2>
     <div class="row">
       <div><label>조 (기준음)</label>
         <select id="kRoot">
@@ -104,7 +135,7 @@
 
   <!-- 3. 박자 맞추기 -->
   <div class="card">
-    <h2>③ 박자 정리 (선택)</h2>
+    <h2>④ 박자 정리 (자동 생성이 알아서 해줘요)</h2>
     <div class="row">
       <div><label>BPM</label><input type="number" id="bpm" value="120" min="40" max="260" step="1" /></div>
       <div><label>첫 박 위치(초)</label><input type="number" id="ofs" value="0" step="0.01" /></div>
@@ -118,7 +149,7 @@
 
   <!-- 4. 녹음 -->
   <div class="card">
-    <h2>④ 채보 찍기</h2>
+    <h2>⑤ 미리듣기 · 직접 찍기</h2>
     <div id="field">
       <div id="notes" style="position:absolute;inset:0;"></div>
       <div id="line"></div>
@@ -157,7 +188,7 @@
 
   <!-- 4.5 자동 배치 -->
   <div class="card">
-    <h2>⑤ 재미있게 다듬기 — 박자는 그대로, 배치만 새로</h2>
+    <h2>⑥ 다시 다듬기 — 박자는 그대로, 배치만 새로</h2>
     <div class="hint" style="margin-bottom:9px;">
       아무 손가락으로 <b>박자만</b> 찍어두면, 여기서 <b>레인 배치</b>를 손맛 좋게 다시 짜 드려요.
       빠른 구간은 계단으로, 강박은 동시치기로, 긴 여백은 롱노트로 바꿔요. <b>박자(치는 시점)는 절대 안 건드려요.</b>
@@ -195,9 +226,33 @@
     <div id="arrInfo" class="hint" style="margin-top:8px;"></div>
   </div>
 
+    </div>
+  </details>
+
+  <!-- 편집 -->
+  <div class="card" style="border-color:#34D399;">
+    <h2 style="color:#6EE7B7;">✏️ 노트 직접 고치기</h2>
+    <div class="hint" style="margin-bottom:9px;">
+      멈춘 상태에서 <b>격자를 눌러</b> 노트를 넣고 뺄 수 있어요. 다시 누르면 지워지고,
+      노트를 <b>길게 누르면</b> 롱노트가 됩니다. 타임라인을 눌러 원하는 구간으로 이동하세요.
+    </div>
+    <div class="row" style="margin-bottom:8px;">
+      <button id="btnEdit" style="flex:1;">✏️ 편집 모드 켜기</button>
+      <button id="btnPrevBar" style="flex:1;">◀ 1마디</button>
+      <button id="btnNextBar" style="flex:1;">1마디 ▶</button>
+      <div style="max-width:130px;"><label style="margin-bottom:2px;">격자</label>
+        <select id="egrid"><option value="4">4분음표</option><option value="8" selected>8분음표</option><option value="16">16분음표</option></select>
+      </div>
+    </div>
+    <div id="editWrap" style="display:none;">
+      <div id="egridbox" style="position:relative;background:#0A0F1C;border:1px solid var(--line);border-radius:10px;overflow:hidden;"></div>
+      <div id="editInfo" class="hint" style="margin-top:7px;"></div>
+    </div>
+  </div>
+
   <!-- 5. 내보내기 -->
   <div class="card">
-    <h2>⑥ 내보내기</h2>
+    <h2>③ 내보내기</h2>
     <div class="row">
       <button id="btnExport" class="go" style="flex:2;">📤 채보 만들기</button>
       <button id="btnCopy" style="flex:1;">📋 복사</button>
@@ -486,6 +541,7 @@
       $('tlFill').style.width=r; $('tlHead').style.left=r;
     }
     drawTl(); draw();
+    if (editing) drawEdit();
   }
   function loop(){
     if(!playing) return;
@@ -642,6 +698,258 @@
   $('btnArrange').onclick = () => { arrSeed = (Date.now()|0) & 0x7fffffff; arrange(); };
   $('btnReroll').onclick  = () => { arrSeed = (arrSeed*7919 + 13) & 0x7fffffff; arrange(); };
   $('btnArrUndo').onclick = undo;
+
+  // ---------- 음악을 듣고 박자 찾기 (자동 채보) ----------
+  // 소리의 '갑자기 커지는 순간'을 찾아 노트 자리로 삼는다.
+  function fft(re, im){
+    const n = re.length;
+    for(let i=1, j=0; i<n; i++){
+      let bit = n>>1;
+      for(; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if(i < j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+    }
+    for(let len=2; len<=n; len<<=1){
+      const ang = -2*Math.PI/len, wr = Math.cos(ang), wi = Math.sin(ang);
+      const half = len>>1;
+      for(let i=0; i<n; i+=len){
+        let cr=1, ci=0;
+        for(let k=0; k<half; k++){
+          const ar=re[i+k], ai=im[i+k];
+          const br=re[i+k+half]*cr - im[i+k+half]*ci;
+          const bi=re[i+k+half]*ci + im[i+k+half]*cr;
+          re[i+k]=ar+br; im[i+k]=ai+bi;
+          re[i+k+half]=ar-br; im[i+k+half]=ai-bi;
+          const ncr = cr*wr - ci*wi; ci = cr*wi + ci*wr; cr = ncr;
+        }
+      }
+    }
+  }
+
+  // 소리가 커지는 정도(스펙트럴 플럭스)를 시간축으로 뽑아낸다
+  function onsetEnvelope(buffer){
+    const sr0 = buffer.sampleRate;
+    const ch = buffer.numberOfChannels;
+    const L = buffer.length;
+    // 모노로 합치고 절반으로 솎아 계산량을 줄인다
+    const step = 2, sr = sr0/step, n = Math.floor(L/step);
+    const x = new Float32Array(n);
+    for(let c=0; c<ch; c++){
+      const d = buffer.getChannelData(c);
+      for(let i=0; i<n; i++) x[i] += d[i*step]/ch;
+    }
+    const N = 1024, HOP = 256, BINS = N>>1;
+    const win = new Float32Array(N);
+    for(let i=0;i<N;i++) win[i] = 0.5 - 0.5*Math.cos(2*Math.PI*i/(N-1));
+    const frames = Math.max(1, Math.floor((n - N)/HOP));
+    const flux = new Float32Array(frames);
+    const re = new Float32Array(N), im = new Float32Array(N);
+    let prev = new Float32Array(BINS);
+    for(let f=0; f<frames; f++){
+      const o = f*HOP;
+      for(let i=0;i<N;i++){ re[i] = x[o+i]*win[i]; im[i] = 0; }
+      fft(re, im);
+      let sum = 0;
+      for(let k=0; k<BINS; k++){
+        const m = Math.sqrt(re[k]*re[k] + im[k]*im[k]);
+        const d = m - prev[k];
+        if(d > 0) sum += d;
+        prev[k] = m;
+      }
+      flux[f] = sum;
+    }
+    return { flux, fps: sr/HOP };
+  }
+
+  // 박자 간격(BPM)과 첫 박 위치를 추정한다
+  function estimateTempo(flux, fps){
+    const minLag = Math.round(fps*60/200), maxLag = Math.round(fps*60/60);
+    let best = minLag, bestV = -1;
+    const ac = new Float64Array(maxLag+1);
+    for(let lag=minLag; lag<=maxLag; lag++){
+      let s = 0;
+      for(let i=lag; i<flux.length; i++) s += flux[i]*flux[i-lag];
+      s /= (flux.length - lag);
+      ac[lag] = s;
+      if(s > bestV){ bestV = s; best = lag; }
+    }
+    // 봉우리 좌우 값으로 소수점 단위까지 보정 (한 프레임 = 11ms라 그냥 쓰면 곡 끝에서 밀린다)
+    let lagF = best;
+    if(best > minLag && best < maxLag){
+      const y0 = ac[best-1], y1 = ac[best], y2 = ac[best+1];
+      const d = (y0 - y2) / (2*(y0 - 2*y1 + y2) || 1e-9);
+      if(Math.abs(d) < 1) lagF = best + d;
+    }
+    let bpm = 60*fps/lagF;
+    while(bpm < 85) bpm *= 2;          // 너무 느리게 잡혔으면 배로
+    while(bpm > 190) bpm /= 2;         // 너무 빠르면 반으로
+    // 대부분의 곡은 정수 BPM이다. 가까우면 정수로 붙여 긴 곡에서 밀리는 걸 막는다.
+    if(Math.abs(bpm - Math.round(bpm)) < 0.9) bpm = Math.round(bpm);
+    // 첫 박 위치: 격자를 조금씩 밀어보며 소리가 가장 센 위치를 찾는다
+    const period = 60/bpm*fps;
+    let bestOff = 0, bestScore = -1;
+    for(let off=0; off<period; off += Math.max(1, period/48)){
+      let s = 0;
+      for(let t=off; t<flux.length; t+=period) s += flux[Math.round(t)] || 0;
+      if(s > bestScore){ bestScore = s; bestOff = off; }
+    }
+    return { bpm: Math.round(bpm*10)/10, offset: +(bestOff/fps).toFixed(3) };
+  }
+
+  // 소리가 튀는 지점(=노트 자리)을 골라낸다
+  function pickOnsets(flux, fps, minGapSec){
+    // 부드럽게 만든 뒤, 주변 평균보다 확 튀는 봉우리만 남긴다
+    const sm = new Float32Array(flux.length);
+    for(let i=0;i<flux.length;i++){
+      let s=0, c=0;
+      for(let k=-1;k<=1;k++){ const j=i+k; if(j>=0&&j<flux.length){ s+=flux[j]; c++; } }
+      sm[i] = s/c;
+    }
+    const W = Math.round(fps*0.35);
+    const out = [];
+    let last = -99;
+    const minGap = minGapSec*fps;
+    for(let i=1;i<sm.length-1;i++){
+      if(sm[i] <= sm[i-1] || sm[i] < sm[i+1]) continue;      // 봉우리만
+      let s=0, c=0;
+      for(let j=Math.max(0,i-W); j<Math.min(sm.length,i+W); j++){ s+=sm[j]; c++; }
+      const thr = s/c*1.35 + 1e-6;
+      if(sm[i] < thr) continue;
+      if(i - last < minGap) {                                 // 너무 가까우면 센 쪽만
+        if(out.length && sm[i] > sm[last]) { out[out.length-1] = i; last = i; }
+        continue;
+      }
+      out.push(i); last = i;
+    }
+    return out.map(i => ({ t: i/fps, v: sm[i] }));
+  }
+
+  async function autoChart(){
+    if(!buf){ alert('먼저 음악 파일을 골라주세요.'); return; }
+    if(playing) stop();
+    const info = $('autoInfo');
+    const btn = $('btnAuto');
+    btn.disabled = true; btn.textContent = '🎧 음악 듣는 중...';
+    info.textContent = '소리를 분석하고 있어요. 곡 길이에 따라 5~20초 걸려요.';
+    await new Promise(r => setTimeout(r, 60));
+
+    try{
+      const { flux, fps } = onsetEnvelope(buf);
+      btn.textContent = '🥁 박자 찾는 중...';
+      await new Promise(r => setTimeout(r, 30));
+
+      const { bpm, offset } = estimateTempo(flux, fps);
+      $('bpm').value = bpm;
+      $('ofs').value = offset;
+
+      const dense = +$('autoDense').value;
+      const onsets = pickOnsets(flux, fps, 0.11);
+
+      // 목표 개수만큼 '센 소리'부터 남긴다
+      const span = buf.duration;
+      const want = Math.max(16, Math.round(span*dense));
+      const kept = onsets.slice().sort((a,b)=>b.v-a.v).slice(0, want).map(o=>o.t).sort((a,b)=>a-b);
+
+      // 16분음표 격자에 붙이기
+      const stepQ = 60/bpm/4;
+      const times = [...new Set(kept.map(t => +(Math.round((t-offset)/stepQ)*stepQ + offset).toFixed(3)))]
+        .filter(t => t >= 0 && t <= span).sort((a,b)=>a-b);
+
+      undoStack.push({ type:'bulk', before: notes.map(n=>({...n})) });
+      notes = times.map(t => ({ t, lane:0, dur:0 }));
+
+      // 레인 배치는 기존 '다듬기' 로직에 맡긴다
+      $('aDense').value = '0';                  // 이미 개수를 맞췄으니 여기선 그대로
+      $('aSnap').value = '0';                   // 격자도 이미 맞췄음
+      $('aLv').value = $('autoStyle').value;
+      arrSeed = (Date.now()|0) & 0x7fffffff;
+      arrange();
+
+      const nsp = notes.length>1 ? notes[notes.length-1].t - notes[0].t : 1;
+      info.innerHTML = '✅ 완성! <b>' + notes.length + '</b>개 노트 · 초당 ' + (notes.length/nsp).toFixed(1)
+        + '개 · 추정 <b>' + bpm + ' BPM</b><br>「▶ 미리듣기」로 들어보고, 마음에 안 들면 아래 '
+        + '<b>다시 다듬기 → 🎲 다른 느낌으로</b>를 눌러보세요.';
+    }catch(err){
+      console.error(err);
+      info.textContent = '❌ 분석에 실패했어요. 다른 파일로 시도해 보세요. (' + err.message + ')';
+    }finally{
+      btn.disabled = false; btn.textContent = '🪄 음악 듣고 채보 만들기';
+      $('aDense').value = '2.2'; $('aSnap').value = '1';
+    }
+  }
+  $('btnAuto').onclick = autoChart;
+
+  // ---------- 노트 직접 고치기 ----------
+  let editing = false;
+  const EROWS = 16;                       // 화면에 보여줄 격자 줄 수
+  function eStep(){ return 60/(+$('bpm').value) * (4/(+$('egrid').value)); }
+
+  function drawEdit(){
+    const box = $('egridbox');
+    if (!editing) { $('editWrap').style.display = 'none'; return; }
+    $('editWrap').style.display = 'block';
+    const step = eStep(), o = +$('ofs').value;
+    const p = pos();
+    const startIdx = Math.round((p - o)/step) - Math.floor(EROWS/2);
+    const rowH = 26;
+    box.style.height = (EROWS*rowH) + 'px';
+    let html = '';
+    for (let r = 0; r < EROWS; r++) {
+      const idx = startIdx + r;
+      const t = +(idx*step + o).toFixed(3);
+      const y = (EROWS-1-r)*rowH;                       // 아래가 과거, 위가 미래
+      const beatMark = Math.abs((t-o) % (60/(+$('bpm').value)) ) < 1e-3;
+      const barMark = Math.abs((t-o) % (60/(+$('bpm').value)*4)) < 1e-3;
+      html += `<div style="position:absolute;left:0;right:0;top:${y}px;height:${rowH}px;
+        border-top:1px solid ${barMark?'rgba(244,63,94,.5)':beatMark?'rgba(255,255,255,.16)':'rgba(255,255,255,.05)'};"></div>`;
+      html += `<div style="position:absolute;left:4px;top:${y+5}px;font-size:9px;color:var(--t3);">${t.toFixed(2)}</div>`;
+      for (let L = 0; L < LANES; L++) {
+        const hit = notes.find(n => Math.abs(n.t - t) < step*0.4 && n.lane === L);
+        html += `<div data-t="${t}" data-l="${L}" style="position:absolute;top:${y+2}px;height:${rowH-4}px;
+          left:${(13 + L*21.5).toFixed(1)}%;width:19.5%;
+          border-radius:5px;cursor:pointer;
+          background:${hit ? (hit.dur>0 ? COLORS[L] : COLORS[L]+'CC') : 'rgba(255,255,255,.05)'};
+          ${hit&&hit.dur>0?'box-shadow:0 0 0 2px #fff inset;':''}"></div>`;
+      }
+    }
+    html += `<div style="position:absolute;left:0;right:0;top:${(EROWS-1-Math.floor(EROWS/2))*rowH}px;height:${rowH}px;border:2px solid rgba(56,189,248,.7);border-radius:4px;pointer-events:none;"></div>`;
+    box.innerHTML = html;
+    $('editInfo').innerHTML = `현재 ${p.toFixed(2)}초 · 노트 <b>${notes.length}</b>개 · 파란 테두리가 현재 위치예요`;
+  }
+
+  $('egridbox').addEventListener('pointerdown', e => {
+    const el = e.target.closest('[data-t]');
+    if (!el || !editing) return;
+    const t = +el.dataset.t, L = +el.dataset.l, step = eStep();
+    const i = notes.findIndex(n => Math.abs(n.t - t) < step*0.4 && n.lane === L);
+    undoStack.push({ type:'bulk', before: notes.map(n=>({...n})) });
+    if (i >= 0) {
+      if (notes[i].dur > 0) notes.splice(i,1);          // 롱노트 → 삭제
+      else notes[i].dur = step*2;                       // 일반 → 롱노트
+    } else {
+      notes.push({ t, lane:L, dur:0 });
+      key(laneNote(L));
+    }
+    refresh(); drawEdit();
+  });
+
+  $('btnEdit').onclick = () => {
+    editing = !editing;
+    $('btnEdit').classList.toggle('on', editing);
+    $('btnEdit').textContent = editing ? '✏️ 편집 모드 끄기' : '✏️ 편집 모드 켜기';
+    if (editing && playing) stop();
+    drawEdit();
+  };
+  const jumpBar = dir => {
+    const barLen = 60/(+$('bpm').value)*4;
+    if (playing) stop();
+    const lim = buf ? buf.duration : (notes.length ? notes[notes.length-1].t + 10 : 600);
+    startPos = Math.max(0, Math.min(lim, startPos + dir*barLen));
+    refresh(); drawEdit();
+  };
+  $('btnPrevBar').onclick = () => jumpBar(-1);
+  $('btnNextBar').onclick = () => jumpBar(1);
+  $('egrid').onchange = drawEdit;
 
   // ---------- 내보내기 ----------
   $('btnExport').onclick=()=>{
