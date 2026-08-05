@@ -3209,6 +3209,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
+  // '오늘 0시'를 UTC 시각으로 환산해서 준다.
+  // (DB의 created_at은 UTC라, 한국 날짜 문자열을 그대로 쓰면 00~09시 기록이 통째로 빠진다)
+  function _dayStartUTC() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }
 
   // 오늘의 문항 뽑기 — 같은 학년이면 전교생 같은 문제
   function quizPickToday(band) {
@@ -3454,8 +3461,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const stu = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}&select=school,grade`, { headers: sbHeaders() }).then(r => r.json());
       const band = await quizBandFor(sid, stu[0] || {});
       const unlimited = isUnlimited(sid);
-      const from = _qToday() + 'T00:00:00';
-      const done = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(QUIZ_REASON + '%')}&created_at=gte.${from}&select=amount,reason`, { headers: sbHeaders() }).then(r => r.json());
+      const from = _dayStartUTC();
+      const done = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(QUIZ_REASON + '%')}&created_at=gte.${encodeURIComponent(from)}&select=amount,reason`, { headers: sbHeaders() }).then(r => r.json());
       const already = Array.isArray(done) && done.length > 0;
       _qz = { band, sid, unlimited, qs: quizPickToday(band), i: 0, ok: 0, picked: [] };
 
@@ -4088,8 +4095,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
   // ---- 오늘 사용 횟수 (localStorage가 아니라 DB 기록으로 판정) ----
   async function rhyUsedToday(sid) {
-    const from = _qToday() + 'T00:00:00';
-    const rows = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(RHY_FEE_REASON + '%')}&created_at=gte.${from}&select=id`, { headers: sbHeaders() }).then(r => r.json());
+    const from = _dayStartUTC();
+    const rows = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(RHY_FEE_REASON + '%')}&created_at=gte.${encodeURIComponent(from)}&select=id`, { headers: sbHeaders() }).then(r => r.json());
     return Array.isArray(rows) ? rows.length : 0;
   }
 
@@ -4859,8 +4866,8 @@ COMBO</span><span class="dig" id="rhy-combo2">00000</span></div>
 
   // 오늘 몇 번 돌렸는지 — localStorage가 아니라 DB 기록으로 판정(초기화 꼼수 방지)
   async function roulUsedToday(sid) {
-    const from = _qToday() + 'T00:00:00';
-    const rows = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(ROUL_FEE_REASON + '%')}&created_at=gte.${from}&select=id`, { headers: sbHeaders() }).then(r => r.json());
+    const from = _dayStartUTC();
+    const rows = await fetch(`${SUPABASE_URL}/rest/v1/point_logs?student_id=eq.${sid}&reason=like.${encodeURIComponent(ROUL_FEE_REASON + '%')}&created_at=gte.${encodeURIComponent(from)}&select=id`, { headers: sbHeaders() }).then(r => r.json());
     return Array.isArray(rows) ? rows.length : 0;
   }
 
