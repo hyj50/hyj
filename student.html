@@ -319,6 +319,12 @@
       linear-gradient(165deg,#0A1512,#050C0A 55%,#08181B);
     border:1px solid #145F3E;
     box-shadow:0 0 0 1px rgba(30,220,140,.28) inset, 0 6px 20px rgba(0,0,0,.6); }
+  /* 아케이드 CRT 질감 */
+  .ez3::after{ content:''; position:absolute; inset:0; pointer-events:none; border-radius:8px;
+    background:
+      repeating-linear-gradient(180deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,.45) 100%);
+    mix-blend-mode:multiply; opacity:.55; }
 
   .ez3-banner{ display:flex; align-items:center; justify-content:space-between;
     padding:5px 11px; margin-bottom:9px; border-radius:4px;
@@ -344,6 +350,14 @@
     box-shadow:0 6px 18px rgba(0,0,0,.75),
       inset 0 0 0 1px rgba(255,255,255,.35), inset 0 0 26px rgba(0,0,0,.55);
     animation: ez3Spin 18s linear infinite; }
+  /* 곡별 추상 자켓 아트 */
+  .ez3-jacket .ez3-art{ position:absolute; inset:0; border-radius:50%; overflow:hidden;
+    background:
+      conic-gradient(from calc(var(--h) * 1deg) at 62% 38%,
+        hsl(var(--h) 85% 58% / .85), transparent 28%, hsl(calc(var(--h) + 55) 80% 52% / .7) 52%,
+        transparent 78%, hsl(var(--h) 85% 58% / .85)),
+      radial-gradient(circle at 28% 72%, hsl(calc(var(--h) + 180) 75% 55% / .55), transparent 45%);
+    mix-blend-mode:screen; opacity:.85; }
   .ez3-jacket .ez3-ring{ position:absolute; inset:16%; border-radius:50%;
     background:linear-gradient(150deg, hsl(var(--h) 60% 46%), hsl(var(--h) 70% 20%));
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.4), 0 0 12px rgba(0,0,0,.6); }
@@ -353,8 +367,15 @@
   /* 유리 하이라이트 (회전하지 않음) */
   .ez3-jacket-wrap::after{ content:''; position:absolute; inset:0; border-radius:50%;
     pointer-events:none;
-    background:linear-gradient(148deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,.05) 28%,
-      transparent 46%, transparent 100%); }
+    background:linear-gradient(148deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,.06) 28%,
+      transparent 46%, transparent 100%);
+    box-shadow:inset 0 0 0 2px var(--tc, #22D37B), inset 0 0 18px color-mix(in srgb,var(--tc,#22D37B) 40%,transparent),
+      0 0 16px color-mix(in srgb,var(--tc,#22D37B) 45%,transparent); }
+  /* 자켓 위 난이도 배지 */
+  .ez3-tagbadge{ position:absolute; right:-2px; bottom:6%; z-index:4;
+    font-size:9.5px; font-weight:900; font-style:italic; letter-spacing:1px; color:#07120E;
+    padding:3px 9px; border-radius:3px; background:var(--tc);
+    box-shadow:0 2px 6px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.5); }
   .ez3-lab{ position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; pointer-events:none; z-index:3; }
   .ez3-genre{ font-size:8.5px; font-weight:900; letter-spacing:1.4px; color:#0B1512;
@@ -376,7 +397,8 @@
     background:linear-gradient(180deg,#FDFEFE,#CBD6DC);
     box-shadow:0 2px 5px rgba(0,0,0,.55), inset 0 1px 0 #fff; }
   .ez3-lvbox .k{ font-size:9px; font-weight:900; color:#4A555E; letter-spacing:.6px; }
-  .ez3-lvbox .n{ font-size:21px; font-weight:900; font-style:italic; color:#D91B3C; line-height:1; }
+  .ez3-lvbox .n{ font-size:21px; font-weight:900; font-style:italic; line-height:1;
+    color:var(--tc, #D91B3C); text-shadow:0 1px 0 rgba(255,255,255,.55); }
 
   /* 오른쪽 곡 목록 */
   .ez3-list{ flex:1; min-width:0; max-height:236px; overflow-y:auto; border-radius:6px;
@@ -396,17 +418,25 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ez3-item .tx i{ display:block; font-size:9px; font-style:normal; color:#5E8878;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ez3-item .lv{ flex:0 0 auto; font-size:11px; font-weight:900; font-style:italic; color:#7E9C90; }
-  .ez3-item.on{ background:linear-gradient(90deg, rgba(30,220,140,.28), rgba(30,220,140,.06)); }
+  .ez3-item .tag{ flex:0 0 auto; font-size:8px; font-weight:900; font-style:italic; letter-spacing:.5px;
+    color:var(--tc); padding:1.5px 5px; border-radius:3px;
+    background:color-mix(in srgb, var(--tc) 16%, transparent);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--tc) 45%, transparent); }
+  .ez3-item .lv{ flex:0 0 16px; text-align:right; font-size:12px; font-weight:900; font-style:italic;
+    color:var(--tc); }
+  .ez3-item.on{ position:relative;
+    background:linear-gradient(90deg, color-mix(in srgb,var(--tc) 28%,transparent), transparent 85%); }
+  .ez3-item.on::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--tc); box-shadow:0 0 8px var(--tc); }
   .ez3-item.on .tx b{ color:#FFFFFF; }
-  .ez3-item.on .lv{ color:#FFD166; text-shadow:0 0 7px rgba(255,209,102,.7); }
+  .ez3-item.on .lv{ text-shadow:0 0 8px var(--tc); }
 
   .ez3-diff{ display:flex; align-items:center; gap:7px; margin-top:9px; padding:5px 10px;
     border-radius:4px; background:linear-gradient(180deg,rgba(20,60,45,.75),rgba(6,18,14,.85));
     box-shadow:inset 0 0 0 1px rgba(120,255,190,.2); }
   .ez3-dlab{ font-style:italic; font-weight:900; font-size:9.5px; letter-spacing:1.3px; color:#9FD9C4; }
-  .ez3-hd b{ font-size:13px; font-weight:900; font-style:italic; color:#FFD02B;
-    text-shadow:0 0 7px rgba(255,208,43,.6); }
+  .ez3-hd b{ font-size:13px; font-weight:900; font-style:italic; color:var(--tc,#FFD02B);
+    text-shadow:0 0 8px color-mix(in srgb,var(--tc,#FFD02B) 70%,transparent); }
   .ez3-pips{ display:flex; gap:3px; margin-left:auto; }
   .ez3-pips i{ width:11px; height:11px; transform:rotate(45deg); border-radius:2px;
     background:rgba(255,255,255,.07); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16); }
@@ -4310,7 +4340,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (!sel || !RHY_SONGS[sel]) sel = keys[0];
     const g = RHY_SONGS[sel], lv = rhySongLevel(sel), hue = rhyCdHue(sel), info = rhySongInfo(sel);
     const idx = keys.indexOf(sel);
-    const diffTag = lv >= 7 ? 'SHD' : lv >= 5 ? 'HD' : lv >= 3 ? 'NM' : 'EZ';
+    const tagOf = l => l >= 7 ? 'SHD' : l >= 5 ? 'HD' : l >= 3 ? 'NM' : 'EZ';
+    const TAGC = { EZ: '#22D37B', NM: '#3B9EFF', HD: '#FFC93C', SHD: '#FF4D6D' };
+    const diffTag = tagOf(lv), tagc = TAGC[diffTag];
 
     const PIPC = ['#FF7A18', '#FFA51E', '#FFD028', '#E8F02A', '#A9E82A', '#5BD82E', '#22C55E'];
     const litPips = Math.max(1, Math.ceil(lv / 20 * PIPC.length));
@@ -4324,18 +4356,19 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         <div class="ez3-main">
           <!-- 왼쪽: 자켓 -->
           <div class="ez3-left">
-            <div class="ez3-jacket-wrap" onclick="rhyStep(1)">
+            <div class="ez3-jacket-wrap" style="--tc:${tagc};" onclick="rhyStep(1)">
               <div class="ez3-jacket" style="--h:${hue};">
-                <span class="ez3-ring"></span><span class="ez3-hub"></span>
+                <span class="ez3-art"></span><span class="ez3-ring"></span><span class="ez3-hub"></span>
               </div>
               <div class="ez3-lab">
                 <span class="ez3-genre">${rhyGenre(sel)}</span>
                 <span class="ez3-name">${g.name}</span>
               </div>
+              <span class="ez3-tagbadge" style="--tc:${tagc};">${diffTag}</span>
             </div>
             <div class="ez3-nav">
               <button class="ez3-arw" onclick="rhyStep(-1)">◀</button>
-              <div class="ez3-lvbox"><span class="k">LV</span><span class="n">${lv}</span></div>
+              <div class="ez3-lvbox" style="--tc:${tagc};"><span class="k">LV</span><span class="n">${lv}</span></div>
               <button class="ez3-arw" onclick="rhyStep(1)">▶</button>
             </div>
           </div>
@@ -4344,10 +4377,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           <div class="ez3-list">
             ${keys.map(k => {
               const s2 = RHY_SONGS[k], l2 = rhySongLevel(k);
-              return `<div class="ez3-item${k === sel ? ' on' : ''}" data-k="${k}" onclick="rhyPickSong('${k}')">
+              const t2 = tagOf(l2);
+              return `<div class="ez3-item${k === sel ? ' on' : ''}" data-k="${k}" style="--tc:${TAGC[t2]};"
+                onclick="rhyPickSong('${k}')">
                 <span class="dot" style="--h:${rhyCdHue(k)};"></span>
                 <span class="tx"><b>${s2.name}</b><i>${s2.by}</i></span>
-                <span class="lv">${l2}</span>
+                <span class="tag">${t2}</span><span class="lv">${l2}</span>
               </div>`;
             }).join('')}
           </div>
@@ -4355,7 +4390,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
         <div class="ez3-diff">
           <span class="ez3-dlab">DIFFICULTY</span>
-          <span class="ez3-hd"><b>${diffTag}</b></span>
+          <span class="ez3-hd" style="--tc:${tagc};"><b>${diffTag}</b></span>
           <span class="ez3-pips">${pips}</span>
         </div>
         <div class="ez3-spec">${g.by} · ${info.notes} NOTES · ${info.time} · ${g.bpm} BPM</div>
