@@ -310,38 +310,100 @@
     background:linear-gradient(135deg,#38BDF8,#1D4ED8); color:#fff; font-size:14.5px; font-weight:900;
     letter-spacing:1px; }
 
-  /* ===== CD 선반 (EZ2DJ 스타일 곡 선택) ===== */
-  @keyframes rhySpin { to { transform:rotate(360deg); } }
-  .rhy-rack{ display:flex; gap:12px; overflow-x:auto; padding:6px 4px 10px;
-    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; }
-  .rhy-rack::-webkit-scrollbar{ height:4px; }
-  .rhy-rack::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:2px; }
-  .rhy-cd{ flex:0 0 108px; scroll-snap-align:center; cursor:pointer; text-align:center;
-    opacity:.55; transform:scale(.9); transition:opacity .18s, transform .18s; }
-  .rhy-cd.on{ opacity:1; transform:scale(1); }
-  .rhy-cd-disc{ position:relative; width:96px; height:96px; margin:0 auto 6px; border-radius:50%;
+  /* ===== 아케이드 곡 선택 (EZ2DJ 3rd 느낌) ===== */
+  @keyframes ezSpin { to { transform:rotate(360deg); } }
+  @keyframes ezScan { to { background-position:0 22px; } }
+  .ez-cab{ position:relative; border-radius:14px; padding:12px 12px 14px; margin-bottom:14px;
     background:
-      repeating-conic-gradient(from 0deg,
-        hsl(var(--h) 70% 62%) 0deg 6deg, hsl(var(--h) 70% 46%) 6deg 12deg),
-      radial-gradient(circle, hsl(var(--h) 65% 55%), hsl(var(--h) 70% 30%));
-    box-shadow:0 4px 12px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.25);
-    animation:rhySpin 9s linear infinite; animation-play-state:paused; }
-  .rhy-cd.on .rhy-cd-disc{ animation-play-state:running;
-    box-shadow:0 5px 20px hsl(var(--h) 70% 45% / .7), inset 0 0 0 2px rgba(255,255,255,.55); }
-  .rhy-cd-disc::after{ content:''; position:absolute; inset:14%; border-radius:50%;
-    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.85), rgba(255,255,255,.15) 45%, transparent 70%),
-      hsl(var(--h) 55% 22%);
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); }
-  .rhy-cd-hole{ position:absolute; left:50%; top:50%; width:20%; height:20%; border-radius:50%;
-    transform:translate(-50%,-50%); background:var(--bg2); z-index:2;
-    box-shadow:inset 0 0 0 2px rgba(255,255,255,.5); }
-  .rhy-cd-lv{ position:absolute; left:50%; bottom:16%; transform:translateX(-50%); z-index:3;
-    font-size:19px; font-weight:900; color:#fff; font-style:italic;
-    text-shadow:0 0 7px rgba(0,0,0,.9), 0 2px 0 rgba(0,0,0,.6); }
-  .rhy-cd-t{ font-size:11.5px; font-weight:800; color:var(--text1); line-height:1.25;
+      repeating-linear-gradient(180deg, rgba(0,255,170,.045) 0 1px, transparent 1px 4px),
+      linear-gradient(180deg,#06140F,#04100C 55%,#061A14);
+    border:2px solid #19E39A;
+    box-shadow:0 0 12px rgba(25,227,154,.45), inset 0 0 26px rgba(25,227,154,.14);
+    animation: ezScan 1.4s linear infinite; }
+  .ez-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+    padding-bottom:7px; border-bottom:1px solid rgba(25,227,154,.35); }
+  .ez-ttl{ font-size:12.5px; font-weight:900; font-style:italic; letter-spacing:2px; color:#9BFFD9;
+    text-shadow:0 0 7px #19E39A, 0 0 18px rgba(25,227,154,.6); }
+  .ez-cnt{ font-size:11px; font-weight:900; color:#FFD166; letter-spacing:1px;
+    text-shadow:0 0 6px rgba(255,209,102,.7); }
+
+  .ez-stage{ display:flex; align-items:center; gap:6px; }
+  .ez-arw{ flex:0 0 30px; height:56px; border:none; cursor:pointer; border-radius:8px;
+    background:linear-gradient(180deg,rgba(25,227,154,.22),rgba(25,227,154,.06));
+    color:#9BFFD9; font-size:16px; font-weight:900;
+    box-shadow:inset 0 0 0 1.5px rgba(25,227,154,.5); }
+  .ez-arw:active{ background:rgba(25,227,154,.45); }
+  .ez-disc-wrap{ flex:1; position:relative; display:flex; justify-content:center;
+    align-items:center; padding:4px 0; cursor:pointer; }
+  .ez-label{ position:absolute; inset:0; pointer-events:none; }
+  .ez-disc{ position:relative; width:min(60vw,190px); aspect-ratio:1/1; border-radius:50%;
+    cursor:pointer;
+    background:
+      repeating-conic-gradient(from 0deg, hsl(var(--h) 78% 60%) 0deg 5deg, hsl(var(--h) 78% 42%) 5deg 10deg),
+      radial-gradient(circle, hsl(var(--h) 70% 52%), hsl(var(--h) 78% 26%));
+    box-shadow:0 0 22px hsl(var(--h) 80% 50% / .55), 0 6px 18px rgba(0,0,0,.7),
+      inset 0 0 0 3px rgba(255,255,255,.4);
+    animation: ezSpin 12s linear infinite; }
+  .ez-disc::before{ content:''; position:absolute; inset:11%; border-radius:50%;
+    background:
+      radial-gradient(circle at 30% 26%, rgba(255,255,255,.75), rgba(255,255,255,.08) 42%, transparent 68%),
+      linear-gradient(150deg, hsl(var(--h) 60% 34%), hsl(var(--h) 70% 16%));
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.35), inset 0 0 24px rgba(0,0,0,.6); }
+  .ez-genre{ position:absolute; left:50%; top:21%; transform:translateX(-50%); z-index:4;
+    font-size:9px; font-weight:900; letter-spacing:1.5px; white-space:nowrap;
+    color:#08150F; background:#FFE27A; padding:2px 9px; border-radius:3px;
+    box-shadow:0 1px 5px rgba(0,0,0,.6); }
+  .ez-name{ position:absolute; left:50%; top:60%; transform:translateX(-50%); z-index:4;
+    width:82%; font-size:12.5px; font-weight:900; font-style:italic;
+    color:#fff; text-align:center; line-height:1.15;
+    text-shadow:0 0 7px rgba(0,0,0,.95), 0 0 16px rgba(0,0,0,.8), 0 2px 0 rgba(0,0,0,.75);
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .rhy-cd-b{ font-size:10px; color:var(--text4); font-weight:600; margin-top:1px;
+  .ez-hole{ position:absolute; left:50%; top:41.5%; width:13%; height:13%; border-radius:50%;
+    transform:translate(-50%,-50%); background:#05100C; z-index:3;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.55), 0 0 6px rgba(0,0,0,.8); }
+
+  .ez-info{ margin-top:10px; border-radius:9px; padding:9px 11px;
+    background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.3));
+    box-shadow:inset 0 0 0 1.5px rgba(25,227,154,.35); }
+  .ez-row1{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .ez-song{ font-size:13.5px; font-weight:900; color:#EAFFF6; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .ez-by{ font-size:10.5px; font-weight:700; color:#6FBFA0; margin-top:1px;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ez-lv{ flex:0 0 auto; display:flex; align-items:baseline; gap:3px; padding:3px 9px; border-radius:6px;
+    background:linear-gradient(180deg,#FF5E7A,#B01035);
+    box-shadow:0 0 10px rgba(255,94,122,.6), inset 0 1px 0 rgba(255,255,255,.4); }
+  .ez-lv .k{ font-size:9px; font-weight:900; color:#FFD9E1; letter-spacing:1px; }
+  .ez-lv .n{ font-size:20px; font-weight:900; font-style:italic; color:#fff;
+    text-shadow:0 0 6px rgba(255,255,255,.6); line-height:1; }
+  .ez-diff{ display:flex; align-items:center; gap:7px; margin-top:8px; }
+  .ez-diff .lab{ font-size:9px; font-weight:900; letter-spacing:1.2px; color:#7FE3C0; }
+  .ez-diff .pips{ display:flex; gap:3px; }
+  .ez-diff i{ width:9px; height:9px; transform:rotate(45deg); border-radius:1.5px;
+    background:rgba(255,255,255,.10); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+  .ez-diff i.h{ background:linear-gradient(135deg,#FFE27A 50%,rgba(255,255,255,.1) 50%);
+    box-shadow:0 0 6px rgba(255,226,122,.7); }
+  .ez-diff i.f{ background:linear-gradient(135deg,#FFE27A,#FF9B3D);
+    box-shadow:0 0 7px rgba(255,180,80,.85); }
+  .ez-meta{ margin-top:7px; font-size:10px; font-weight:800; letter-spacing:.5px; color:#5FB79A; }
+
+  .ez-strip{ display:flex; gap:5px; overflow-x:auto; padding:9px 2px 4px; }
+  .ez-strip::-webkit-scrollbar{ height:3px; }
+  .ez-strip::-webkit-scrollbar-thumb{ background:rgba(25,227,154,.4); border-radius:2px; }
+  .ez-mini{ flex:0 0 16px; height:16px; border-radius:50%; cursor:pointer;
+    background:radial-gradient(circle, hsl(var(--h) 70% 62%), hsl(var(--h) 75% 32%));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); opacity:.45; transition:.15s; }
+  .ez-mini.on{ opacity:1; transform:scale(1.3);
+    box-shadow:0 0 8px hsl(var(--h) 80% 60%), inset 0 0 0 1.5px #fff; }
+
+  .ez-start{ width:100%; margin-top:9px; padding:13px; border:none; border-radius:9px; cursor:pointer;
+    font-size:14px; font-weight:900; font-style:italic; letter-spacing:2px; color:#04140E;
+    background:linear-gradient(180deg,#7CFFD0,#19E39A 55%,#0FB57A);
+    box-shadow:0 0 14px rgba(25,227,154,.7), inset 0 1px 0 rgba(255,255,255,.6); }
+  .ez-start:disabled{ background:#1A2A24; color:#4E7A6A; box-shadow:none; cursor:default;
+    font-style:normal; letter-spacing:0; font-size:12.5px; }
+  .ez-foot{ margin-top:8px; text-align:center; font-size:10.5px; font-weight:700; color:#5FB79A; }
+  .ez-foot b{ color:#FFE27A; }
 
   /* 별 노트 — 스킨에서 오려낸 스프라이트 */
   .rhy-note{ position:absolute; }
@@ -4176,6 +4238,26 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     return h % 360;
   }
 
+  // 곡 장르 (아케이드 화면의 디스크 라벨용)
+  function rhyGenre(k) {
+    const by = (RHY_SONGS[k].by || '');
+    if (/EZ2AC|EZ2DJ/i.test(by)) return 'HARDCORE';
+    if (/전래|민요|아리랑/.test(by)) return 'FOLK';
+    if (/찬송가|그루버/.test(by)) return 'HYMN';
+    if (/피어폰트/.test(by)) return 'CAROL';
+    if (/포스터/.test(by)) return 'COUNTRY';
+    if (/앨런/.test(by)) return 'PIANO';
+    return 'CLASSIC';
+  }
+  const _rhyInfoCache = {};
+  function rhySongInfo(k) {
+    if (_rhyInfoCache[k]) return _rhyInfoCache[k];
+    let n = 0, sec = 0;
+    try { const ch = rhyBuildChart(k, 0); n = ch.notes.length; sec = ch.endsAt; } catch (e) {}
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return (_rhyInfoCache[k] = { notes: n, time: `${m}:${String(s).padStart(2, '0')}` });
+  }
+
   async function loadRhythm() {
     const box = document.getElementById('rhythm-box');
     if (!box) return;
@@ -4188,79 +4270,99 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const left = limit === Infinity ? '∞' : Math.max(0, limit - used);
     const out = used >= limit;
     const best = localStorage.getItem(`rhy_best_${sid}`);
-    const cal = rhyOffset();
-    const spd = rhySpeed();
-    const skin = rhyNoteSkin();
-    const keys = Object.keys(RHY_SONGS).sort((a, b) => rhySongLevel(a) - rhySongLevel(b));
-    const sel = localStorage.getItem('rhy_sel') && RHY_SONGS[localStorage.getItem('rhy_sel')]
-      ? localStorage.getItem('rhy_sel') : keys[0];
+    const cal = rhyOffset(), spd = rhySpeed(), nskin = rhyNoteSkin();
 
-    const disc = k => {
-      const g = RHY_SONGS[k], lv = rhySongLevel(k), hue = rhyCdHue(k);
-      const on = k === sel;
-      return `<div class="rhy-cd${on ? ' on' : ''}" data-k="${k}" onclick="rhyPickSong('${k}')">
-        <div class="rhy-cd-disc" style="--h:${hue};">
-          <div class="rhy-cd-hole"></div>
-          <div class="rhy-cd-lv">${lv}</div>
-        </div>
-        <div class="rhy-cd-t">${g.name}</div>
-        <div class="rhy-cd-b">${g.by}</div>
-      </div>`;
-    };
+    const keys = Object.keys(RHY_SONGS).sort((a, b) => rhySongLevel(a) - rhySongLevel(b));
+    let sel = localStorage.getItem('rhy_sel');
+    if (!sel || !RHY_SONGS[sel]) sel = keys[0];
+    const g = RHY_SONGS[sel], lv = rhySongLevel(sel), hue = rhyCdHue(sel), info = rhySongInfo(sel);
+    const idx = keys.indexOf(sel);
+
+    // 난이도 표시 — 10칸 다이아 (레벨 1~20을 반칸까지)
+    const pips = Array.from({ length: 10 }, (_, i) => {
+      const full = lv >= (i + 1) * 2, half = lv === (i + 1) * 2 - 1;
+      return `<i class="${full ? 'f' : half ? 'h' : ''}"></i>`;
+    }).join('');
 
     box.innerHTML = `
-      <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
-        <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🥁 리듬 게임 <span style="font-size:11px;color:var(--text4);font-weight:600;">· ${keys.length}곡</span></div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">1회 ${RHYTHM_COST}P · 하루 ${RHYTHM_DAILY}번 · 오늘 <b style="color:var(--pink);">${left}</b>번 남음${best ? ` · 최고 <b style="color:#FBBF24;">${best}</b>` : ''}</div>
+      <div class="ez-cab">
+        <div class="ez-top">
+          <span class="ez-ttl">SELECT A MUSIC</span>
+          <span class="ez-cnt">${String(idx + 1).padStart(2, '0')} / ${String(keys.length).padStart(2, '0')}</span>
+        </div>
 
-        <div class="rhy-rack" id="rhy-rack">${keys.map(disc).join('')}</div>
+        <div class="ez-stage">
+          <button class="ez-arw l" onclick="rhyStep(-1)">◀</button>
+          <div class="ez-disc-wrap" onclick="rhyStep(1)">
+            <div class="ez-disc" style="--h:${hue};"></div>
+            <div class="ez-label">
+              <div class="ez-genre">${rhyGenre(sel)}</div>
+              <div class="ez-name">${g.name}</div>
+              <div class="ez-hole"></div>
+            </div>
+          </div>
+          <button class="ez-arw r" onclick="rhyStep(1)">▶</button>
+        </div>
 
-        <button id="rhy-go" onclick="rhySongPick(localStorage.getItem('rhy_sel')||'${keys[0]}')" ${out ? 'disabled' : ''}
-          style="width:100%;margin-top:12px;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:900;
-          cursor:${out ? 'default' : 'pointer'};letter-spacing:1px;
-          background:${out ? 'var(--bg3)' : 'linear-gradient(135deg,#38BDF8,#1D4ED8)'};color:${out ? 'var(--text4)' : '#fff'};">
-          ${out ? '오늘은 다 했어요 · 내일 또 만나요 🌙' : '▶ 시작하기'}
+        <div class="ez-info">
+          <div class="ez-row1">
+            <div style="min-width:0;">
+              <div class="ez-song">${g.name}</div>
+              <div class="ez-by">${g.by}</div>
+            </div>
+            <div class="ez-lv"><span class="k">LV</span><span class="n">${lv}</span></div>
+          </div>
+          <div class="ez-diff"><span class="lab">DIFFICULTY</span><span class="pips">${pips}</span></div>
+          <div class="ez-meta">${info.notes} NOTES · ${info.time} · ${g.bpm} BPM</div>
+        </div>
+
+        <div class="ez-strip">
+          ${keys.map(k => `<span class="ez-mini${k === sel ? ' on' : ''}" style="--h:${rhyCdHue(k)};"
+            title="${RHY_SONGS[k].name}" onclick="rhyPickSong('${k}')"></span>`).join('')}
+        </div>
+
+        <button id="rhy-go" class="ez-start" onclick="rhySongPick('${sel}')" ${out ? 'disabled' : ''}>
+          ${out ? '오늘은 다 했어요 · 내일 또 만나요 🌙' : '▶ 1 PLAYER  START'}
         </button>
 
-        <details style="margin-top:10px;">
-          <summary style="cursor:pointer;font-size:12px;font-weight:800;color:var(--text3);padding:6px 0;">⚙️ 노트 스킨 · 낙하 속도 · 박자 맞추기</summary>
-          <div style="padding-top:8px;">
-            <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:5px;">노트 모양</div>
-            <div style="display:flex;gap:5px;margin-bottom:10px;">
-              ${RHY_NOTE_SKINS.map(n => `<button onclick="rhySetNoteSkin('${n.id}')" style="flex:1;padding:9px 4px;border-radius:9px;border:none;
-                font-size:11.5px;font-weight:800;cursor:pointer;
-                background:${n.id === skin ? 'var(--pink)' : 'var(--bg3)'};color:${n.id === skin ? '#fff' : 'var(--text3)'};">${n.emoji} ${n.name}</button>`).join('')}
-            </div>
-            <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:5px;">⏩ 노트 낙하 속도 <span style="opacity:.75;font-weight:600;">— 노래 빠르기는 그대로예요</span></div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">
-              ${RHY_SPEEDS.map(v => `<button onclick="rhySetSpeed(${v})" style="flex:1;min-width:42px;padding:7px 2px;border-radius:8px;border:none;font-size:11px;font-weight:800;cursor:pointer;
-                background:${v === spd ? 'var(--pink)' : 'var(--bg3)'};color:${v === spd ? '#fff' : 'var(--text3)'};">${v}×</button>`).join('')}
-            </div>
-            <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;">
-              🎧 박자 맞추기 ${cal ? `(현재 ${Math.round(cal * 1000)}ms 보정됨)` : '— 처음이면 먼저 해주세요'}
-            </button>
+        <div class="ez-foot">1회 ${RHYTHM_COST}P · 오늘 <b>${left}</b>번 남음${best ? ` · 최고 <b>${best}</b>` : ''}</div>
+      </div>
+
+      <details style="margin:-6px 0 14px;">
+        <summary style="cursor:pointer;font-size:12px;font-weight:800;color:var(--text3);padding:6px 2px;">⚙️ 노트 스킨 · 낙하 속도 · 박자 맞추기</summary>
+        <div style="padding:8px 2px 0;">
+          <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:5px;">노트 모양</div>
+          <div style="display:flex;gap:5px;margin-bottom:10px;">
+            ${RHY_NOTE_SKINS.map(n => `<button onclick="rhySetNoteSkin('${n.id}')" style="flex:1;padding:9px 4px;border-radius:9px;border:none;
+              font-size:11.5px;font-weight:800;cursor:pointer;
+              background:${n.id === nskin ? 'var(--pink)' : 'var(--bg3)'};color:${n.id === nskin ? '#fff' : 'var(--text3)'};">${n.emoji} ${n.name}</button>`).join('')}
           </div>
-        </details>
-
-        <div style="margin-top:11px;font-size:11px;color:var(--text4);line-height:1.7;text-align:center;">
-          S 15P · A 12P · B 9P · C 4P · D 0P<br>
-          <span style="opacity:.8;">리듬게임 P는 명성·레벨에 반영되지 않아요.</span>
+          <div style="font-size:11px;color:var(--text4);font-weight:700;margin-bottom:5px;">⏩ 노트 낙하 속도 <span style="opacity:.75;font-weight:600;">— 노래 빠르기는 그대로예요</span></div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px;">
+            ${RHY_SPEEDS.map(v => `<button onclick="rhySetSpeed(${v})" style="flex:1;min-width:42px;padding:7px 2px;border-radius:8px;border:none;font-size:11px;font-weight:800;cursor:pointer;
+              background:${v === spd ? 'var(--pink)' : 'var(--bg3)'};color:${v === spd ? '#fff' : 'var(--text3)'};">${v}×</button>`).join('')}
+          </div>
+          <button onclick="rhyCalibrate()" style="width:100%;padding:9px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11.5px;font-weight:700;cursor:pointer;">
+            🎧 박자 맞추기 ${cal ? `(현재 ${Math.round(cal * 1000)}ms 보정됨)` : '— 처음이면 먼저 해주세요'}
+          </button>
+          <div style="margin-top:9px;font-size:11px;color:var(--text4);line-height:1.7;text-align:center;">
+            S 15P · A 12P · B 9P · C 4P · D 0P<br>
+            <span style="opacity:.8;">리듬게임 P는 명성·레벨에 반영되지 않아요.</span>
+          </div>
         </div>
-      </div>`;
+      </details>`;
 
-    const cd = document.querySelector('.rhy-cd.on');
-    if (cd) cd.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const on = document.querySelector('.ez-mini.on');
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
-  function rhySongPick(key) { rhyStart(key); }
-
-  function rhyPickSong(k) {
-    localStorage.setItem('rhy_sel', k);
-    document.querySelectorAll('.rhy-cd').forEach(e => e.classList.toggle('on', e.dataset.k === k));
-    const b = document.getElementById('rhy-go');
-    if (b && !b.disabled) b.setAttribute('onclick', `rhySongPick('${k}')`);
-    const cd = document.querySelector('.rhy-cd.on');
-    if (cd) cd.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  function rhyPickSong(k) { localStorage.setItem('rhy_sel', k); loadRhythm(); }
+  function rhyStep(d) {
+    const keys = Object.keys(RHY_SONGS).sort((a, b) => rhySongLevel(a) - rhySongLevel(b));
+    let sel = localStorage.getItem('rhy_sel');
+    if (!sel || !RHY_SONGS[sel]) sel = keys[0];
+    const i = (keys.indexOf(sel) + d + keys.length) % keys.length;
+    rhyPickSong(keys[i]);
   }
 
   // ---- 전체화면 판 ----
