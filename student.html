@@ -310,100 +310,133 @@
     background:linear-gradient(135deg,#38BDF8,#1D4ED8); color:#fff; font-size:14.5px; font-weight:900;
     letter-spacing:1px; }
 
-  /* ===== 아케이드 곡 선택 (EZ2DJ 3rd 느낌) ===== */
-  @keyframes ezSpin { to { transform:rotate(360deg); } }
-  @keyframes ezScan { to { background-position:0 22px; } }
-  .ez-cab{ position:relative; border-radius:14px; padding:12px 12px 14px; margin-bottom:14px;
+  /* ===== EZ2DJ 3rd TRAX 곡 선택 화면 재현 ===== */
+  @keyframes ez3Spin { to { transform:rotate(360deg); } }
+  @keyframes ez3Grid { to { background-position:0 26px, 26px 0, 0 0; } }
+  .ez3{ position:relative; border-radius:6px; padding:10px 10px 12px; margin-bottom:14px; overflow:hidden;
     background:
-      repeating-linear-gradient(180deg, rgba(0,255,170,.045) 0 1px, transparent 1px 4px),
-      linear-gradient(180deg,#06140F,#04100C 55%,#061A14);
-    border:2px solid #19E39A;
-    box-shadow:0 0 12px rgba(25,227,154,.45), inset 0 0 26px rgba(25,227,154,.14);
-    animation: ezScan 1.4s linear infinite; }
-  .ez-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
-    padding-bottom:7px; border-bottom:1px solid rgba(25,227,154,.35); }
-  .ez-ttl{ font-size:12.5px; font-weight:900; font-style:italic; letter-spacing:2px; color:#9BFFD9;
-    text-shadow:0 0 7px #19E39A, 0 0 18px rgba(25,227,154,.6); }
-  .ez-cnt{ font-size:11px; font-weight:900; color:#FFD166; letter-spacing:1px;
-    text-shadow:0 0 6px rgba(255,209,102,.7); }
+      repeating-linear-gradient(180deg, rgba(0,255,120,.07) 0 1px, transparent 1px 13px),
+      repeating-linear-gradient(90deg, rgba(0,255,120,.05) 0 1px, transparent 1px 13px),
+      radial-gradient(ellipse at 22% 18%, rgba(40,255,120,.30), transparent 55%),
+      radial-gradient(ellipse at 78% 72%, rgba(0,190,90,.22), transparent 60%),
+      linear-gradient(160deg,#04160B,#020D07 60%,#07200E);
+    animation: ez3Grid 5s linear infinite;
+    border:2px solid #0E6B38;
+    box-shadow:0 0 0 1px #14C46A inset, 0 0 16px rgba(20,196,106,.35); }
+  /* 회로 무늬 */
+  .ez3::before{ content:''; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:
+      linear-gradient(90deg, transparent 12%, rgba(120,255,170,.10) 12.4%, transparent 12.8%),
+      linear-gradient(90deg, transparent 63%, rgba(120,255,170,.10) 63.4%, transparent 63.8%),
+      linear-gradient(180deg, transparent 34%, rgba(120,255,170,.08) 34.3%, transparent 34.6%); }
 
-  .ez-stage{ display:flex; align-items:center; gap:6px; }
-  .ez-arw{ flex:0 0 30px; height:56px; border:none; cursor:pointer; border-radius:8px;
-    background:linear-gradient(180deg,rgba(25,227,154,.22),rgba(25,227,154,.06));
-    color:#9BFFD9; font-size:16px; font-weight:900;
-    box-shadow:inset 0 0 0 1.5px rgba(25,227,154,.5); }
-  .ez-arw:active{ background:rgba(25,227,154,.45); }
-  .ez-disc-wrap{ flex:1; position:relative; display:flex; justify-content:center;
-    align-items:center; padding:4px 0; cursor:pointer; }
-  .ez-label{ position:absolute; inset:0; pointer-events:none; }
-  .ez-disc{ position:relative; width:min(60vw,190px); aspect-ratio:1/1; border-radius:50%;
-    cursor:pointer;
+  /* 크롬 이탤릭 글자 (원작 로고체 느낌) */
+  .ez3-chrome{ font-style:italic; font-weight:900; color:#EDF3F8; letter-spacing:1px;
+    text-shadow:0 1px 0 #6E7C88, 0 2px 0 #3D474F, 0 3px 4px rgba(0,0,0,.85),
+      1px 0 0 #0A0F14, -1px 0 0 #0A0F14, 0 -1px 0 #0A0F14; }
+
+  .ez3-banner{ position:relative; display:flex; align-items:center; justify-content:space-between;
+    padding:6px 12px 6px 14px; margin-bottom:8px;
+    background:linear-gradient(180deg,#101A22,#050A0E);
+    clip-path:polygon(0 0, 100% 0, 96% 100%, 3% 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+  .ez3-banner span{ font-style:italic; font-weight:900; letter-spacing:1.5px; font-size:13px;
+    color:#EDF3F8;
+    text-shadow:0 1px 0 #6E7C88, 0 2px 0 #3D474F, 0 3px 4px rgba(0,0,0,.85),
+      1px 0 0 #0A0F14, -1px 0 0 #0A0F14; }
+  .ez3-banner .ez3-no{ font-style:italic; font-weight:900; font-size:14px; color:#FF5CA8;
+    text-shadow:0 0 8px rgba(255,92,168,.8), 0 2px 0 rgba(0,0,0,.7); }
+
+  .ez3-stage{ position:relative; display:flex; align-items:center; gap:4px; }
+  .ez3-arw{ flex:0 0 24px; height:50px; border:none; cursor:pointer; border-radius:3px;
+    background:linear-gradient(180deg,rgba(180,255,210,.25),rgba(20,120,60,.25));
+    color:#DFFFEC; font-size:13px; font-weight:900;
+    box-shadow:inset 0 0 0 1px rgba(180,255,210,.45); }
+  .ez3-arw:active{ background:rgba(120,255,180,.5); }
+
+  .ez3-jacket-wrap{ position:relative; flex:1; display:flex; align-items:center; justify-content:center;
+    padding:6px 0; cursor:pointer; }
+  .ez3-jacket{ width:min(62vw,206px); aspect-ratio:1/1; border-radius:50%;
+    border:5px solid #F2F6FA;
     background:
-      repeating-conic-gradient(from 0deg, hsl(var(--h) 78% 60%) 0deg 5deg, hsl(var(--h) 78% 42%) 5deg 10deg),
-      radial-gradient(circle, hsl(var(--h) 70% 52%), hsl(var(--h) 78% 26%));
-    box-shadow:0 0 22px hsl(var(--h) 80% 50% / .55), 0 6px 18px rgba(0,0,0,.7),
-      inset 0 0 0 3px rgba(255,255,255,.4);
-    animation: ezSpin 12s linear infinite; }
-  .ez-disc::before{ content:''; position:absolute; inset:11%; border-radius:50%;
-    background:
-      radial-gradient(circle at 30% 26%, rgba(255,255,255,.75), rgba(255,255,255,.08) 42%, transparent 68%),
-      linear-gradient(150deg, hsl(var(--h) 60% 34%), hsl(var(--h) 70% 16%));
-    box-shadow:inset 0 0 0 2px rgba(255,255,255,.35), inset 0 0 24px rgba(0,0,0,.6); }
-  .ez-genre{ position:absolute; left:50%; top:21%; transform:translateX(-50%); z-index:4;
-    font-size:9px; font-weight:900; letter-spacing:1.5px; white-space:nowrap;
-    color:#08150F; background:#FFE27A; padding:2px 9px; border-radius:3px;
-    box-shadow:0 1px 5px rgba(0,0,0,.6); }
-  .ez-name{ position:absolute; left:50%; top:60%; transform:translateX(-50%); z-index:4;
-    width:82%; font-size:12.5px; font-weight:900; font-style:italic;
-    color:#fff; text-align:center; line-height:1.15;
-    text-shadow:0 0 7px rgba(0,0,0,.95), 0 0 16px rgba(0,0,0,.8), 0 2px 0 rgba(0,0,0,.75);
+      radial-gradient(circle at 30% 24%, rgba(255,255,255,.55), transparent 45%),
+      repeating-conic-gradient(from 0deg,
+        hsl(var(--h) 72% 46%) 0deg 14deg, hsl(var(--h) 68% 34%) 14deg 28deg),
+      linear-gradient(140deg, hsl(var(--h) 70% 44%), hsl(var(--h) 75% 18%));
+    box-shadow:0 6px 16px rgba(0,0,0,.85), 0 0 24px hsl(var(--h) 80% 45% / .5);
+    animation: ez3Spin 14s linear infinite; }
+  .ez3-lab{ position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; pointer-events:none; }
+  .ez3-genre{ font-size:10px; font-weight:900; letter-spacing:1.5px; color:#FFE9EF;
+    background:linear-gradient(180deg,#C81E4E,#7A0C2A); padding:2.5px 11px; border-radius:9px;
+    box-shadow:0 2px 5px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.35);
+    margin-bottom:26%; white-space:nowrap; }
+  .ez3-sub{ font-size:9.5px; font-weight:900; font-style:italic; color:#FF6B6B;
+    text-shadow:0 1px 2px #000, 0 0 5px rgba(0,0,0,.9); margin-bottom:-2px; }
+  .ez3-name{ font-size:clamp(15px,5.4vw,22px); font-weight:900; color:#fff; text-align:center;
+    padding:0 8%; line-height:1.1;
+    text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      1.5px 1.5px 0 #000, -1.5px 1.5px 0 #000, 0 3px 7px rgba(0,0,0,.9);
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  .ez-hole{ position:absolute; left:50%; top:41.5%; width:13%; height:13%; border-radius:50%;
-    transform:translate(-50%,-50%); background:#05100C; z-index:3;
-    box-shadow:inset 0 0 0 2px rgba(255,255,255,.55), 0 0 6px rgba(0,0,0,.8); }
 
-  .ez-info{ margin-top:10px; border-radius:9px; padding:9px 11px;
-    background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.3));
-    box-shadow:inset 0 0 0 1.5px rgba(25,227,154,.35); }
-  .ez-row1{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .ez-song{ font-size:13.5px; font-weight:900; color:#EAFFF6; white-space:nowrap;
+  .ez3-diff{ display:flex; align-items:center; gap:8px; margin-top:6px; padding:5px 10px;
+    background:linear-gradient(180deg,#0B1218,#05090C);
+    clip-path:polygon(0 0, 100% 0, 97% 100%, 2% 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+  .ez3-dlab{ font-style:italic; font-weight:900; font-size:10.5px; letter-spacing:1.5px; color:#DDE6EE;
+    text-shadow:0 1px 0 #5A6670, 0 2px 3px rgba(0,0,0,.8), 1px 0 0 #0A0F14, -1px 0 0 #0A0F14; }
+  .ez3-pips{ display:flex; gap:4px; margin-left:auto; }
+  .ez3-pips i{ width:13px; height:13px; transform:rotate(45deg); border-radius:2px;
+    background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
+  .ez3-pips i.f{ background:linear-gradient(135deg, #fff 8%, var(--pc) 45%, rgba(0,0,0,.4));
+    box-shadow:0 0 7px var(--pc), inset 0 0 0 1px rgba(255,255,255,.5); }
+
+  .ez3-card{ display:flex; align-items:stretch; gap:6px; margin-top:8px; }
+  .ez3-title{ flex:1; min-width:0; display:flex; align-items:center; padding:7px 12px; border-radius:2px;
+    background:linear-gradient(180deg,#FDFDFD,#D8DEE5); color:#111820;
+    font-size:14px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    box-shadow:0 2px 5px rgba(0,0,0,.6), inset 0 1px 0 #fff; }
+  .ez3-lvbox{ flex:0 0 auto; display:flex; align-items:center; gap:4px; padding:5px 12px; border-radius:2px;
+    background:linear-gradient(180deg,#FDFDFD,#D8DEE5);
+    box-shadow:0 2px 5px rgba(0,0,0,.6), inset 0 1px 0 #fff; }
+  .ez3-lvbox .k{ font-size:9.5px; font-weight:900; color:#4A545E; letter-spacing:.5px; }
+  .ez3-lvbox .n{ font-size:24px; font-weight:900; font-style:italic; color:#D91B3C; line-height:1;
+    text-shadow:0 1px 0 rgba(255,255,255,.7); }
+
+  .ez3-card2{ display:flex; align-items:stretch; gap:6px; margin-top:4px; }
+  .ez3-meta{ flex:1; min-width:0; padding:6px 12px; border-radius:2px;
+    background:linear-gradient(180deg,#141B22,#080C10);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+  .ez3-by{ font-size:12px; font-weight:900; color:#E9EFF5; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; }
-  .ez-by{ font-size:10.5px; font-weight:700; color:#6FBFA0; margin-top:1px;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ez-lv{ flex:0 0 auto; display:flex; align-items:baseline; gap:3px; padding:3px 9px; border-radius:6px;
-    background:linear-gradient(180deg,#FF5E7A,#B01035);
-    box-shadow:0 0 10px rgba(255,94,122,.6), inset 0 1px 0 rgba(255,255,255,.4); }
-  .ez-lv .k{ font-size:9px; font-weight:900; color:#FFD9E1; letter-spacing:1px; }
-  .ez-lv .n{ font-size:20px; font-weight:900; font-style:italic; color:#fff;
-    text-shadow:0 0 6px rgba(255,255,255,.6); line-height:1; }
-  .ez-diff{ display:flex; align-items:center; gap:7px; margin-top:8px; }
-  .ez-diff .lab{ font-size:9px; font-weight:900; letter-spacing:1.2px; color:#7FE3C0; }
-  .ez-diff .pips{ display:flex; gap:3px; }
-  .ez-diff i{ width:9px; height:9px; transform:rotate(45deg); border-radius:1.5px;
-    background:rgba(255,255,255,.10); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
-  .ez-diff i.h{ background:linear-gradient(135deg,#FFE27A 50%,rgba(255,255,255,.1) 50%);
-    box-shadow:0 0 6px rgba(255,226,122,.7); }
-  .ez-diff i.f{ background:linear-gradient(135deg,#FFE27A,#FF9B3D);
-    box-shadow:0 0 7px rgba(255,180,80,.85); }
-  .ez-meta{ margin-top:7px; font-size:10px; font-weight:800; letter-spacing:.5px; color:#5FB79A; }
+  .ez3-spec{ font-size:9.5px; font-weight:800; color:#6E8A9C; letter-spacing:.4px; margin-top:2px; }
+  .ez3-hd{ flex:0 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:4px 11px; border-radius:2px; background:linear-gradient(180deg,#141B22,#080C10);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
+  .ez3-hd span{ font-size:7.5px; font-weight:900; letter-spacing:.8px; color:#8FA3B2; }
+  .ez3-hd b{ font-size:17px; font-weight:900; font-style:italic; color:#FFD02B; line-height:1.1;
+    text-shadow:0 0 7px rgba(255,208,43,.6); }
 
-  .ez-strip{ display:flex; gap:5px; overflow-x:auto; padding:9px 2px 4px; }
-  .ez-strip::-webkit-scrollbar{ height:3px; }
-  .ez-strip::-webkit-scrollbar-thumb{ background:rgba(25,227,154,.4); border-radius:2px; }
-  .ez-mini{ flex:0 0 16px; height:16px; border-radius:50%; cursor:pointer;
-    background:radial-gradient(circle, hsl(var(--h) 70% 62%), hsl(var(--h) 75% 32%));
-    box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); opacity:.45; transition:.15s; }
-  .ez-mini.on{ opacity:1; transform:scale(1.3);
-    box-shadow:0 0 8px hsl(var(--h) 80% 60%), inset 0 0 0 1.5px #fff; }
+  .ez3-strip{ display:flex; gap:5px; overflow-x:auto; padding:8px 2px 3px; }
+  .ez3-strip::-webkit-scrollbar{ height:3px; }
+  .ez3-strip::-webkit-scrollbar-thumb{ background:rgba(20,196,106,.5); border-radius:2px; }
+  .ez3-mini{ flex:0 0 15px; height:15px; border-radius:50%; cursor:pointer;
+    background:radial-gradient(circle, hsl(var(--h) 70% 60%), hsl(var(--h) 75% 28%));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.4); opacity:.4; transition:.15s; }
+  .ez3-mini.on{ opacity:1; transform:scale(1.35);
+    box-shadow:0 0 8px hsl(var(--h) 85% 60%), inset 0 0 0 1.5px #fff; }
 
-  .ez-start{ width:100%; margin-top:9px; padding:13px; border:none; border-radius:9px; cursor:pointer;
-    font-size:14px; font-weight:900; font-style:italic; letter-spacing:2px; color:#04140E;
-    background:linear-gradient(180deg,#7CFFD0,#19E39A 55%,#0FB57A);
-    box-shadow:0 0 14px rgba(25,227,154,.7), inset 0 1px 0 rgba(255,255,255,.6); }
-  .ez-start:disabled{ background:#1A2A24; color:#4E7A6A; box-shadow:none; cursor:default;
-    font-style:normal; letter-spacing:0; font-size:12.5px; }
-  .ez-foot{ margin-top:8px; text-align:center; font-size:10.5px; font-weight:700; color:#5FB79A; }
-  .ez-foot b{ color:#FFE27A; }
+  .ez3-start{ width:100%; margin-top:7px; padding:11px; border:none; cursor:pointer;
+    background:linear-gradient(180deg,#0E161C,#04080B);
+    clip-path:polygon(0 0, 100% 0, 96% 100%, 4% 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.2); }
+  .ez3-start span{ font-style:italic; font-weight:900; font-size:15px; letter-spacing:3px; color:#EDF3F8;
+    text-shadow:0 1px 0 #6E7C88, 0 2px 0 #3D474F, 0 3px 5px rgba(0,0,0,.9),
+      1px 0 0 #0A0F14, -1px 0 0 #0A0F14; }
+  .ez3-start:disabled{ cursor:default; }
+  .ez3-start:disabled span{ font-size:11.5px; letter-spacing:0; color:#5C6E7A; text-shadow:none; }
+  .ez3-foot{ margin-top:7px; text-align:center; font-size:10.5px; font-weight:700; color:#5FB79A; }
+  .ez3-foot b{ color:#FFD02B; }
 
   /* 별 노트 — 스킨에서 오려낸 스프라이트 */
   .rhy-note{ position:absolute; }
@@ -4277,55 +4310,63 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (!sel || !RHY_SONGS[sel]) sel = keys[0];
     const g = RHY_SONGS[sel], lv = rhySongLevel(sel), hue = rhyCdHue(sel), info = rhySongInfo(sel);
     const idx = keys.indexOf(sel);
+    const diffTag = lv >= 7 ? 'SHD' : lv >= 5 ? 'HD' : lv >= 3 ? 'NM' : 'EZ';
 
-    // 난이도 표시 — 10칸 다이아 (레벨 1~20을 반칸까지)
-    const pips = Array.from({ length: 10 }, (_, i) => {
-      const full = lv >= (i + 1) * 2, half = lv === (i + 1) * 2 - 1;
-      return `<i class="${full ? 'f' : half ? 'h' : ''}"></i>`;
-    }).join('');
+    // 난이도 구슬 — 원작처럼 주황→초록 그라데이션 7칸
+    const PIPC = ['#FF7A18', '#FFA51E', '#FFD028', '#E8F02A', '#A9E82A', '#5BD82E', '#22C55E'];
+    const litPips = Math.max(1, Math.ceil(lv / 20 * PIPC.length));   // Lv.1도 한 칸은 켜지게
+    const pips = PIPC.map((c, i) =>
+      `<i class="${i < litPips ? 'f' : ''}" style="--pc:${c};"></i>`).join('');
 
     box.innerHTML = `
-      <div class="ez-cab">
-        <div class="ez-top">
-          <span class="ez-ttl">SELECT A MUSIC</span>
-          <span class="ez-cnt">${String(idx + 1).padStart(2, '0')} / ${String(keys.length).padStart(2, '0')}</span>
-        </div>
+      <div class="ez3">
+        <!-- SELECT A MUSIC 배너 -->
+        <div class="ez3-banner"><span>SELECT A MUSIC</span><b class="ez3-no">${String(idx + 1).padStart(2, '0')}</b></div>
 
-        <div class="ez-stage">
-          <button class="ez-arw l" onclick="rhyStep(-1)">◀</button>
-          <div class="ez-disc-wrap" onclick="rhyStep(1)">
-            <div class="ez-disc" style="--h:${hue};"></div>
-            <div class="ez-label">
-              <div class="ez-genre">${rhyGenre(sel)}</div>
-              <div class="ez-name">${g.name}</div>
-              <div class="ez-hole"></div>
+        <!-- 자켓 -->
+        <div class="ez3-stage">
+          <button class="ez3-arw l" onclick="rhyStep(-1)">◀</button>
+          <div class="ez3-jacket-wrap" onclick="rhyStep(1)">
+            <div class="ez3-jacket" style="--h:${hue};"></div>
+            <div class="ez3-lab">
+              <span class="ez3-genre">${rhyGenre(sel)}</span>
+              <span class="ez3-sub">${g.by}</span>
+              <span class="ez3-name">${g.name}</span>
             </div>
           </div>
-          <button class="ez-arw r" onclick="rhyStep(1)">▶</button>
+          <button class="ez3-arw r" onclick="rhyStep(1)">▶</button>
         </div>
 
-        <div class="ez-info">
-          <div class="ez-row1">
-            <div style="min-width:0;">
-              <div class="ez-song">${g.name}</div>
-              <div class="ez-by">${g.by}</div>
-            </div>
-            <div class="ez-lv"><span class="k">LV</span><span class="n">${lv}</span></div>
+        <!-- DIFFICULTY 바 -->
+        <div class="ez3-diff">
+          <span class="ez3-dlab">DIFFICULTY</span>
+          <span class="ez3-pips">${pips}</span>
+        </div>
+
+        <!-- 곡 정보판 -->
+        <div class="ez3-card">
+          <div class="ez3-title">${g.name}</div>
+          <div class="ez3-lvbox"><span class="k">LV</span><span class="n">${lv}</span></div>
+        </div>
+        <div class="ez3-card2">
+          <div class="ez3-meta">
+            <div class="ez3-by">${g.by}</div>
+            <div class="ez3-spec">${info.notes} NOTES · ${info.time} · ${g.bpm} BPM</div>
           </div>
-          <div class="ez-diff"><span class="lab">DIFFICULTY</span><span class="pips">${pips}</span></div>
-          <div class="ez-meta">${info.notes} NOTES · ${info.time} · ${g.bpm} BPM</div>
+          <div class="ez3-hd"><span>DIFFICULTY</span><b>${diffTag}</b></div>
         </div>
 
-        <div class="ez-strip">
-          ${keys.map(k => `<span class="ez-mini${k === sel ? ' on' : ''}" style="--h:${rhyCdHue(k)};"
+        <!-- 미니 디스크 -->
+        <div class="ez3-strip">
+          ${keys.map(k => `<span class="ez3-mini${k === sel ? ' on' : ''}" style="--h:${rhyCdHue(k)};"
             title="${RHY_SONGS[k].name}" onclick="rhyPickSong('${k}')"></span>`).join('')}
         </div>
 
-        <button id="rhy-go" class="ez-start" onclick="rhySongPick('${sel}')" ${out ? 'disabled' : ''}>
-          ${out ? '오늘은 다 했어요 · 내일 또 만나요 🌙' : '▶ 1 PLAYER  START'}
+        <!-- 1 PLAYER -->
+        <button id="rhy-go" class="ez3-start" onclick="rhySongPick('${sel}')" ${out ? 'disabled' : ''}>
+          <span>${out ? '오늘은 다 했어요 · 내일 또 만나요' : '1 PLAYER'}</span>
         </button>
-
-        <div class="ez-foot">1회 ${RHYTHM_COST}P · 오늘 <b>${left}</b>번 남음${best ? ` · 최고 <b>${best}</b>` : ''}</div>
+        <div class="ez3-foot">1회 ${RHYTHM_COST}P · 오늘 <b>${left}</b>번 남음${best ? ` · 최고 <b>${best}</b>` : ''}</div>
       </div>
 
       <details style="margin:-6px 0 14px;">
@@ -4352,7 +4393,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         </div>
       </details>`;
 
-    const on = document.querySelector('.ez-mini.on');
+    const on = document.querySelector('.ez3-mini.on');
     if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
