@@ -595,6 +595,10 @@
           <option value="0">⏳ 검수대기</option>
         </select>
       </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+        <input type="text" id="vm-q-source" oninput="vmSearchDebounced()" placeholder="📚 출처 검색 (예: 쎈, 수능, p.52)" style="flex:1;min-width:150px;padding:8px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;box-sizing:border-box;" />
+        <input type="text" id="vm-q-unit" oninput="vmSearchDebounced()" placeholder="🔍 단원 검색 (예: 이차방정식)" style="flex:1;min-width:150px;padding:8px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;box-sizing:border-box;" />
+      </div>
       <div id="vm-count" style="font-size:11.5px;color:var(--text4);margin-top:8px;"></div>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);">
         <button onclick="vmSelectPage()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">이 쪽 전체선택</button>
@@ -4359,12 +4363,19 @@
   let _vmPage = 1;
   const VM_PER_PAGE = 10;
 
+  // 타이핑이 멈춘 뒤에만 목록을 다시 그린다
+  let _vmSearchTimer = null;
+  function vmSearchDebounced() {
+    clearTimeout(_vmSearchTimer);
+    _vmSearchTimer = setTimeout(() => loadVManage(), 250);
+  }
+
   async function loadVManage(keepPage) {
     if (!keepPage) _vmPage = 1;
     const box = document.getElementById('vm-list');
     box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
     try {
-      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?select=*,wrong_notes!inner(id,student_id,subject,major_unit,minor_unit,image_url,students(name))&order=created_at.desc`, { headers: sbHeaders() }).then(r => r.json());
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?select=*,wrong_notes!inner(id,student_id,subject,major_unit,minor_unit,source,image_url,students(name))&order=created_at.desc`, { headers: sbHeaders() }).then(r => r.json());
       _vmData = Array.isArray(rows) ? rows : [];
 
       const uSel = document.getElementById('vm-unit');
@@ -4376,12 +4387,18 @@
       const fs = document.getElementById('vm-student').value;
       const fu = document.getElementById('vm-unit').value;
       const fa = document.getElementById('vm-status').value;
+      // 출처·단원 검색: 띄어쓰기/대소문자 무시하고 부분 일치 (출처 표기가 제각각이라 느슨하게)
+      const norm = t => String(t || '').toLowerCase().replace(/\s+/g, '');
+      const qSrc = norm(document.getElementById('vm-q-source')?.value);
+      const qUnit = norm(document.getElementById('vm-q-unit')?.value);
       const list = _vmData.filter(v => {
         const n = v.wrong_notes || {};
         if (fs && n.student_id !== fs) return false;
         if (fu && n.major_unit !== fu) return false;
         if (fa === '1' && !v.approved) return false;
         if (fa === '0' && v.approved) return false;
+        if (qSrc && !norm(n.source).includes(qSrc)) return false;
+        if (qUnit && !norm([n.subject, n.major_unit, n.minor_unit].join(' ')).includes(qUnit)) return false;
         return true;
       });
 
@@ -4407,14 +4424,20 @@
         const unit = [n.subject, n.major_unit, n.minor_unit].filter(Boolean).join(' › ') || '단원 미분류';
         return `
         <div style="background:var(--bg2);border-radius:14px;padding:0.9rem;margin-bottom:12px;border:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px;">
             ${n.image_url ? `<img src="${n.image_url}" onclick="openModal('${n.image_url}')" style="width:44px;height:44px;border-radius:8px;object-fit:cover;cursor:pointer;flex-shrink:0;" />` : ''}
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:800;color:var(--text1);">${who} <span style="font-size:11px;color:var(--text4);font-weight:600;">· 변형 ${vs.length}개</span></div>
+              <div style="display:flex;align-items:baseline;gap:6px;min-width:0;">
+                <span style="font-size:13px;font-weight:800;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${who}</span>
+                <span style="font-size:11px;color:var(--text4);font-weight:600;white-space:nowrap;flex-shrink:0;">변형 ${vs.length}개</span>
+              </div>
               <div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${unit}</div>
+              ${n.source ? `<div style="font-size:10.5px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📚 ${n.source}</div>` : ''}
             </div>
-            <button onclick="addMoreVariation('${nid}')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">＋ 추가 생성</button>
-            <button onclick="addMoreVariation('${nid}',true)" title="그림이 반드시 들어가도록 문제를 하나 더 만듭니다" style="padding:6px 10px;border-radius:8px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">＋ 추가 생성(그림 강제)</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:10px;">
+            <button onclick="addMoreVariation('${nid}')" style="flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 추가 생성</button>
+            <button onclick="addMoreVariation('${nid}',true)" title="그림이 반드시 들어가도록 문제를 하나 더 만듭니다" style="flex:1;padding:8px 6px;border-radius:8px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 그림 강제</button>
           </div>
           ${vs.map(v => vmCard(v)).join('')}
         </div>`;
