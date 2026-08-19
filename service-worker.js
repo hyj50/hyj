@@ -1,6 +1,7 @@
-const CACHE_NAME = 'chaeum-v2';
+const CACHE_NAME = 'chaeum-v3';
 const STATIC_FILES = [
   '/student.html',
+  '/quiz-bank.js',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
@@ -55,7 +56,8 @@ self.addEventListener('fetch', e => {
         if (
           e.request.destination === 'document' ||
           e.request.destination === 'image' ||
-          e.request.destination === 'audio'
+          e.request.destination === 'audio' ||
+          e.request.destination === 'script'
         ) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
