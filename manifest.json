@@ -22,5 +22,5 @@
     }
   ],
   "id": "/student",
-  "scope": "/"
+  "scope": "/student"
 }

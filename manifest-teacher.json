@@ -22,5 +22,5 @@
     }
   ],
   "id": "/teacher",
-  "scope": "/"
+  "scope": "/teacher"
 }
