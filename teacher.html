@@ -1906,6 +1906,7 @@
           note_id: entry.id,
           problem_text: v.problem_text || v.problem,
           answer: v.answer,
+          solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300,
           figure: v.figure || null,
           is_original: v.is_variation === false,
@@ -2011,6 +2012,7 @@
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
           note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
+          solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
           is_original: v.is_variation === false,
           image_url: v.is_variation === false ? n.image_url : null, approved: false
@@ -2048,6 +2050,7 @@
           headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
           body: JSON.stringify({
             note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
+            solution: v.solution || null,
             time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
             is_original: v.is_variation === false,
             image_url: v.is_variation === false ? n.image_url : null, approved: false
@@ -2084,6 +2087,7 @@
           </div>
           ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="max-width:100%;max-height:110px;border-radius:8px;object-fit:contain;margin-bottom:8px;cursor:pointer;" onclick="openModal('${v.wrong_notes.image_url}')" />` : ''}
           <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${renderProblemHtml(v.problem_text)}</div>
+          ${solBox(v)}
           ${(() => {
             let sp = v.figure;
             if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
@@ -2108,6 +2112,7 @@
           <div style="display:flex;gap:6px;">
             <button onclick="regenVariation('${v.id}')" style="flex:1;min-width:0;padding:10px 4px;border-radius:9px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">🔄 재생성</button>
             <button onclick="regenVariation('${v.id}',true)" style="flex:1;min-width:0;padding:10px 4px;border-radius:9px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">📐 그림 추가</button>
+            ${undoBtn(v, true)}
             <button onclick="deleteVariation('${v.id}')" style="width:46px;flex-shrink:0;padding:10px 4px;border-radius:9px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:13px;cursor:pointer;">🗑️</button>
           </div>
         </div>`;
@@ -2951,6 +2956,33 @@
   function _figEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   // AI가 만든 문제의 마크다운 표를 실제 표로 그려준다 (수식은 MathJax가 처리)
+  // 풀이(해설) 접었다 펴기 — AI가 만든 풀이를 검수할 때 본다
+  function solBox(v) {
+    const sol = String(v.solution || '').trim();
+    if (!sol) return '';
+    const sid = 'sol-' + v.id;
+    return `<div style="margin-bottom:8px;">
+      <button onclick="toggleSol('${sid}')" style="padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;">\ud83d\udcdd 풀이 보기</button>
+      <div id="${sid}" style="display:none;margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--bg2);border-left:3px solid #7C3AED;font-size:12px;color:var(--text2);line-height:1.65;white-space:pre-wrap;">${renderProblemHtml(sol)}</div>
+    </div>`;
+  }
+
+  function toggleSol(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const show = el.style.display === 'none';
+    el.style.display = show ? 'block' : 'none';
+    if (show && window.MathJax?.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+  }
+
+  // 재생성 직전 문제가 보관돼 있으면 되돌리기 버튼을 보여준다
+  function undoBtn(v, big) {
+    if (!v.prev) return '';
+    const pad = big ? '10px 6px' : '5px 9px';
+    const fs = big ? '12px' : '11px';
+    return `<button onclick="undoRegen('${v.id}')" title="재생성 직전 문제로 되돌립니다" style="${big ? 'flex:1;min-width:0;' : ''}padding:${pad};border-radius:${big ? 9 : 7}px;border:1px solid #F59E0B;background:none;color:#F59E0B;font-size:${fs};font-weight:700;cursor:pointer;white-space:nowrap;">\u21a9 되돌리기</button>`;
+  }
+
   function renderProblemHtml(text) {
     const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const isRow = l => /^\s*\|.*\|\s*$/.test(l);
@@ -3024,31 +3056,102 @@
   }
 
   async function regenVariation(id, forceFigure) {
-    if (!confirm('AI가 변형문제를 다시 만들까요?')) return;
+    if (!confirm('AI가 변형문제를 다시 만들까요?\n\n지금 문제는 보관해두니, 새 문제가 더 별로면 \u21a9 되돌리기로 돌아올 수 있어요.')) return;
     try {
-      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=note_id,wrong_notes(image_url)`, { headers: sbHeaders() }).then(r => r.json());
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=*,wrong_notes(image_url)`, { headers: sbHeaders() }).then(r => r.json());
       const v = rows[0];
       if (!v?.wrong_notes?.image_url) { alert('원본 이미지를 찾을 수 없어요'); return; }
+
+      // 되돌리기용으로 지금 상태를 통째로 보관해둔다
+      const prev = {
+        problem_text: v.problem_text ?? null,
+        answer: v.answer ?? null,
+        solution: v.solution ?? null,
+        time_limit_sec: v.time_limit_sec ?? 300,
+        figure: v.figure ?? null,
+        is_original: !!v.is_original,
+        image_url: v.image_url ?? null,
+        saved_at: new Date().toISOString()
+      };
+
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, force_figure: !!forceFigure })
+        body: JSON.stringify({
+          image_url: v.wrong_notes.image_url,
+          note_id: v.note_id,
+          force_figure: !!forceFigure,
+          // 지금 문제를 알려줘서 똑같은 문제가 또 나오지 않게 한다
+          avoid: v.problem_text ? [v.problem_text] : []
+        })
       });
-      if (res.status === 429) { showToast('⚠️ AI가 잠시 바빠요. 조금 뒤 다시 눌러주세요.', 'warn'); return; }
-      if (res.status === 503) { alert('⚠️ AI 서버가 잠시 혼잡해요. 조금 있다 다시 눌러주세요.'); return; }
+      if (res.status === 429) { showToast('\u26a0\ufe0f AI가 잠시 바빠요. 조금 뒤 다시 눌러주세요.', 'warn'); return; }
+      if (res.status === 503) { alert('\u26a0\ufe0f AI 서버가 잠시 혼잡해요. 조금 있다 다시 눌러주세요.'); return; }
       const nv = await res.json();
       if (nv.error) { alert('재생성 실패: ' + nv.error); return; }
-      await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
+
+      const up = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
         method: 'PATCH',
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ problem_text: nv.problem_text || nv.problem, answer: nv.answer, time_limit_sec: nv.time_limit_sec || 300, figure: nv.figure || null, is_original: nv.is_variation === false, image_url: nv.is_variation === false ? v.wrong_notes.image_url : null })
+        body: JSON.stringify({
+          problem_text: nv.problem_text || nv.problem,
+          answer: nv.answer,
+          solution: nv.solution || null,
+          time_limit_sec: nv.time_limit_sec || 300,
+          figure: nv.figure || null,
+          is_original: nv.is_variation === false,
+          image_url: nv.is_variation === false ? v.wrong_notes.image_url : null,
+          prev
+        })
       });
+      if (!up.ok) {
+        const why = (await up.text()).slice(0, 140);
+        console.error('재생성 저장 실패:', up.status, why);
+        alert('새 문제를 만들었지만 저장에 실패했어요 (' + up.status + ')\n' + why
+          + '\n\nprev / solution 칸이 아직 없으면 Supabase SQL Editor 에서 컬럼을 추가해주세요.');
+        return;
+      }
+
       if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
-      if (nv.warning) showToast('⚠️ 주의: ' + nv.warning, 'warn');
+      if (nv.warning) showToast('\u26a0\ufe0f 주의: ' + nv.warning, 'warn');
+      else showToast('\u2705 다시 만들었어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + '\n별로면 \u21a9 되돌리기를 누르세요.', 'ok');
       loadVariationReviews();
     } catch (e) {
       console.error('regenVariation:', e);
       alert('재생성 실패\n' + String(e && e.message || e).slice(0, 120));
+    }
+  }
+
+  // 재생성 직전 문제로 되돌리기
+  async function undoRegen(id) {
+    if (!confirm('재생성 직전 문제로 되돌릴까요?\n\n지금 보이는 문제는 사라집니다.')) return;
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=prev`, { headers: sbHeaders() }).then(r => r.json());
+      let p = rows[0]?.prev;
+      if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { p = null; } }
+      if (!p) { showToast('되돌릴 이전 문제가 없어요.', 'warn'); return; }
+
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          problem_text: p.problem_text,
+          answer: p.answer,
+          solution: p.solution ?? null,
+          time_limit_sec: p.time_limit_sec || 300,
+          figure: p.figure ?? null,
+          is_original: !!p.is_original,
+          image_url: p.image_url ?? null,
+          prev: null
+        })
+      });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 120));
+      showToast('\u21a9 이전 문제로 되돌렸어요', 'ok');
+      if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
+      loadVariationReviews();
+    } catch (e) {
+      console.error('undoRegen:', e);
+      showToast('\u274c 되돌리기 실패\n' + String(e && e.message || e).slice(0, 100), 'error');
     }
   }
 
@@ -4567,7 +4670,12 @@
               ${n.source ? `<div style="font-size:10.5px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📚 ${n.source}</div>` : ''}
             </div>
           </div>
-          <div style="display:flex;gap:6px;margin-bottom:10px;">
+          <div style="display:flex;gap:6px;margin-bottom:10px;align-items:stretch;">
+            <select id="vmdiff-${nid}" title="추가 생성할 문제의 난이도" style="flex-shrink:0;padding:8px 4px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">
+              <option value="same">난이도 같게</option>
+              <option value="easier">쉽게</option>
+              <option value="harder">어렵게</option>
+            </select>
             <button onclick="addMoreVariation('${nid}')" style="flex:1;padding:8px 6px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 추가 생성</button>
             <button onclick="addMoreVariation('${nid}',true)" title="그림이 반드시 들어가도록 문제를 하나 더 만듭니다" style="flex:1;padding:8px 6px;border-radius:8px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">＋ 그림 강제</button>
           </div>
@@ -4620,6 +4728,7 @@
           <span style="font-size:10.5px;color:var(--text4);">정답 ${v.answer ?? '-'} · ${Math.round((v.time_limit_sec || 180) / 60)}분</span>
         </div>
         <div style="font-size:12.5px;color:var(--text1);line-height:1.55;white-space:pre-wrap;margin-bottom:6px;">${renderProblemHtml(v.problem_text || '')}</div>
+        ${solBox(v)}
         ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
         ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:150px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;display:block;" />` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
@@ -4627,6 +4736,7 @@
           <button onclick="vmEdit('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>
           <button onclick="regenVariation('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 재생성</button>
           <button onclick="regenVariation('${v.id}',true)" title="그림이 꼭 들어가도록 다시 만듭니다" style="padding:5px 9px;border-radius:7px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📐 그림 추가</button>
+          ${undoBtn(v)}
           <button onclick="vmDelete('${v.id}')" title="완전히 없앱니다(되돌릴 수 없음)" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:#e11d48;font-size:11px;font-weight:700;cursor:pointer;">🗑 삭제</button>
         </div>
       </div>`;
@@ -4634,18 +4744,31 @@
 
   // 같은 원본으로 변형문제를 "추가" 생성 (기존 것을 지우지 않음)
   async function addMoreVariation(noteId, forceFigure) {
-    const v = _vmData.find(x => x.note_id === noteId);
-    const img = v?.wrong_notes?.image_url;
+    const list = _vmData.filter(x => x.note_id === noteId);
+    const img = list[0]?.wrong_notes?.image_url;
     if (!img) { showToast('원본 사진이 없어 만들 수 없어요.', 'warn'); return; }
-    showToast('🤖 변형문제 추가 생성 중...', 'ok');
+
+    // 이미 있는 문제를 알려줘서 복사본이 나오지 않게 한다
+    const avoid = list.map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 5);
+    const diff = document.getElementById('vmdiff-' + noteId)?.value || 'same';
+    const diffName = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' }[diff] || '';
+
+    showToast('\ud83e\udd16 변형문제 추가 생성 중' + diffName
+      + (avoid.length ? `\n기존 ${avoid.length}개와 안 겹치게 만드는 중...` : '...'), 'ok');
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ image_url: img, force_figure: !!forceFigure })
+        body: JSON.stringify({
+          image_url: img,
+          note_id: noteId,
+          force_figure: !!forceFigure,
+          difficulty: diff,
+          avoid
+        })
       });
       let reason = '';
-      if (!res.ok) { try { reason = (await res.json()).error || ''; } catch (e) {} 
-        showToast('❌ ' + (reason || `생성 실패 (${res.status})`), 'error'); return; }
+      if (!res.ok) { try { reason = (await res.json()).error || ''; } catch (e) {}
+        showToast('\u274c ' + (reason || `생성 실패 (${res.status})`), 'error'); return; }
       const nv = await res.json();
       const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
@@ -4653,6 +4776,7 @@
           note_id: noteId,
           problem_text: nv.problem_text || nv.problem,
           answer: nv.answer,
+          solution: nv.solution || null,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
           is_original: nv.is_variation === false,
@@ -4661,11 +4785,12 @@
         })
       });
       if (!ins.ok) throw new Error(await ins.text());
-      showToast('✅ 변형문제가 추가됐어요! 검수 후 승인해주세요.', 'ok');
+      if (nv.warning) showToast('\u26a0\ufe0f 만들었지만 확인이 필요해요 — ' + nv.warning, 'warn');
+      else showToast('\u2705 변형문제가 추가됐어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + '! 검수 후 승인해주세요.', 'ok');
       loadVManage();
     } catch (e) {
       console.error(e);
-      showToast('❌ 추가 실패\n' + String(e.message || e).slice(0, 80), 'error');
+      showToast('\u274c 추가 실패\n' + String(e.message || e).slice(0, 80), 'error');
     }
   }
 
