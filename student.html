@@ -728,6 +728,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <img id="mission-origin-img" style="width:46px;height:46px;border-radius:8px;object-fit:cover;cursor:zoom-in;flex-shrink:0;" onclick="openModal(this.src,'원본 오답 문제')" />
       <div style="font-size:11.5px;color:rgba(255,255,255,0.6);line-height:1.45;">이 문제의 <b style="color:rgba(255,255,255,0.85);">원본 오답</b>이에요<br>눌러서 크게 보기</div>
     </div>
+    <div id="mission-choices" style="display:none;margin-bottom:10px;"></div>
     <input type="text" id="mission-answer-input" placeholder="숫자만 입력 (단위 없이, 분수는 3/4)" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);font-size:15px;font-weight:700;background:rgba(255,255,255,0.1);color:white;box-sizing:border-box;margin-bottom:10px;text-align:center;" autocomplete="off" />
     <div style="display:flex;gap:8px;">
       <button onclick="cancelMission()" style="flex:1;padding:12px;border-radius:11px;border:1.5px solid rgba(255,255,255,0.25);background:none;color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;">포기</button>
@@ -5085,6 +5086,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const ourl = v.wrong_notes?.image_url;
     if (ourl && !v.is_original) { oimg.src = ourl; obox.style.display = 'flex'; }
     else { obox.style.display = 'none'; }
+    renderMissionChoices(v);
     document.getElementById('mission-answer-input').value = '';
     document.getElementById('mission-solve-overlay').style.display = 'flex';
 
@@ -5110,6 +5112,46 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // 채점용 정규화: 단위를 써도 정답으로 인정 (27도 = 27 = 27°)
+  // 객관식이면 선지를 눌러서 고르고, 단답형이면 예전처럼 직접 입력한다
+  function renderMissionChoices(v) {
+    const box = document.getElementById('mission-choices');
+    const input = document.getElementById('mission-answer-input');
+    let ch = v.choices;
+    if (typeof ch === 'string') { try { ch = JSON.parse(ch); } catch (e) { ch = null; } }
+    const isMC = v.qtype === 'mc' && Array.isArray(ch) && ch.length >= 2;
+
+    if (!isMC) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      input.style.display = '';
+      input.placeholder = '숫자만 입력 (단위 없이, 분수는 3/4)';
+      return;
+    }
+
+    const NUM = ['①', '②', '③', '④', '⑤'];
+    box.innerHTML = ch.slice(0, 5).map((c, i) => `
+      <button type="button" id="mchoice-${i + 1}" onclick="pickMissionChoice(${i + 1})"
+        style="display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:11px 12px;margin-bottom:7px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;line-height:1.45;cursor:pointer;">
+        <span style="flex-shrink:0;font-weight:800;font-size:15px;">${NUM[i]}</span>
+        <span style="flex:1;min-width:0;">${renderProblemHtml(String(c))}</span>
+      </button>`).join('');
+    box.style.display = 'block';
+    input.style.display = 'none';
+    input.value = '';
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]).catch(() => {});
+  }
+
+  function pickMissionChoice(n) {
+    document.getElementById('mission-answer-input').value = String(n);
+    for (let i = 1; i <= 5; i++) {
+      const b = document.getElementById('mchoice-' + i);
+      if (!b) continue;
+      const on = i === n;
+      b.style.borderColor = on ? '#A78BFA' : 'rgba(255,255,255,0.22)';
+      b.style.background = on ? 'rgba(167,139,250,0.28)' : 'rgba(255,255,255,0.07)';
+    }
+  }
+
   function normalizeAnswer(s) {
     let v = String(s ?? '').trim().toLowerCase();
     v = v.replace(/\$/g, '').replace(/\\(?:mathrm|text|rm)\{([^}]*)\}/g, '$1');
@@ -5138,6 +5180,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   async function submitMissionAnswer() {
+    // 객관식은 선지를 골라야 제출할 수 있다
+    if (document.getElementById('mission-choices')?.style.display === 'block'
+        && !document.getElementById('mission-answer-input').value) {
+      showToast('답을 하나 골라주세요!', 'warn');
+      return;
+    }
     if (!_missionCurrent) return;
     const input = normalizeAnswer(document.getElementById('mission-answer-input').value);
     if (!input) { alert('답을 입력해주세요'); return; }

@@ -1907,6 +1907,8 @@
           note_id: entry.id,
           problem_text: v.problem_text || v.problem,
           answer: v.answer,
+          qtype: v.qtype || 'short',
+          choices: v.choices || null,
           solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300,
           figure: v.figure || null,
@@ -2013,7 +2015,7 @@
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
           note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
-          solution: v.solution || null,
+          qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
           is_original: v.is_variation === false,
           image_url: v.is_variation === false ? n.image_url : null, approved: false
@@ -2051,7 +2053,7 @@
           headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
           body: JSON.stringify({
             note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
-            solution: v.solution || null,
+            qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
             time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
             is_original: v.is_variation === false,
             image_url: v.is_variation === false ? n.image_url : null, approved: false
@@ -2088,6 +2090,7 @@
           </div>
           ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="max-width:100%;max-height:110px;border-radius:8px;object-fit:contain;margin-bottom:8px;cursor:pointer;" onclick="openModal('${v.wrong_notes.image_url}')" />` : ''}
           <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${renderProblemHtml(v.problem_text)}</div>
+          ${choiceBox(v)}
           ${solBox(v)}
           ${(() => {
             let sp = v.figure;
@@ -2957,6 +2960,20 @@
   function _figEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   // AI가 만든 문제의 마크다운 표를 실제 표로 그려준다 (수식은 MathJax가 처리)
+  // 객관식이면 카드에 선지를 보여준다 (정답 선지에 표시)
+  function choiceBox(v) {
+    const q = vmQType(v);
+    if (q.type !== 'mc') return '';
+    const NUM = ['①', '②', '③', '④', '⑤'];
+    const ans = parseInt(v.answer, 10);
+    return `<div style="margin:5px 0 8px;">${q.choices.slice(0, 5).map((c, i) => {
+      const on = (i + 1) === ans;
+      return `<div style="display:flex;gap:6px;font-size:12px;line-height:1.5;padding:2px 6px;border-radius:6px;${on ? 'background:rgba(16,185,129,.15);color:#10B981;font-weight:700;' : 'color:var(--text2);'}">
+        <span style="flex-shrink:0;">${NUM[i]}</span><span style="flex:1;min-width:0;">${renderProblemHtml(String(c))}</span>${on ? '<span style="flex-shrink:0;font-size:10.5px;">정답</span>' : ''}
+      </div>`;
+    }).join('')}</div>`;
+  }
+
   // 풀이(해설) 접었다 펴기 — AI가 만든 풀이를 검수할 때 본다
   function solBox(v) {
     const sol = String(v.solution || '').trim();
@@ -3067,6 +3084,8 @@
       const prev = {
         problem_text: v.problem_text ?? null,
         answer: v.answer ?? null,
+        qtype: v.qtype ?? 'short',
+        choices: v.choices ?? null,
         solution: v.solution ?? null,
         time_limit_sec: v.time_limit_sec ?? 300,
         figure: v.figure ?? null,
@@ -3097,6 +3116,8 @@
         body: JSON.stringify({
           problem_text: nv.problem_text || nv.problem,
           answer: nv.answer,
+          qtype: nv.qtype || 'short',
+          choices: nv.choices || null,
           solution: nv.solution || null,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
@@ -3138,6 +3159,8 @@
         body: JSON.stringify({
           problem_text: p.problem_text,
           answer: p.answer,
+          qtype: p.qtype ?? 'short',
+          choices: p.choices ?? null,
           solution: p.solution ?? null,
           time_limit_sec: p.time_limit_sec || 300,
           figure: p.figure ?? null,
@@ -4729,6 +4752,7 @@
           <span style="font-size:10.5px;color:var(--text4);">정답 ${v.answer ?? '-'} · ${Math.round((v.time_limit_sec || 180) / 60)}분</span>
         </div>
         <div style="font-size:12.5px;color:var(--text1);line-height:1.55;white-space:pre-wrap;margin-bottom:6px;">${renderProblemHtml(v.problem_text || '')}</div>
+        ${choiceBox(v)}
         ${solBox(v)}
         ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
         ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:150px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;display:block;" />` : ''}
@@ -4777,6 +4801,8 @@
           note_id: noteId,
           problem_text: nv.problem_text || nv.problem,
           answer: nv.answer,
+          qtype: nv.qtype || 'short',
+          choices: nv.choices || null,
           solution: nv.solution || null,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
