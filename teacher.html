@@ -1595,11 +1595,34 @@
     return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${fileName}`;
   }
 
+  // 최근에 쓴 출처를 모아 버튼으로 보여준다. 같은 교재를 계속 치는 수고를 던다.
+  function recentSourcesHtml(entryId, current) {
+    const seen = new Map();
+    (currentEntries || []).forEach(x => {
+      const v = String(x.source || '').trim();
+      if (!v || v === current) return;
+      seen.set(v, (seen.get(v) || 0) + 1);
+    });
+    const list = [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => x[0]);
+    if (!list.length) return '';
+    return `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+      ${list.map(v => `<button type="button" onclick="fillSource('${entryId}', ${JSON.stringify(v).replace(/"/g, '&quot;')})" style="padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:var(--bg2);color:var(--text3);font-size:11px;cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v}</button>`).join('')}
+    </div>`;
+  }
+
+  function fillSource(entryId, value) {
+    const el = document.getElementById(`classify-source-${entryId}`);
+    if (!el) return;
+    el.value = value;
+    el.focus();
+  }
+
   async function saveClassify(entryId) {
     const subject = document.getElementById(`classify-subject-${entryId}`).value;
     const major = document.getElementById(`classify-major-${entryId}`).value;
     const minor = document.getElementById(`classify-minor-${entryId}`).value;
     const teacherMemo = document.getElementById(`classify-memo-${entryId}`).value.trim();
+    const source = (document.getElementById(`classify-source-${entryId}`)?.value || '').trim();
 
     const saveBtn = document.querySelector(`button[onclick="saveClassify('${entryId}')"]`);
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '저장 중...'; }
@@ -1609,7 +1632,8 @@
         subject: subject || null,
         major_unit: major || null,
         minor_unit: minor || null,
-        teacher_memo: teacherMemo || null
+        teacher_memo: teacherMemo || null,
+        source: source || null
       };
 
       // 모범풀이 사진이 새로 선택되어 있으면 업로드 후 URL도 같이 저장
@@ -3988,6 +4012,10 @@
             ${minorOptionsHtml(e.subject, e.major_unit, e.minor_unit)}
           </select>
         </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--text3);margin:12px 0 6px;letter-spacing:0.3px;">📚 출처 <span style="font-weight:500;color:var(--text4);">(학생이 쓴 것을 고칠 수 있어요)</span></div>
+        <input type="text" id="classify-source-${e.id}" placeholder="예: 쎈 수학(상) p.52 12번" value="${(e.source || '').replace(/"/g,'&quot;')}" maxlength="80" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);outline:none;margin-bottom:6px;" />
+        ${recentSourcesHtml(e.id, e.source)}
 
         <input type="text" id="classify-memo-${e.id}" placeholder="선생님 의견 (선택)" value="${(e.teacher_memo || '').replace(/"/g,'&quot;')}" maxlength="60" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);outline:none;margin-bottom:10px;" />
 
