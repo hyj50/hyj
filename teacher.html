@@ -3001,6 +3001,13 @@
     return `<button onclick="undoRegen('${v.id}')" title="재생성 직전 문제로 되돌립니다" style="${big ? 'flex:1;min-width:0;' : ''}padding:${pad};border-radius:${big ? 9 : 7}px;border:1px solid #F59E0B;background:none;color:#F59E0B;font-size:${fs};font-weight:700;cursor:pointer;white-space:nowrap;">\u21a9 되돌리기</button>`;
   }
 
+  if (!document.getElementById('genspin-css')) {
+    const st = document.createElement('style');
+    st.id = 'genspin-css';
+    st.textContent = '@keyframes genspin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+
   function renderProblemHtml(text) {
     const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const isRow = l => /^\s*\|.*\|\s*$/.test(l);
@@ -3094,6 +3101,7 @@
         saved_at: new Date().toISOString()
       };
 
+      genStart('문제 다시 만드는 중');
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
@@ -3105,6 +3113,7 @@
           avoid: v.problem_text ? [v.problem_text] : []
         })
       });
+      genStop();
       if (res.status === 429) { showToast('\u26a0\ufe0f AI가 잠시 바빠요. 조금 뒤 다시 눌러주세요.', 'warn'); return; }
       if (res.status === 503) { alert('\u26a0\ufe0f AI 서버가 잠시 혼잡해요. 조금 있다 다시 눌러주세요.'); return; }
       const nv = await res.json();
@@ -3136,12 +3145,12 @@
 
       if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
       if (nv.warning) showToast('\u26a0\ufe0f 주의: ' + nv.warning, 'warn');
-      else showToast('\u2705 다시 만들었어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + '\n별로면 \u21a9 되돌리기를 누르세요.', 'ok');
+      else showToast('\u2705 다시 만들었어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + modelTag(nv) + '\n별로면 \u21a9 되돌리기를 누르세요.', 'ok');
       loadVariationReviews();
     } catch (e) {
       console.error('regenVariation:', e);
       alert('재생성 실패\n' + String(e && e.message || e).slice(0, 120));
-    }
+    } finally { genStop(); }
   }
 
   // 재생성 직전 문제로 되돌리기
@@ -4778,8 +4787,7 @@
     const diff = document.getElementById('vmdiff-' + noteId)?.value || 'same';
     const diffName = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' }[diff] || '';
 
-    showToast('\ud83e\udd16 변형문제 추가 생성 중' + diffName
-      + (avoid.length ? `\n기존 ${avoid.length}개와 안 겹치게 만드는 중...` : '...'), 'ok');
+    genStart('변형문제 만드는 중' + diffName);
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
@@ -4791,6 +4799,7 @@
           avoid
         })
       });
+      genStop();
       let reason = '';
       if (!res.ok) { try { reason = (await res.json()).error || ''; } catch (e) {}
         showToast('\u274c ' + (reason || `생성 실패 (${res.status})`), 'error'); return; }
@@ -4813,12 +4822,12 @@
       });
       if (!ins.ok) throw new Error(await ins.text());
       if (nv.warning) showToast('\u26a0\ufe0f 만들었지만 확인이 필요해요 — ' + nv.warning, 'warn');
-      else showToast('\u2705 변형문제가 추가됐어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + '! 검수 후 승인해주세요.', 'ok');
+      else showToast('\u2705 변형문제가 추가됐어요' + (nv.checked ? ' (' + nv.checked + ')' : '') + modelTag(nv) + '\n검수 후 승인해주세요.', 'ok');
       loadVManage();
     } catch (e) {
       console.error(e);
       showToast('\u274c 추가 실패\n' + String(e.message || e).slice(0, 80), 'error');
-    }
+    } finally { genStop(); }
   }
 
   async function vmToggle(id, cur) {
@@ -4926,6 +4935,53 @@
     if (typeof c === 'string') { try { c = JSON.parse(c); } catch (e) { c = null; } }
     if (v.qtype === 'mc' && Array.isArray(c) && c.length >= 2) return { type: 'mc', choices: c };
     return { type: 'short', choices: null };
+  }
+
+  // AI 생성은 30초 넘게 걸릴 수 있다. 화면이 깜깜하면 고장난 줄 알고 새로고침하게 되므로
+  // 지금 뭘 하고 있는지 단계로 보여준다.
+  let _genTimer = null;
+  function genStart(label) {
+    genStop();
+    let box = document.getElementById('gen-progress');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'gen-progress';
+      box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9700;display:flex;justify-content:center;padding:0 12px 16px;pointer-events:none;';
+      document.body.appendChild(box);
+    }
+    const steps = ['문제 만드는 중', '숫자 검사하는 중', '그림 확인하는 중', '정답 다시 풀어보는 중'];
+    // Pro 는 오래 생각한다. 단계가 너무 빨리 넘어가면 거짓말처럼 보이므로 여유를 둔다.
+    let i = 0, sec = 0;
+    const paint = () => {
+      box.innerHTML = `<div style="pointer-events:auto;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:11px 15px;box-shadow:0 6px 22px rgba(0,0,0,.35);max-width:340px;width:100%;">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <span style="width:15px;height:15px;border:2.5px solid var(--border2);border-top-color:#E8639A;border-radius:50%;display:inline-block;animation:genspin .8s linear infinite;"></span>
+          <span style="flex:1;font-size:12.5px;font-weight:700;color:var(--text1);">${label || steps[Math.min(i, steps.length - 1)]}</span>
+          <span style="font-size:11px;color:var(--text4);">${sec}초</span>
+        </div>
+        <div style="font-size:10.5px;color:var(--text4);margin-top:5px;line-height:1.45;">좋은 모델로 만드느라 1분까지 걸릴 수 있어요. 화면을 닫거나 새로고침하지 마세요.</div>
+      </div>`;
+    };
+    paint();
+    _genTimer = setInterval(() => {
+      sec++;
+      if (sec === 12 || sec === 26 || sec === 40) i++;
+      paint();
+    }, 1000);
+  }
+  // 어느 모델로 만들어졌는지 짧게 (Pro 로 만들었는지, 한도에 걸려 Flash 로 내려갔는지)
+  function modelTag(nv) {
+    const m = String(nv && nv.model || '');
+    if (!m) return '';
+    if (/pro/.test(m)) return ' · 🧠 Pro';
+    if (/2\.5-flash/.test(m)) return ' · ⚡ Flash';
+    if (/flash/.test(m)) return ' · ⚡ Flash(예비)';
+    return '';
+  }
+
+  function genStop() {
+    if (_genTimer) { clearInterval(_genTimer); _genTimer = null; }
+    document.getElementById('gen-progress')?.remove();
   }
 
   // 시험지 식별 코드 — 종이와 앱을 이어주는 열쇠
