@@ -5639,21 +5639,64 @@
         body.innerHTML = '아직 만든 시험지가 없어요. (papers 표가 없으면 SQL을 먼저 돌려주세요)';
         return;
       }
+      // 채점 결과를 한 번에 불러와 붙인다
+      let byPaper = {};
+      try {
+        const ids = rows.map(p => p.id).filter(Boolean);
+        if (ids.length) {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/paper_results?paper_id=in.(${ids.join(',')})&select=*,students(name)`, { headers: sbHeaders() }).then(r => r.json());
+          (Array.isArray(res) ? res : []).forEach(r => { (byPaper[r.paper_id] = byPaper[r.paper_id] || []).push(r); });
+        }
+      } catch (e) { console.error('채점 결과 불러오기:', e); }
+
       body.innerHTML = rows.map(p => {
         const d = new Date(p.created_at);
         const n = Array.isArray(p.variation_ids) ? p.variation_ids.length : 0;
-        return `<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:700;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title || '제목 없음'}${p.students?.name ? ' — ' + p.students.name : ''}</div>
-            <div style="font-size:10.5px;color:var(--text4);">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} · ${n}문항 · <span style="font-family:monospace;">${p.code}</span></div>
+        const rs = byPaper[p.id] || [];
+        const done = rs.map(r => {
+          const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
+          const col = pct >= 80 ? '#10B981' : pct >= 60 ? '#F59E0B' : '#EF4444';
+          const wrong = (Array.isArray(r.marks) ? r.marks : [])
+            .map((m, i) => (m ? null : i + 1)).filter(x => x);
+          return `<div style="display:flex;align-items:center;gap:7px;padding:6px 8px;margin-top:5px;border-radius:8px;background:var(--bg3);">
+            <span style="font-size:11.5px;font-weight:700;color:var(--text2);">${r.students?.name || '학생'}</span>
+            <span style="font-size:11.5px;font-weight:800;color:${col};">${r.score}/${r.total}</span>
+            ${wrong.length ? `<span style="flex:1;min-width:0;font-size:10.5px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">틀림 ${wrong.join(',')}</span>` : '<span style="flex:1;font-size:10.5px;color:#10B981;">전부 정답</span>'}
+            <button onclick="resetPaperResult('${r.id}')" title="지우면 학생이 다시 제출할 수 있어요" style="flex-shrink:0;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--text4);font-size:10px;cursor:pointer;">↺ 다시</button>
+          </div>`;
+        }).join('');
+
+        return `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title || '제목 없음'}${p.students?.name ? ' — ' + p.students.name : ''}</div>
+              <div style="font-size:10.5px;color:var(--text4);">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} · ${n}문항 · <span style="font-family:monospace;">${p.code}</span>${rs.length ? '' : ' · <span style="color:var(--text4);">미제출</span>'}</div>
+            </div>
+            <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨 다시 인쇄</button>
           </div>
-          <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨 다시 인쇄</button>
+          ${done}
         </div>`;
       }).join('');
     } catch (e) {
       console.error('vmPapers:', e);
       const body = document.getElementById('paper-list-body');
       if (body) body.textContent = '불러오기 실패: ' + String(e.message || e).slice(0, 80);
+    }
+  }
+
+  // 제출 기록을 지우면 학생이 다시 낼 수 있다
+  async function resetPaperResult(resultId) {
+    if (!confirm('이 제출 기록을 지울까요?\n\n학생이 그 시험지를 다시 제출할 수 있게 됩니다.')) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/paper_results?id=eq.${resultId}`, {
+        method: 'DELETE', headers: sbHeaders({ 'Prefer': 'return=minimal' })
+      });
+      if (!r.ok) throw new Error((await r.text()).slice(0, 120));
+      showToast('↺ 지웠어요. 학생이 다시 제출할 수 있어요.', 'ok');
+      vmPapers();
+    } catch (e) {
+      console.error('resetPaperResult:', e);
+      showToast('❌ 지우기 실패\n' + String(e.message || e).slice(0, 80), 'error');
     }
   }
 
