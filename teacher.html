@@ -1401,24 +1401,139 @@
     }
   }
 
+  // 학생 계정 삭제 — 딸린 데이터가 7개 표에 흩어져 있어 순서대로 지워야 한다.
+  // 되돌릴 수 없으므로 무엇이 지워지는지 먼저 보여주고, 이름을 직접 입력받는다.
   async function deleteCurrentStudent() {
     const stu = getCurrentStudent();
-    if (!stu) return;
-    if (!confirm(`'${stu.name}' 학생의 모든 오답노트를 삭제할까요? (되돌릴 수 없어요)`)) return;
+    if (!stu) { alert('먼저 학생을 선택해주세요.'); return; }
+
+    // 1) 무엇이 지워지는지 센다
+    let counts;
+    try {
+      counts = await countStudentData(stu.id);
+    } catch (err) {
+      console.error('삭제 전 집계 실패:', err);
+      alert('학생 자료를 확인하지 못했어요. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    const lines = [
+      ['오답노트', counts.notes], ['변형문제', counts.variations],
+      ['풀이 기록', counts.attempts], ['포인트 내역', counts.points],
+      ['질문·댓글', counts.qna], ['상점 구매', counts.purchases], ['시험지', counts.papers],
+    ].filter(x => x[1] > 0).map(x => `  · ${x[0]} ${x[1]}건`);
+
+    const msg = `'${stu.name}' 학생을 완전히 삭제합니다.\n\n함께 지워지는 것:\n`
+      + (lines.length ? lines.join('\n') : '  · (없음)')
+      + `\n보유 포인트 ${stu.mission_points || 0}P\n\n`
+      + `되돌릴 수 없어요. 정말 지우려면 아래에 학생 이름을 그대로 입력하세요.`;
+
+    const typed = prompt(msg, '');
+    if (typed === null) return;
+    if (typed.trim() !== String(stu.name).trim()) {
+      alert('이름이 일치하지 않아 취소했어요.');
+      return;
+    }
+
+    const btn = document.querySelector('button[onclick="deleteCurrentStudent()"]');
+    if (btn) { btn.disabled = true; btn.textContent = '삭제 중...'; }
 
     try {
-      await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${stu.id}`, {
-        method: 'DELETE',
-        headers: sbHeaders()
-      });
+      await purgeStudent(stu.id);
       await loadStudentsFromDB();
       currentId = students.length > 0 ? students[0].id : null;
       renderSelect();
       await renderBoard();
+      showToast(`🗑️ '${stu.name}' 학생을 삭제했어요.`, 'ok');
     } catch (err) {
-      console.error(err);
-      alert('삭제에 실패했어요.');
+      console.error('학생 삭제 실패:', err);
+      alert('삭제에 실패했어요.\n' + String(err && err.message || err).slice(0, 160)
+        + '\n\n일부만 지워졌을 수 있어요. 다시 한 번 시도해주세요.');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '🗑️ 학생 삭제'; }
     }
+  }
+
+  // 개수만 세어 온다 (Prefer: count=exact 로 본문 없이 헤더로 받음)
+  async function countStudentData(sid) {
+    const cnt = async (path) => {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        method: 'GET',
+        headers: sbHeaders({ 'Prefer': 'count=exact', 'Range': '0-0' })
+      });
+      if (!r.ok) throw new Error(`${path} → ${r.status}`);
+      const cr = r.headers.get('content-range') || '';
+      const n = parseInt(cr.split('/')[1], 10);
+      return isFinite(n) ? n : 0;
+    };
+
+    const noteIds = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${sid}&select=id`, { headers: sbHeaders() })
+      .then(r => r.json()).then(rows => (Array.isArray(rows) ? rows.map(x => x.id) : []));
+
+    const [notes, attempts, points, questions, comments, purchases, papers] = await Promise.all([
+      cnt(`wrong_notes?student_id=eq.${sid}&select=id`),
+      cnt(`mission_attempts?student_id=eq.${sid}&select=id`),
+      cnt(`point_logs?student_id=eq.${sid}&select=id`),
+      cnt(`questions?student_id=eq.${sid}&select=id`),
+      cnt(`comments?student_id=eq.${sid}&select=id`),
+      cnt(`purchases?student_id=eq.${sid}&select=id`),
+      cnt(`papers?student_id=eq.${sid}&select=id`),
+    ]);
+    const variations = noteIds.length
+      ? await cnt(`variations?note_id=in.(${noteIds.join(',')})&select=id`)
+      : 0;
+
+    return { notes, variations, attempts, points, qna: questions + comments, purchases, papers, noteIds };
+  }
+
+  // 자식 → 부모 순서로 지운다. 순서가 틀리면 외래키에 걸려 실패한다.
+  async function purgeStudent(sid) {
+    const del = async (path, label) => {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+        method: 'DELETE',
+        headers: sbHeaders({ 'Prefer': 'return=minimal' })
+      });
+      // 표가 없거나(404) 지울 게 없는 경우는 넘어간다
+      if (!r.ok && r.status !== 404 && r.status !== 406) {
+        throw new Error(`${label} 삭제 실패 (${r.status}) ${(await r.text()).slice(0, 100)}`);
+      }
+    };
+
+    const noteIds = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?student_id=eq.${sid}&select=id`, { headers: sbHeaders() })
+      .then(r => r.json()).then(rows => (Array.isArray(rows) ? rows.map(x => x.id) : []));
+
+    // 1) 풀이 기록 → 변형문제 (자식부터)
+    await del(`mission_attempts?student_id=eq.${sid}`, '풀이 기록');
+    if (noteIds.length) {
+      // 이 학생의 변형문제 id 를 모은다 (in.() 은 길이 제한이 있어 나눠서 처리)
+      const varIds = [];
+      for (let i = 0; i < noteIds.length; i += 40) {
+        const part = noteIds.slice(i, i + 40).join(',');
+        const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?note_id=in.(${part})&select=id`, { headers: sbHeaders() })
+          .then(r => r.json()).catch(() => []);
+        if (Array.isArray(rows)) rows.forEach(x => varIds.push(x.id));
+      }
+      // 다른 학생이 이 문제를 푼 기록이 남아 있으면 외래키에 걸리므로 먼저 지운다
+      for (let i = 0; i < varIds.length; i += 40) {
+        await del(`mission_attempts?variation_id=in.(${varIds.slice(i, i + 40).join(',')})`, '풀이 기록');
+      }
+      for (let i = 0; i < noteIds.length; i += 40) {
+        await del(`variations?note_id=in.(${noteIds.slice(i, i + 40).join(',')})`, '변형문제');
+      }
+    }
+    // 2) 게시판 — 댓글이 질문을 참조하므로 댓글 먼저
+    await del(`comments?student_id=eq.${sid}`, '댓글');
+    await del(`questions?student_id=eq.${sid}`, '질문');
+    // 3) 나머지
+    await del(`purchases?student_id=eq.${sid}`, '구매 내역');
+    await del(`point_logs?student_id=eq.${sid}`, '포인트 내역');
+    await del(`papers?student_id=eq.${sid}`, '시험지');
+    await del(`wrong_notes?student_id=eq.${sid}`, '오답노트');
+    // 4) 마지막에 계정
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${sid}`, {
+      method: 'DELETE', headers: sbHeaders({ 'Prefer': 'return=minimal' })
+    });
+    if (!r.ok) throw new Error(`학생 계정 삭제 실패 (${r.status}) ${(await r.text()).slice(0, 120)}`);
   }
 
   function changeTeacherPassword() {
