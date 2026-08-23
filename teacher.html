@@ -2791,6 +2791,76 @@
     (fig.points || []).forEach(p => {
       if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
     });
+    // ── 작도(build) — 좌표를 AI가 어림잡지 않고 앱이 정확히 계산한다 ──
+    // 킬러 도형 문제는 "AC를 1:2로 내분한 점 E", "AE를 지름으로 하는 원이 AB와 만나는 점"
+    // 처럼 점이 작도로 정의된다. 이걸 AI가 손으로 찍으면 반드시 어긋난다.
+    const _v = (a, b) => [b[0] - a[0], b[1] - a[1]];
+    const _dot = (u, w) => u[0] * w[0] + u[1] * w[1];
+    (fig.build || []).forEach(b => {
+      if (!b || typeof b !== 'object') return;
+      const name = String(b.n ?? b.name ?? '').slice(0, 12);
+      if (!name) return;
+      let pt = null;
+      try {
+        if (Array.isArray(b.mid) && b.mid.length >= 2) {
+          const a = P[b.mid[0]], c = P[b.mid[1]];
+          if (a && c) pt = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2];
+
+        } else if (Array.isArray(b.div) && b.div.length >= 4) {
+          // AC 를 m:n 으로 내분
+          const a = P[b.div[0]], c = P[b.div[1]];
+          const m = Number(b.div[2]), n = Number(b.div[3]);
+          if (a && c && isFinite(m) && isFinite(n) && m + n !== 0) {
+            const t = m / (m + n);
+            pt = [a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t];
+          }
+
+        } else if (Array.isArray(b.foot) && b.foot.length >= 3) {
+          // b.foot = [P, A, B] : 점 P 에서 직선 AB 에 내린 수선의 발
+          // ※ "AE 를 지름으로 하는 원이 AB 와 만나는 점" 이 바로 이것 (∠는 직각)
+          const p = P[b.foot[0]], a = P[b.foot[1]], c = P[b.foot[2]];
+          if (p && a && c) {
+            const d = _v(a, c), L = _dot(d, d);
+            if (L > 1e-9) {
+              const t = _dot(_v(a, p), d) / L;
+              pt = [a[0] + d[0] * t, a[1] + d[1] * t];
+            }
+          }
+
+        } else if (Array.isArray(b.inter) && b.inter.length >= 4) {
+          // 직선 AB 와 직선 CD 의 교점
+          const a = P[b.inter[0]], c = P[b.inter[1]], e = P[b.inter[2]], f = P[b.inter[3]];
+          if (a && c && e && f) {
+            const d1 = _v(a, c), d2 = _v(e, f);
+            const den = d1[0] * d2[1] - d1[1] * d2[0];
+            if (Math.abs(den) > 1e-9) {
+              const t = ((e[0] - a[0]) * d2[1] - (e[1] - a[1]) * d2[0]) / den;
+              pt = [a[0] + d1[0] * t, a[1] + d1[1] * t];
+            }
+          }
+
+        } else if (Array.isArray(b.ext) && b.ext.length >= 4) {
+          // AC 를 m:n 으로 외분
+          const a = P[b.ext[0]], c = P[b.ext[1]];
+          const m = Number(b.ext[2]), n = Number(b.ext[3]);
+          if (a && c && isFinite(m) && isFinite(n) && m - n !== 0) {
+            pt = [(m * c[0] - n * a[0]) / (m - n), (m * c[1] - n * a[1]) / (m - n)];
+          }
+        }
+      } catch (err) { pt = null; }
+      if (pt && isFinite(pt[0]) && isFinite(pt[1])) P[name] = pt;
+    });
+
+    // 지름이 주어진 원 — 중심·반지름을 앱이 계산한다
+    const _diam = [];
+    (fig.diamCircles || []).forEach(d => {
+      if (!Array.isArray(d) || d.length < 2) return;
+      const a = P[String(d[0])], c = P[String(d[1])];
+      if (!a || !c) return;
+      const r = Math.hypot(c[0] - a[0], c[1] - a[1]) / 2;
+      if (r > 1e-6) _diam.push({ c: [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2], r });
+    });
+
     const at = ref => Array.isArray(ref) ? [Number(ref[0]), Number(ref[1])] : P[String(ref)];
 
     // ── 범위 계산 ──
@@ -2804,6 +2874,7 @@
       const p = at(a.center); if (!p) return;
       xs.push(p[0] - a.r, p[0] + a.r); ys.push(p[1] - a.r, p[1] + a.r);
     });
+    _diam.forEach(d => { xs.push(d.c[0] - d.r, d.c[0] + d.r); ys.push(d.c[1] - d.r, d.c[1] + d.r); });
     if (!xs.length) return '';
     let x0 = Math.min(...xs), x1 = Math.max(...xs);
     let y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -2823,6 +2894,10 @@
     (fig.circles || []).forEach(c => {
       const p = S(c.center); if (!p) return;
       out += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(c.r * k).toFixed(1)}" fill="none" stroke="${C.circ}" stroke-width="1.6"/>`;
+    });
+    // 지름으로 정의된 원
+    _diam.forEach(d => {
+      out += `<circle cx="${sx(d.c[0]).toFixed(1)}" cy="${sy(d.c[1]).toFixed(1)}" r="${(d.r * k).toFixed(1)}" fill="none" stroke="${C.circ}" stroke-width="1.6"/>`;
     });
 
     // ── 호 ──
@@ -2914,6 +2989,8 @@
       const a = String(s[0]), b = String(s[1]);
       if (P[a] && P[b]) { (nbr[a] = nbr[a] || []).push(P[b]); (nbr[b] = nbr[b] || []).push(P[a]); }
     });
+    // 라벨 자리를 먼저 다 잡고, 겹치는 것만 밀어낸 뒤에 그린다
+    const _lab = [];
     Object.keys(P).forEach(name => {
       const p = S(name);
       const [gx, gy] = P[name];
@@ -2925,10 +3002,42 @@
       if (Math.hypot(ox, oy) < 0.25) { ox = gx - cx; oy = gy - cy; }        // 대칭이면 도형 중심 반대
       if (Math.hypot(ox, oy) < 1e-6) { ox = 0; oy = -1; }                    // 그래도 없으면 아래쪽
       const m2 = Math.hypot(ox, oy);
-      const lx = Math.max(9, Math.min(W - 9, p[0] + (ox / m2) * 15));
-      const ly = Math.max(13, Math.min(H - 5, p[1] - (oy / m2) * 15 + 4));
-      out += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#fff"/>`;
-      out += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${C.txt}" font-size="12" font-weight="700" text-anchor="middle">${_geoEsc(name)}</text>`;
+      _lab.push({ name, p, dir: [ox / m2, -oy / m2], d: 15 });
+    });
+
+    // ── 라벨 겹침 풀기 ──
+    // 작도로 만든 점(E, P1, P2 …)은 서로 가까이 몰리는 일이 잦아 이름이 뭉개진다.
+    const _lw = n => 7 + String(n).length * 5;          // 글자 폭 어림
+    const _pos = L => [
+      Math.max(9, Math.min(W - 9, L.p[0] + L.dir[0] * L.d)),
+      Math.max(13, Math.min(H - 5, L.p[1] + L.dir[1] * L.d + 4)),
+    ];
+    for (let pass = 0; pass < 14; pass++) {
+      let moved = false;
+      for (let i = 0; i < _lab.length; i++) {
+        for (let j = i + 1; j < _lab.length; j++) {
+          const a = _pos(_lab[i]), b = _pos(_lab[j]);
+          const needX = (_lw(_lab[i].name) + _lw(_lab[j].name)) / 2;
+          if (Math.abs(a[0] - b[0]) < needX && Math.abs(a[1] - b[1]) < 13) {
+            // 더 멀리 밀 수 있는 쪽을 밀어낸다
+            const t = _lab[i].d <= _lab[j].d ? _lab[i] : _lab[j];
+            if (t.d < 34) { t.d += 4; moved = true; }
+            else {
+              // 더는 못 밀면 방향을 돌려서 자리를 찾는다
+              const ang = Math.atan2(t.dir[1], t.dir[0]) + 0.9;
+              t.dir = [Math.cos(ang), Math.sin(ang)]; t.d = 15; moved = true;
+            }
+          }
+        }
+      }
+      if (!moved) break;
+    }
+
+    _lab.forEach(L => {
+      const [lx, ly] = _pos(L);
+      out += `<circle cx="${L.p[0].toFixed(1)}" cy="${L.p[1].toFixed(1)}" r="3.4" fill="#fff"/>`;
+      // 선 위에 글자가 얹혀도 읽히도록 테두리를 깐다
+      out += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${C.txt}" font-size="12" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="rgba(10,10,18,0.85)" stroke-width="3" stroke-linejoin="round">${_geoEsc(L.name)}</text>`;
     });
 
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
