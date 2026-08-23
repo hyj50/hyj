@@ -5588,9 +5588,11 @@
   .sol .solh { display:flex; align-items:baseline; gap:8px; margin-bottom:3px; }
   .sol .soln { font-weight:800; font-size:11pt; }
   .sol .sola { font-size:9pt; color:#555; border:1px solid #bbb; border-radius:3px; padding:0 5px; }
-  .sol .solb { font-size:9.8pt; line-height:1.65; white-space:pre-wrap; color:#222; }
-  .sol { column-count:${opt.cols}; column-gap:9mm; }
-  .sol h2 { column-span:all; }
+  .sol .solb { font-size:9.8pt; line-height:1.65; white-space:pre-wrap; color:#222;
+               overflow-wrap:anywhere; word-break:break-word; }
+  .solb mjx-container, .qt mjx-container, .ch mjx-container { max-width:100%; }
+  /* 해설은 수식이 가로로 길어서 2단에 넣으면 옆 단을 침범한다. 항상 1단으로 넓게 쓴다 */
+  .sol { column-count:1; }
   .ans table { border-collapse:collapse; width:100%; }
   .ans th, .ans td { border:1px solid #bbb; padding:4px 7px; font-size:9.5pt; text-align:center; }
   .ans th { background:#f2f2f2; }
@@ -5601,7 +5603,22 @@
   ${opt.key ? `<div class="ans"><h2>정답 (선생님용)</h2>${keyBlock}</div>` : ''}
   ${opt.sol ? solPages : ''}
 <script>
-  function go(){ setTimeout(function(){ window.print(); }, 400); }
+  // 긴 수식이 단 너비를 넘으면 그 수식만 글씨를 줄여 칸 안에 맞춘다
+  function fitMath(){
+    var list = document.querySelectorAll('mjx-container');
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i], p = el.parentElement;
+      if (!p) continue;
+      var avail = p.clientWidth;
+      if (!avail) continue;
+      var s = 100;
+      while (el.getBoundingClientRect().width > avail && s > 50) {
+        s -= 6;
+        el.style.fontSize = s + '%';
+      }
+    }
+  }
+  function go(){ fitMath(); setTimeout(function(){ fitMath(); window.print(); }, 400); }
   var imgs = Array.prototype.slice.call(document.images);
   var left = imgs.length;
   function ready(){ if(--left <= 0) waitMath(); }
@@ -5699,7 +5716,12 @@
         return `<div style="padding:9px 0;border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:9px;">
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title || '제목 없음'}${p.students?.name ? ' — ' + p.students.name : ''}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(() => {
+              let o = p.options; if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { o = null; } }
+              const par = o && o.parent_code;
+              return (par ? `<span style="display:inline-block;padding:1px 5px;margin-right:5px;border-radius:5px;background:rgba(124,58,237,.18);color:#A78BFA;font-size:10px;font-weight:800;vertical-align:1px;">↳ ${par}</span>` : '')
+                + (p.title || '제목 없음') + (p.students?.name ? ' — ' + p.students.name : '');
+            })()}</div>
               <div style="font-size:10.5px;color:var(--text4);">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} · ${n}문항 · <span style="font-family:monospace;">${p.code}</span>${rs.length ? '' : ' · <span style="color:var(--text4);">미제출</span>'}</div>
             </div>
             <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨 다시 인쇄</button>
@@ -5841,8 +5863,11 @@
       const units = [...new Set(ordered.map(x => x.wrong_notes?.major_unit).filter(Boolean))];
       const opt = {
         title: (R.papers.title || '오답') + ' 다시풀기',
-        sub: units.join(' · '), cols: 2, space: 46, perPage: 0,
-        split: false, omr: true, key: true, sol: true
+        // 어느 시험지의 다시풀기인지 종이에도 남는다
+        sub: [name, R.papers.code ? `원본 ${R.papers.code}` : '', units.join(' · ')].filter(Boolean).join(' · '),
+        cols: 2, space: 46, perPage: 0,
+        split: false, omr: true, key: true, sol: true,
+        parent_code: R.papers.code || null, parent_paper_id: R.papers.id
       };
       const code = makePaperCode();
 
