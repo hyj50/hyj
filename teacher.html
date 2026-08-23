@@ -5703,6 +5703,7 @@
               <div style="font-size:10.5px;color:var(--text4);">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} · ${n}문항 · <span style="font-family:monospace;">${p.code}</span>${rs.length ? '' : ' · <span style="color:var(--text4);">미제출</span>'}</div>
             </div>
             <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨 다시 인쇄</button>
+            <button onclick="deletePaper('${p.id}', ${rs.length})" title="이 시험지 기록을 지웁니다" style="flex-shrink:0;width:32px;padding:7px 0;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text4);font-size:12px;cursor:pointer;">🗑</button>
           </div>
           ${done}
         </div>`;
@@ -5711,6 +5712,32 @@
       console.error('vmPapers:', e);
       const body = document.getElementById('paper-list-body');
       if (body) body.textContent = '불러오기 실패: ' + String(e.message || e).slice(0, 80);
+    }
+  }
+
+  // 시험지 기록 삭제 — 문항(변형문제) 자체는 그대로 두고 "이 시험지였다" 는 기록만 지운다
+  async function deletePaper(paperId, resultCount) {
+    const n = Number(resultCount) || 0;
+    const msg = n
+      ? `이 시험지 기록을 지울까요?\n\n· 학생 채점 결과 ${n}건도 함께 사라져요\n· 문제 자체는 남아요 (문제 관리 탭)\n\n되돌릴 수 없어요.`
+      : `이 시험지 기록을 지울까요?\n\n문제 자체는 남아요. 되돌릴 수 없어요.`;
+    if (!confirm(msg)) return;
+
+    try {
+      // paper_results 는 papers 에 걸려 함께 지워지지만, 표가 없을 수도 있으니 먼저 정리한다
+      await fetch(`${SUPABASE_URL}/rest/v1/paper_results?paper_id=eq.${paperId}`, {
+        method: 'DELETE', headers: sbHeaders({ 'Prefer': 'return=minimal' })
+      }).catch(() => {});
+
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/papers?id=eq.${paperId}`, {
+        method: 'DELETE', headers: sbHeaders({ 'Prefer': 'return=minimal' })
+      });
+      if (!r.ok) throw new Error(`(${r.status}) ${(await r.text()).slice(0, 120)}`);
+      showToast('🗑 시험지 기록을 지웠어요.', 'ok');
+      vmPapers();
+    } catch (e) {
+      console.error('deletePaper:', e);
+      showToast('❌ 삭제 실패\n' + String(e.message || e).slice(0, 90), 'error');
     }
   }
 
