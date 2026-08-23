@@ -5633,6 +5633,13 @@
   }
 
   // ── 지난 시험지 다시 인쇄 ────────────────────────────────────
+  let _paperFilter = '';        // '' 이면 전체, 아니면 학생 id
+
+  function setPaperFilter(sid) {
+    _paperFilter = sid || '';
+    vmPapers();
+  }
+
   async function vmPapers() {
     const old = document.getElementById('paper-list');
     if (old) old.remove();
@@ -5644,16 +5651,48 @@
         <span style="font-size:15px;font-weight:800;color:var(--text1);">📄 지난 시험지</span>
         <button onclick="document.getElementById('paper-list').remove()" style="padding:5px 11px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:12px;cursor:pointer;">닫기</button>
       </div>
+      <div id="paper-filter" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="paper-list-body" style="font-size:12.5px;color:var(--text4);">불러오는 중...</div>
     </div>`;
     document.body.appendChild(box);
 
     try {
-      const rows = await fetch(`${SUPABASE_URL}/rest/v1/papers?select=*,students(name)&order=created_at.desc&limit=30`, { headers: sbHeaders() }).then(r => r.json());
+      const all = await fetch(`${SUPABASE_URL}/rest/v1/papers?select=*,students(name)&order=created_at.desc&limit=80`, { headers: sbHeaders() }).then(r => r.json());
       const body = document.getElementById('paper-list-body');
       if (!body) return;
-      if (!Array.isArray(rows) || !rows.length) {
+      if (!Array.isArray(all) || !all.length) {
         body.innerHTML = '아직 만든 시험지가 없어요. (papers 표가 없으면 SQL을 먼저 돌려주세요)';
+        return;
+      }
+
+      // ── 학생별로 골라 보기 ──
+      // 개인용 시험지(student_id) 와 제출 기록에 남은 학생을 함께 모은다
+      const preRes = await fetch(`${SUPABASE_URL}/rest/v1/paper_results?select=paper_id,student_id,students(name)&limit=500`, { headers: sbHeaders() })
+        .then(r => r.json()).catch(() => []);
+      const byPaperStu = {};
+      (Array.isArray(preRes) ? preRes : []).forEach(r => {
+        (byPaperStu[r.paper_id] = byPaperStu[r.paper_id] || new Set()).add(r.student_id);
+      });
+
+      const who = new Map();
+      all.forEach(p => { if (p.student_id && p.students?.name) who.set(p.student_id, p.students.name); });
+      (Array.isArray(preRes) ? preRes : []).forEach(r => { if (r.student_id && r.students?.name) who.set(r.student_id, r.students.name); });
+
+      const fbox = document.getElementById('paper-filter');
+      if (fbox) {
+        const chip = (id, label) => {
+          const on = _paperFilter === id;
+          return `<button onclick="setPaperFilter('${id}')" style="padding:5px 10px;border-radius:8px;border:1px solid ${on ? '#E8639A' : 'var(--border2)'};background:${on ? 'rgba(232,99,154,.16)' : 'var(--bg3)'};color:${on ? '#E8639A' : 'var(--text3)'};font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">${label}</button>`;
+        };
+        fbox.innerHTML = chip('', '전체')
+          + [...who.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ko')).map(([id, nm]) => chip(id, nm)).join('');
+      }
+
+      const rows = _paperFilter
+        ? all.filter(p => p.student_id === _paperFilter || (byPaperStu[p.id] && byPaperStu[p.id].has(_paperFilter)))
+        : all.slice(0, 30);
+      if (!rows.length) {
+        body.innerHTML = '이 학생의 시험지가 아직 없어요.';
         return;
       }
       // 채점 결과를 한 번에 불러와 붙인다
@@ -5667,7 +5706,9 @@
       } catch (e) { console.error('채점 결과 불러오기:', e); }
 
       // 수십 명을 관리하려면 "누가 아직 안 끝났는지" 가 제일 먼저 보여야 한다
-      const allRes = Object.values(byPaper).flat();
+      // 학생별로 보고 있으면 대기 요약도 그 학생만 세어야 한다
+      const allRes = Object.values(byPaper).flat()
+        .filter(r => !_paperFilter || r.student_id === _paperFilter);
       const waiting = allRes.filter(r => !r.reviewed_at && (r.marks || []).some(m => !m));
       const banner = waiting.length
         ? `<div style="padding:9px 11px;border-radius:10px;background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.35);margin-bottom:10px;font-size:12px;color:#F59E0B;font-weight:700;line-height:1.5;">
@@ -5679,7 +5720,8 @@
       body.innerHTML = banner + rows.map(p => {
         const d = new Date(p.created_at);
         const n = Array.isArray(p.variation_ids) ? p.variation_ids.length : 0;
-        const rs = byPaper[p.id] || [];
+        let rs = byPaper[p.id] || [];
+        if (_paperFilter) rs = rs.filter(r => r.student_id === _paperFilter);
         const done = rs.map(r => {
           const pct = r.total ? Math.round((r.score / r.total) * 100) : 0;
           const col = pct >= 80 ? '#10B981' : pct >= 60 ? '#F59E0B' : '#EF4444';
