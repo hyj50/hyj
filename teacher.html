@@ -2644,6 +2644,26 @@
       if (t === 'text' && !/\sfill\s*=/i.test(a2)) a2 = ' fill="#000"' + a2;
       return '<' + tag + a2 + '>';
     });
+
+    // 3) 글자에 두른 후광 제거
+    //    화면에서는 선 위에 글자가 얹혀도 읽히라고 테두리를 깔지만,
+    //    인쇄하면 그 테두리가 검게 변해 글씨가 뭉개진다.
+    svg = svg.replace(/<text\b([^>]*)>/gi, (m, at) => {
+      let a = at
+        .replace(/\spaint-order\s*=\s*"[^"]*"/gi, '')
+        .replace(/\sstroke(?:-width|-linejoin|-opacity)?\s*=\s*"[^"]*"/gi, '')
+        .replace(/font-weight\s*=\s*"[^"]*"/gi, 'font-weight="600"');
+      return '<text' + a + '>';
+    });
+
+    // 4) 선을 인쇄에 맞게 가늘게 (화면 기준 굵기는 종이에서 너무 두껍다)
+    svg = svg.replace(/stroke-width\s*=\s*"([\d.]+)"/gi,
+      (m, w) => `stroke-width="${Math.max(0.7, Number(w) * 0.6).toFixed(2)}"`);
+
+    // 5) 꼭짓점 점도 작게 (도형의 원은 반지름이 커서 건드리지 않는다)
+    svg = svg.replace(/<circle\b([^>]*?)\br\s*=\s*"([\d.]+)"([^>]*)>/gi,
+      (m, a, r, b) => (Number(r) <= 5 ? `<circle${a}r="${(Number(r) * 0.6).toFixed(2)}"${b}>` : m));
+
     return svg;
   }
 
