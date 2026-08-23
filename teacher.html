@@ -5649,7 +5649,17 @@
         }
       } catch (e) { console.error('채점 결과 불러오기:', e); }
 
-      body.innerHTML = rows.map(p => {
+      // 수십 명을 관리하려면 "누가 아직 안 끝났는지" 가 제일 먼저 보여야 한다
+      const allRes = Object.values(byPaper).flat();
+      const waiting = allRes.filter(r => !r.reviewed_at && (r.marks || []).some(m => !m));
+      const banner = waiting.length
+        ? `<div style="padding:9px 11px;border-radius:10px;background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.35);margin-bottom:10px;font-size:12px;color:#F59E0B;font-weight:700;line-height:1.5;">
+             ⏳ 오답풀이 대기 ${waiting.length}명<br>
+             <span style="font-weight:500;font-size:11px;">${waiting.slice(0, 6).map(r => r.students?.name || '학생').join(', ')}${waiting.length > 6 ? ' 외' : ''}</span>
+           </div>`
+        : `<div style="padding:8px 11px;border-radius:10px;background:rgba(16,185,129,.12);margin-bottom:10px;font-size:11.5px;color:#10B981;font-weight:700;">✅ 오답풀이 대기 없음</div>`;
+
+      body.innerHTML = banner + rows.map(p => {
         const d = new Date(p.created_at);
         const n = Array.isArray(p.variation_ids) ? p.variation_ids.length : 0;
         const rs = byPaper[p.id] || [];
@@ -5658,11 +5668,31 @@
           const col = pct >= 80 ? '#10B981' : pct >= 60 ? '#F59E0B' : '#EF4444';
           const wrong = (Array.isArray(r.marks) ? r.marks : [])
             .map((m, i) => (m ? null : i + 1)).filter(x => x);
-          return `<div style="display:flex;align-items:center;gap:7px;padding:6px 8px;margin-top:5px;border-radius:8px;background:var(--bg3);">
-            <span style="font-size:11.5px;font-weight:700;color:var(--text2);">${r.students?.name || '학생'}</span>
-            <span style="font-size:11.5px;font-weight:800;color:${col};">${r.score}/${r.total}</span>
-            ${wrong.length ? `<span style="flex:1;min-width:0;font-size:10.5px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">틀림 ${wrong.join(',')}</span>` : '<span style="flex:1;font-size:10.5px;color:#10B981;">전부 정답</span>'}
-            <button onclick="resetPaperResult('${r.id}')" title="지우면 학생이 다시 제출할 수 있어요" style="flex-shrink:0;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--text4);font-size:10px;cursor:pointer;">↺ 다시</button>
+          const rv = r.reviewed_at ? new Date(r.reviewed_at) : null;
+
+          // 틀린 게 있을 때만 오답풀이 과정이 필요하다
+          let stage = '';
+          if (wrong.length) {
+            stage = rv
+              ? `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;padding-left:2px;">
+                   <span style="font-size:10.5px;color:#10B981;font-weight:700;">✅ 오답풀이 완료 ${rv.getMonth() + 1}/${rv.getDate()}</span>
+                   ${r.review_memo ? `<span style="font-size:10.5px;color:var(--text4);">· ${String(r.review_memo).slice(0, 40)}</span>` : ''}
+                   <button onclick="makeRetryPaper('${r.id}')" style="margin-left:auto;padding:4px 9px;border-radius:7px;border:1px solid #7C3AED;background:none;color:#A78BFA;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;">📝 변형문제 시험지</button>
+                 </div>`
+              : `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;padding-left:2px;">
+                   <span style="font-size:10.5px;color:#F59E0B;">오답풀이 대기</span>
+                   <button onclick="markPaperReviewed('${r.id}')" style="margin-left:auto;padding:4px 9px;border-radius:7px;border:1px solid #10B981;background:none;color:#10B981;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;">✅ 오답풀이 완료</button>
+                 </div>`;
+          }
+
+          return `<div style="padding:6px 8px;margin-top:5px;border-radius:8px;background:var(--bg3);">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text2);">${r.students?.name || '학생'}</span>
+              <span style="font-size:11.5px;font-weight:800;color:${col};">${r.score}/${r.total}</span>
+              ${wrong.length ? `<span style="flex:1;min-width:0;font-size:10.5px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">틀림 ${wrong.join(',')}</span>` : '<span style="flex:1;font-size:10.5px;color:#10B981;">전부 정답</span>'}
+              <button onclick="resetPaperResult('${r.id}')" title="지우면 학생이 다시 제출할 수 있어요" style="flex-shrink:0;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:none;color:var(--text4);font-size:10px;cursor:pointer;">↺ 다시</button>
+            </div>
+            ${stage}
           </div>`;
         }).join('');
 
@@ -5682,6 +5712,130 @@
       const body = document.getElementById('paper-list-body');
       if (body) body.textContent = '불러오기 실패: ' + String(e.message || e).slice(0, 80);
     }
+  }
+
+  // 학생과 함께 오답을 풀고 나서 체크한다
+  async function markPaperReviewed(resultId) {
+    const memo = prompt('오답풀이를 완료로 표시할까요?\n\n메모를 남기려면 아래에 적으세요. (안 적어도 됩니다)', '');
+    if (memo === null) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/paper_results?id=eq.${resultId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ reviewed_at: new Date().toISOString(), review_memo: memo.trim() || null })
+      });
+      if (!r.ok) {
+        const why = (await r.text()).slice(0, 140);
+        alert('저장 실패 (' + r.status + ')\n' + why
+          + '\n\nreviewed_at 칸이 없으면 Supabase SQL Editor 에서 컬럼을 먼저 추가해주세요.');
+        return;
+      }
+      showToast('✅ 오답풀이 완료로 표시했어요.', 'ok');
+      vmPapers();
+    } catch (e) {
+      console.error('markPaperReviewed:', e);
+      showToast('❌ 저장 실패\n' + String(e.message || e).slice(0, 80), 'error');
+    }
+  }
+
+  // 오답풀이가 끝난 학생에게 "틀린 문항의 변형문제"로 새 시험지를 만들어 준다
+  async function makeRetryPaper(resultId) {
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/paper_results?id=eq.${resultId}&select=*,papers(*),students(name)`, { headers: sbHeaders() }).then(r => r.json());
+      const R = rows[0];
+      if (!R || !R.papers) { showToast('시험지 정보를 찾을 수 없어요.', 'error'); return; }
+
+      let ids = R.papers.variation_ids;
+      if (typeof ids === 'string') { try { ids = JSON.parse(ids); } catch (e) { ids = []; } }
+      const marks = Array.isArray(R.marks) ? R.marks : [];
+      const wrongIds = ids.filter((_, i) => marks[i] === false);
+      if (!wrongIds.length) { showToast('틀린 문항이 없어요.', 'warn'); return; }
+
+      if (!confirm(`틀린 ${wrongIds.length}문항의 변형문제를 새로 만들어 시험지로 뽑을까요?\n\n문항당 30초쯤 걸려요. 화면을 닫지 마세요.`)) return;
+
+      // 원본 오답을 찾는다
+      const olds = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=in.(${wrongIds.join(',')})&select=id,note_id,problem_text,wrong_notes(image_url,major_unit,student_id,students:student_id(name))`, { headers: sbHeaders() }).then(r => r.json());
+      const list = (Array.isArray(olds) ? olds : []).filter(v => v.wrong_notes?.image_url);
+      if (!list.length) { showToast('원본 사진이 없어 만들 수 없어요.', 'warn'); return; }
+
+      const madeIds = [];
+      for (let i = 0; i < list.length; i++) {
+        const v = list[i];
+        genStart(`변형문제 만드는 중 (${i + 1}/${list.length})`);
+        try {
+          // 같은 원본으로 이미 만든 문제들을 알려줘 겹치지 않게 한다
+          const sib = await fetch(`${SUPABASE_URL}/rest/v1/variations?note_id=eq.${v.note_id}&select=problem_text`, { headers: sbHeaders() })
+            .then(r => r.json()).catch(() => []);
+          const avoid = (Array.isArray(sib) ? sib : []).map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 5);
+
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
+            method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, avoid })
+          });
+          const nv = await res.json();
+          if (!res.ok || nv.error) { console.error('재시험 생성 실패:', nv.error); continue; }
+
+          const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
+            method: 'POST',
+            headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+            body: JSON.stringify({
+              note_id: v.note_id,
+              problem_text: nv.problem_text || nv.problem,
+              answer: nv.answer,
+              qtype: nv.qtype || 'short',
+              choices: nv.choices || null,
+              solution: nv.solution || null,
+              time_limit_sec: nv.time_limit_sec || 300,
+              figure: nv.figure || null,
+              is_original: nv.is_variation === false,
+              image_url: nv.is_variation === false ? v.wrong_notes.image_url : null,
+              approved: false
+            })
+          });
+          if (!ins.ok) { console.error('저장 실패:', await ins.text()); continue; }
+          const made = await ins.json();
+          if (Array.isArray(made) && made[0]?.id) madeIds.push(made[0].id);
+        } catch (e) {
+          console.error('재시험 문항 생성:', e);
+        }
+      }
+      genStop();
+
+      if (!madeIds.length) { showToast('❌ 변형문제를 하나도 만들지 못했어요. 잠시 후 다시 시도해주세요.', 'error'); return; }
+      if (madeIds.length < list.length) showToast(`⚠️ ${list.length - madeIds.length}문항은 만들지 못했어요.`, 'warn');
+
+      // 만든 문항으로 시험지를 뽑는다
+      const items = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=in.(${madeIds.join(',')})&select=*,wrong_notes(student_id,image_url,major_unit,students:student_id(name))`, { headers: sbHeaders() }).then(r => r.json());
+      const map = {};
+      (Array.isArray(items) ? items : []).forEach(x => { map[x.id] = x; });
+      const ordered = madeIds.map(id => map[id]).filter(Boolean);
+
+      const name = R.students?.name || '';
+      const units = [...new Set(ordered.map(x => x.wrong_notes?.major_unit).filter(Boolean))];
+      const opt = {
+        title: (R.papers.title || '오답') + ' 다시풀기',
+        sub: units.join(' · '), cols: 2, space: 46, perPage: 0,
+        split: false, omr: true, key: true, sol: true
+      };
+      const code = makePaperCode();
+
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/papers`, {
+          method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+          body: JSON.stringify([{
+            code, title: opt.title, subtitle: opt.sub,
+            student_id: R.student_id, variation_ids: madeIds, options: opt
+          }])
+        });
+      } catch (e) { console.error('재시험지 저장:', e); }
+
+      document.getElementById('paper-list')?.remove();
+      openPaperWindow(buildPaperHtml([{ name, student_id: R.student_id, items: ordered, code }], opt));
+      showToast(`✅ ${ordered.length}문항으로 다시풀기 시험지를 만들었어요.`, 'ok');
+    } catch (e) {
+      console.error('makeRetryPaper:', e);
+      showToast('❌ 실패\n' + String(e.message || e).slice(0, 90), 'error');
+    } finally { genStop(); }
   }
 
   // 제출 기록을 지우면 학생이 다시 낼 수 있다
