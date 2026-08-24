@@ -3306,8 +3306,12 @@
   if (!document.getElementById('genspin-css')) {
     const st = document.createElement('style');
     st.id = 'genspin-css';
+    // 손가락이 살짝 빗나가면 글자가 선택되면서 브라우저 검색창이 뜬다. 버튼 영역은 선택 못 하게 막는다.
+    st.setAttribute('data-tap', '1');
     // 긴 수식이 카드 밖으로 삐져나가 잘리는 것을 막는다. 넘치면 그 줄만 옆으로 넘겨서 볼 수 있게.
     st.textContent = '@keyframes genspin{to{transform:rotate(360deg)}}'
+      + 'button,label{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;'
+      + '-webkit-tap-highlight-color:transparent;touch-action:manipulation;}'
       + 'mjx-container{max-width:100%;overflow-x:auto;overflow-y:hidden;}'
       + 'mjx-container[display="true"]{margin:0.4em 0;}';
     document.head.appendChild(st);
@@ -5062,8 +5066,8 @@
     return `
       <div id="vmc-${v.id}" style="background:var(--bg3);border-radius:11px;padding:0.8rem;margin-bottom:8px;${orig ? 'border-left:3px solid #7C3AED;' : ''}${sel ? 'outline:2px solid #E8639A;' : ''}">
         <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:800;color:var(--text2);">
-            <input type="checkbox" ${sel ? 'checked' : ''} onchange="vmToggleSel('${v.id}')" style="width:15px;height:15px;cursor:pointer;accent-color:#E8639A;" />시험지
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11.5px;font-weight:800;color:var(--text2);padding:7px 10px 7px 8px;margin:-4px 0;border-radius:9px;background:${sel ? 'rgba(232,99,154,.16)' : 'var(--bg2)'};border:1px solid ${sel ? '#E8639A' : 'var(--border2)'};-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
+            <input type="checkbox" ${sel ? 'checked' : ''} onchange="vmToggleSel('${v.id}')" style="width:19px;height:19px;cursor:pointer;accent-color:#E8639A;margin:0;" />시험지
           </label>
           <span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;${v.approved ? 'background:#DCFCE7;color:#166534;' : 'background:#FEF3C7;color:#92400E;'}">${v.approved ? '✅ 학생에게 나감' : '⏳ 검수대기'}</span>
           ${orig ? '<span style="font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;background:#EDE9FE;color:#5B21B6;">📷 원본 재출제</span>' : ''}
@@ -5536,11 +5540,50 @@
           const mixed = t.some(x => x.type === 'mc') && t.some(x => x.type === 'short');
           const per = opt.perPage > 0 ? opt.perPage : 0;
           if (!per) return `<div class="cols">${s.items.map((v, i) => qBlock(v, i, mixed)).join('')}</div>`;
-          let out = '';
-          for (let a = 0; a < s.items.length; a += per) {
-            out += `<div class="page${a ? ' np' : ''}">${s.items.slice(a, a + per).map((v, k) => qBlock(v, a + k, mixed)).join('')}</div>`;
-          }
-          return out;
+
+          // 문항이 종이에서 차지할 높이를 mm 로 어림한다.
+          // 그래야 "긴 문제가 낀 쪽만 문항 수를 줄이는" 판단을 할 수 있다.
+          const perLine = opt.cols > 1 ? 26 : 56;          // 한 줄에 들어가는 글자 수 어림
+          const heightMM = (v) => {
+            const t = String(v.problem_text || '');
+            let h = 8;                                      // 번호·배점 줄
+            const lines = t.split('\n');
+            let n = 0, tableRows = 0;
+            lines.forEach(L => {
+              if (/^\s*\|/.test(L)) { tableRows++; return; }
+              n += Math.max(1, Math.ceil(L.length / perLine));
+            });
+            h += n * 5 + tableRows * 6.5;
+            let fg = v.figure;
+            if (typeof fg === 'string') { try { fg = JSON.parse(fg); } catch (e) { fg = null; } }
+            if (fg) h += (fg.type === 'solid' || fg.type === 'svg') ? 55 : 45;
+            if (v.image_url || (v.is_original && v.wrong_notes?.image_url)) h += 52;
+            const q = vmQType(v);
+            if (q.type === 'mc') h += q.choices.length * 6;
+            h += 14;                                        // 풀이 여백 최소
+            return h;
+          };
+
+          // 한 쪽에 넣어 보고, 줄 수 × 가장 큰 문항 높이가 종이를 넘으면 다음 쪽으로
+          const pages = [];
+          let cur = [], curMax = 0;
+          s.items.forEach((v, i) => {
+            const hh = heightMM(v);
+            const nextMax = Math.max(curMax, hh);
+            const rows = Math.ceil((cur.length + 1) / opt.cols);
+            const avail = pages.length === 0 ? 224 : 258;    // 첫 쪽은 제목이 있어 조금 좁다
+            const fits = rows * nextMax + (rows - 1) * 5 <= avail;
+            if (cur.length && (cur.length >= per || !fits)) {
+              pages.push(cur); cur = []; curMax = 0;
+            }
+            cur.push({ v, i });
+            curMax = Math.max(curMax, hh);
+          });
+          if (cur.length) pages.push(cur);
+
+          return pages.map((pg, pi) =>
+            `<div class="page${pi ? ' np' : ''}" style="grid-template-rows:repeat(${Math.max(1, Math.ceil(pg.length / opt.cols))},1fr);">${
+              pg.map(x => qBlock(x.v, x.i, mixed)).join('')}</div>`).join('');
         })()}
         ${opt.omr ? omrBlock(s) : ''}
       </section>`;
@@ -5584,10 +5627,12 @@
   .sub { font-size:9pt; color:#555; margin-bottom:12px; display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
   .code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:8.5pt; color:#999; letter-spacing:.5px; white-space:nowrap; }
 
-  .cols { column-count:${opt.cols}; column-gap:9mm; ${opt.cols > 1 ? 'column-rule:1px solid #e2e2e2;' : ''} }
+  .cols { column-count:${opt.cols}; column-gap:9mm; ${opt.cols > 1 ? 'column-rule:0.8pt solid #b8b8b8;' : ''} }
   /* 쪽당 문항 수를 정했을 때 — 한 쪽을 격자로 정확히 나눈다 */
   .page { display:grid; grid-template-columns:repeat(${opt.cols},1fr); grid-auto-rows:1fr;
-          gap:5mm 9mm; height:231mm; break-after:page; page-break-after:always; }
+          gap:5mm 9mm; height:231mm; break-after:page; page-break-after:always;
+          ${opt.cols > 1 ? `background-image:linear-gradient(to right,#b8b8b8 0.8pt,transparent 0.8pt);
+          background-size:0.8pt 100%;background-position:50% 0;background-repeat:no-repeat;` : ''} }
   .page.np { height:263mm; }
   .page:last-of-type { break-after:auto; page-break-after:auto; }
   .page .q { margin:0; display:flex; flex-direction:column; overflow:hidden;
@@ -5820,7 +5865,8 @@
             })()}</div>
               <div style="font-size:10.5px;color:var(--text4);">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} · ${n}문항 · <span style="font-family:monospace;">${p.code}</span>${rs.length ? '' : ' · <span style="color:var(--text4);">미제출</span>'}</div>
             </div>
-            <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨 다시 인쇄</button>
+            <button onclick="quickKey('${p.id}')" style="flex-shrink:0;padding:7px 10px;border-radius:8px;border:1px solid #10B981;background:none;color:#10B981;font-size:11.5px;font-weight:700;cursor:pointer;">🔑 답지</button>
+            <button onclick="vmReprint('${p.id}')" style="flex-shrink:0;padding:7px 9px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🖨</button>
             <button onclick="deletePaper('${p.id}', ${rs.length})" title="이 시험지 기록을 지웁니다" style="flex-shrink:0;width:32px;padding:7px 0;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text4);font-size:12px;cursor:pointer;">🗑</button>
           </div>
           ${done}
@@ -5830,6 +5876,61 @@
       console.error('vmPapers:', e);
       const body = document.getElementById('paper-list-body');
       if (body) body.textContent = '불러오기 실패: ' + String(e.message || e).slice(0, 80);
+    }
+  }
+
+  // 화면에서 바로 보는 답지 — 채점하다 답이 궁금할 때 인쇄 없이 확인
+  async function quickKey(paperId) {
+    const old = document.getElementById('quick-key');
+    if (old) old.remove();
+    const box = document.createElement('div');
+    box.id = 'quick-key';
+    box.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.72);z-index:9800;display:flex;align-items:center;justify-content:center;padding:14px;';
+    box.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;width:100%;max-width:380px;max-height:86vh;overflow:auto;border:1px solid var(--border);"><div style="font-size:13px;color:var(--text4);">불러오는 중...</div></div>`;
+    box.onclick = (e) => { if (e.target === box) box.remove(); };
+    document.body.appendChild(box);
+
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/papers?id=eq.${paperId}&select=*,students(name)`, { headers: sbHeaders() }).then(r => r.json());
+      const p = rows[0];
+      if (!p) { box.remove(); showToast('시험지를 찾을 수 없어요.', 'error'); return; }
+      let ids = p.variation_ids;
+      if (typeof ids === 'string') { try { ids = JSON.parse(ids); } catch (e) { ids = []; } }
+      if (!Array.isArray(ids) || !ids.length) { box.remove(); showToast('문항 정보가 없어요.', 'warn'); return; }
+
+      const vs = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=in.(${ids.join(',')})&select=id,answer,qtype,choices,wrong_notes(major_unit)`, { headers: sbHeaders() }).then(r => r.json());
+      const map = {};
+      (Array.isArray(vs) ? vs : []).forEach(v => { map[v.id] = v; });
+      const items = ids.map(id => map[id]);
+
+      const NUM = ['①', '②', '③', '④', '⑤'];
+      const rowsHtml = items.map((v, i) => {
+        const n = String(i + 1).padStart(2, '0');
+        if (!v) return `<div style="display:flex;gap:9px;padding:7px 4px;border-bottom:1px solid var(--border);"><span style="width:26px;font-weight:800;color:var(--text4);">${n}</span><span style="color:var(--text4);font-size:12px;">삭제된 문항</span></div>`;
+        const q = vmQType(v);
+        const ans = q.type === 'mc' ? (NUM[Number(v.answer) - 1] || v.answer) : v.answer;
+        return `<div style="display:flex;align-items:center;gap:9px;padding:7px 4px;border-bottom:1px solid var(--border);">
+          <span style="width:26px;flex-shrink:0;font-size:12.5px;font-weight:800;color:var(--text3);">${n}</span>
+          <span style="flex-shrink:0;font-size:9.5px;padding:1px 5px;border-radius:5px;background:var(--bg3);color:var(--text4);">${q.type === 'mc' ? '객관식' : '단답'}</span>
+          <span style="flex:1;min-width:0;font-size:15px;font-weight:800;color:#10B981;">${String(ans ?? '-')}</span>
+          <span style="flex-shrink:0;font-size:10px;color:var(--text4);max-width:88px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.wrong_notes?.major_unit || ''}</span>
+        </div>`;
+      }).join('');
+
+      box.innerHTML = `<div style="background:var(--bg2);border-radius:16px;padding:16px;width:100%;max-width:380px;max-height:86vh;overflow:auto;border:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:800;color:var(--text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🔑 ${p.title || '시험지'}${p.students?.name ? ' — ' + p.students.name : ''}</div>
+            <div style="font-size:10.5px;color:var(--text4);font-family:monospace;">${p.code} · ${items.length}문항</div>
+          </div>
+          <button onclick="document.getElementById('quick-key').remove()" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg3);color:var(--text3);font-size:16px;cursor:pointer;">×</button>
+        </div>
+        ${rowsHtml}
+      </div>`;
+    } catch (e) {
+      console.error('quickKey:', e);
+      box.remove();
+      showToast('❌ 답지를 불러오지 못했어요.', 'error');
     }
   }
 
