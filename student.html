@@ -4015,7 +4015,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const W = () => field.clientWidth, H = () => field.clientHeight;
 
     const st = {
-      sid, score: 0, lives: 3, shield: 0, slow: 0,
+      sid, score: 0, lives: 3, shield: 0, slow: 0, rush: 0,
       x: 0.5, items: [], t0: 0, spawn: 0, over: false
     };
     _dgState = st;
@@ -4077,8 +4077,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       { k: 'poop',  e: '💩', w: 64, r: 16 },
       { k: 'fast',  e: '☄️', w: 14, r: 15 },   // 빠르게 떨어지는 것
       { k: 'star',  e: '⭐', w: 11, r: 14 },
-      { k: 'shield', e: '🛡️', w: 5, r: 14 },
+      { k: 'shield', e: '🛡️', w: 2, r: 14 },   // 귀하게
       { k: 'slow',  e: '🐢', w: 6,  r: 14 },
+      { k: 'rush',  e: '⚡', w: 7,  r: 14 },   // 먹으면 전부 빨라진다 (함정)
     ];
     const pickKind = () => {
       const tot = KIND.reduce((s, x) => s + x.w, 0);
@@ -4119,7 +4120,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const setLives = () => {
       const el = document.getElementById('dg-lives');
       if (el) el.textContent = '❤️'.repeat(Math.max(0, st.lives)) + '🖤'.repeat(Math.max(0, 3 - st.lives))
-        + (st.shield > 0 ? ' 🛡️' : '');
+        + (st.shield > 0 ? ' ' + '🛡️'.repeat(st.shield) : '')
+        + (st.rush > Date.now() ? ' ⚡' : '');   // 이 함수 안에는 now 가 없다
     };
 
     const msg = document.getElementById('dg-msg');
@@ -4162,7 +4164,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         st.spawn = now;
       }
 
-      const slowK = st.slow > now ? 0.45 : 1;
+      // 느려짐 0.45배, 빨라짐 1.75배. 둘 다 걸려 있으면 상쇄돼 원래 속도가 된다
+      const slowK = (st.slow > now ? 0.45 : 1) * (st.rush > now ? 1.75 : 1);
       const px = st.x * (w - PW) + PW / 2, py = h - 42 + 17;
       for (let i = st.items.length - 1; i >= 0; i--) {
         const it = st.items[i];
@@ -4196,6 +4199,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
             st.shield = Math.min(2, st.shield + 1); pop(ix, iy, '방어막', '#60A5FA'); beep(880, 0.16, 'sine');
           } else if (it.kind === 'slow') {
             st.slow = now + 3800; pop(ix, iy, '느려짐', '#34D399'); beep(520, 0.2, 'sine');
+          } else if (it.kind === 'rush') {
+            // 함정 아이템 — 빨라지는 대신 점수를 얹어준다
+            st.rush = now + 4200; st.score += 30;
+            pop(ix, iy, '빨라짐! +30', '#F87171'); beep(180, 0.22, 'square');
           }
           setLives();
           it.el.remove(); st.items.splice(i, 1);
@@ -4205,7 +4212,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         if (it.y > 1.12) { it.el.remove(); st.items.splice(i, 1); }
       }
 
-      field.style.filter = st.slow > now ? 'hue-rotate(-18deg) brightness(1.06)' : '';
+      field.style.filter = st.rush > now ? 'hue-rotate(-55deg) saturate(1.5) brightness(1.05)'
+        : (st.slow > now ? 'hue-rotate(-18deg) brightness(1.06)' : '');
       _dgRaf = requestAnimationFrame(loop);
     }
     setLives();
