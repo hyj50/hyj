@@ -3066,6 +3066,7 @@
     });
 
     // ── 각 표시(호 + 라벨) ──
+    const _angLabels = [];
     (fig.angles || []).forEach(g => {
       const v = at(g.at), a = at(g.from), b = at(g.to); if (!v || !a || !b) return;
       const A1 = Math.atan2(a[1] - v[1], a[0] - v[0]), A2 = Math.atan2(b[1] - v[1], b[0] - v[0]);
@@ -3077,8 +3078,8 @@
       const p1 = px(A1, R), p2 = px(A2, R);
       out += `<path d="M ${p1[0].toFixed(1)} ${p1[1].toFixed(1)} A ${R} ${R} 0 0 ${diff > 0 ? 0 : 1} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}" fill="none" stroke="${C.sub}" stroke-width="1.4"/>`;
       if (g.label) {
-        const mid = px(A1 + diff / 2, R + 14);
-        out += `<text x="${mid[0].toFixed(1)}" y="${(mid[1] + 4).toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle">${_geoEsc(g.label)}</text>`;
+        const bis = A1 + diff / 2;
+        _angLabels.push({ text: g.label, at: vs, dir: [Math.cos(bis), -Math.sin(bis)], base: R + 14 });
       }
     });
 
@@ -3105,28 +3106,76 @@
       }
     });
 
-    // ── 변 길이 라벨 ──
-    (fig.labels || []).forEach(L => {
-      const s = L.seg || []; const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      const d = _geoNorm([b[0] - a[0], b[1] - a[1]]);
-      let n = [-d[1], d[0]];
-      const ctr = [sx(cx), sy(cy)];
-      if ((mx + n[0] - ctr[0]) ** 2 + (my + n[1] - ctr[1]) ** 2 < (mx - ctr[0]) ** 2 + (my - ctr[1]) ** 2) n = [-n[0], -n[1]];
-      const tx2 = Math.max(12, Math.min(W - 12, mx + n[0] * 15));
-      const ty2 = Math.max(13, Math.min(H - 5, my + n[1] * 15 + 4));
-      out += `<text x="${tx2.toFixed(1)}" y="${ty2.toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle">${_geoEsc(L.text)}</text>`;
+    // ── 글자 자리잡기 ──────────────────────────────────────────
+    // 꼭짓점 이름 · 변 길이 · 각도를 한 곳에 모아 함께 푼다.
+    // 따로 놓으면 서로를 몰라서 "7cm" 이 선 위에 얹히거나 이름과 겹친다.
+    const _seg = [];      // 글자가 피해야 할 선분 (화면 좌표)
+    [].concat(fig.segments || [], fig.dashed || []).forEach(s => {
+      const a = S(s[0]), b = S(s[1]);
+      if (a && b) _seg.push([a[0], a[1], b[0], b[1]]);
     });
 
-    // ── 점 + 이름 (붙어 있는 선분들의 반대쪽으로 라벨을 밀어냄) ──
+    const _lw = t => 7 + String(t).length * 5.4;     // 글자 폭 어림
+    const _lh = 12;                                  // 글자 높이 어림
+
+    // 선분이 글자 상자를 지나가는가
+    const _hitSeg = (bx, by, bw, bh) => {
+      const x1 = bx - bw / 2, x2 = bx + bw / 2, y1 = by - bh / 2, y2 = by + bh / 2;
+      for (let i = 0; i < _seg.length; i++) {
+        const [ax, ay, cxx, cyy] = _seg[i];
+        // 선분의 바깥 상자가 안 겹치면 통과
+        if (Math.max(ax, cxx) < x1 || Math.min(ax, cxx) > x2) continue;
+        if (Math.max(ay, cyy) < y1 || Math.min(ay, cyy) > y2) continue;
+        // 상자 네 변과의 교차 검사
+        const dx = cxx - ax, dy = cyy - ay;
+        let t0 = 0, t1 = 1, ok = true;
+        const clip = (p, q) => {
+          if (Math.abs(p) < 1e-9) { if (q < 0) ok = false; return; }
+          const r = q / p;
+          if (p < 0) { if (r > t1) ok = false; else if (r > t0) t0 = r; }
+          else { if (r < t0) ok = false; else if (r < t1) t1 = r; }
+        };
+        clip(-dx, ax - x1); clip(dx, x2 - ax);
+        clip(-dy, ay - y1); clip(dy, y2 - ay);
+        if (ok) return true;
+      }
+      return false;
+    };
+
+    const _placed = [];   // 이미 자리를 잡은 글자 상자
+    const _overlap = (bx, by, bw, bh) => _placed.some(o =>
+      Math.abs(bx - o.x) < (bw + o.w) / 2 + 2 && Math.abs(by - o.y) < (bh + o.h) / 2 + 2);
+
+    // anchor 에서 dir 방향으로 떨어뜨리되, 부딪히면 방향과 거리를 바꿔 가며 빈자리를 찾는다
+    function place(text, anchor, dir, base, avoidSelf) {
+      const w = _lw(text), h = _lh;
+      const a0 = Math.atan2(dir[1], dir[0]);
+      let best = null;
+      // 정면 → 좌우로 조금씩 틀기 → 반대편 순으로 살펴본다
+      const angs = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.4, -2.4, Math.PI];
+      for (let di = 0; di < 5; di++) {
+        const d = base + di * 6;
+        for (let ai = 0; ai < angs.length; ai++) {
+          const a = a0 + angs[ai];
+          const bx = Math.max(w / 2 + 2, Math.min(W - w / 2 - 2, anchor[0] + Math.cos(a) * d));
+          const by = Math.max(h, Math.min(H - 4, anchor[1] + Math.sin(a) * d));
+          const bad = (_overlap(bx, by, w, h) ? 2 : 0) + ((avoidSelf && _hitSeg(bx, by, w, h)) ? 1 : 0);
+          if (bad === 0) { _placed.push({ x: bx, y: by, w, h }); return [bx, by]; }
+          if (!best || bad < best.bad) best = { bx, by, bad };
+        }
+      }
+      _placed.push({ x: best.bx, y: best.by, w, h });
+      return [best.bx, best.by];
+    }
+
+    // 1) 꼭짓점 이름 — 붙어 있는 선분들의 반대쪽으로
     const nbr = {};
     [].concat(fig.segments || [], fig.dashed || [], fig.ticks || []).forEach(s => {
       const a = String(s[0]), b = String(s[1]);
       if (P[a] && P[b]) { (nbr[a] = nbr[a] || []).push(P[b]); (nbr[b] = nbr[b] || []).push(P[a]); }
     });
-    // 라벨 자리를 먼저 다 잡고, 겹치는 것만 밀어낸 뒤에 그린다
-    const _lab = [];
-    Object.keys(P).forEach(name => {
+    const names = Object.keys(P);
+    names.forEach(name => {
       const p = S(name);
       const [gx, gy] = P[name];
       let ox = 0, oy = 0;
@@ -3134,45 +3183,30 @@
         const dx = q[0] - gx, dy = q[1] - gy, m = Math.hypot(dx, dy) || 1;
         ox -= dx / m; oy -= dy / m;
       });
-      if (Math.hypot(ox, oy) < 0.25) { ox = gx - cx; oy = gy - cy; }        // 대칭이면 도형 중심 반대
-      if (Math.hypot(ox, oy) < 1e-6) { ox = 0; oy = -1; }                    // 그래도 없으면 아래쪽
+      if (Math.hypot(ox, oy) < 0.25) { ox = gx - cx; oy = gy - cy; }   // 대칭이면 도형 중심 반대
+      if (Math.hypot(ox, oy) < 1e-6) { ox = 0; oy = -1; }
       const m2 = Math.hypot(ox, oy);
-      _lab.push({ name, p, dir: [ox / m2, -oy / m2], d: 15 });
+      const [lx, ly] = place(name, p, [ox / m2, -oy / m2], 15, true);
+      out += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="#fff"/>`;
+      out += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" fill="${C.txt}" font-size="12" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="rgba(10,10,18,0.85)" stroke-width="3" stroke-linejoin="round">${_geoEsc(name)}</text>`;
     });
 
-    // ── 라벨 겹침 풀기 ──
-    // 작도로 만든 점(E, P1, P2 …)은 서로 가까이 몰리는 일이 잦아 이름이 뭉개진다.
-    const _lw = n => 7 + String(n).length * 5;          // 글자 폭 어림
-    const _pos = L => [
-      Math.max(9, Math.min(W - 9, L.p[0] + L.dir[0] * L.d)),
-      Math.max(13, Math.min(H - 5, L.p[1] + L.dir[1] * L.d + 4)),
-    ];
-    for (let pass = 0; pass < 14; pass++) {
-      let moved = false;
-      for (let i = 0; i < _lab.length; i++) {
-        for (let j = i + 1; j < _lab.length; j++) {
-          const a = _pos(_lab[i]), b = _pos(_lab[j]);
-          const needX = (_lw(_lab[i].name) + _lw(_lab[j].name)) / 2;
-          if (Math.abs(a[0] - b[0]) < needX && Math.abs(a[1] - b[1]) < 13) {
-            // 더 멀리 밀 수 있는 쪽을 밀어낸다
-            const t = _lab[i].d <= _lab[j].d ? _lab[i] : _lab[j];
-            if (t.d < 34) { t.d += 4; moved = true; }
-            else {
-              // 더는 못 밀면 방향을 돌려서 자리를 찾는다
-              const ang = Math.atan2(t.dir[1], t.dir[0]) + 0.9;
-              t.dir = [Math.cos(ang), Math.sin(ang)]; t.d = 15; moved = true;
-            }
-          }
-        }
-      }
-      if (!moved) break;
-    }
+    // 2) 변 길이 — 그 변의 바깥쪽(도형 중심 반대)으로
+    (fig.labels || []).forEach(L => {
+      const s = L.seg || []; const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      const d = _geoNorm([b[0] - a[0], b[1] - a[1]]);
+      let n = [-d[1], d[0]];
+      const ctr = [sx(cx), sy(cy)];
+      if ((mx + n[0] - ctr[0]) ** 2 + (my + n[1] - ctr[1]) ** 2 < (mx - ctr[0]) ** 2 + (my - ctr[1]) ** 2) n = [-n[0], -n[1]];
+      const [tx2, ty2] = place(L.text, [mx, my], n, 13, true);
+      out += `<text x="${tx2.toFixed(1)}" y="${(ty2 + 4).toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle" paint-order="stroke" stroke="rgba(10,10,18,0.85)" stroke-width="3" stroke-linejoin="round">${_geoEsc(L.text)}</text>`;
+    });
 
-    _lab.forEach(L => {
-      const [lx, ly] = _pos(L);
-      out += `<circle cx="${L.p[0].toFixed(1)}" cy="${L.p[1].toFixed(1)}" r="3.4" fill="#fff"/>`;
-      // 선 위에 글자가 얹혀도 읽히도록 테두리를 깐다
-      out += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${C.txt}" font-size="12" font-weight="700" text-anchor="middle" paint-order="stroke" stroke="rgba(10,10,18,0.85)" stroke-width="3" stroke-linejoin="round">${_geoEsc(L.name)}</text>`;
+    // 3) 각도 — 각의 이등분선 방향. 이건 위치가 뜻을 가지므로 선은 피하지 않는다
+    _angLabels.forEach(g => {
+      const [tx3, ty3] = place(g.text, g.at, g.dir, g.base, false);
+      out += `<text x="${tx3.toFixed(1)}" y="${(ty3 + 4).toFixed(1)}" fill="${C.txt}" font-size="11" text-anchor="middle" paint-order="stroke" stroke="rgba(10,10,18,0.85)" stroke-width="3" stroke-linejoin="round">${_geoEsc(g.text)}</text>`;
     });
 
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
