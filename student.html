@@ -478,6 +478,27 @@
   body.theme-active .weakness-item-s { background:rgba(255,255,255,0.1)!important; color:white!important; }
   body.theme-active .filter-btn, body.theme-active .tab-btn, body.theme-active .page-btn { background:rgba(255,255,255,0.1)!important; color:white!important; border-color:rgba(255,255,255,0.2)!important; }
   body.theme-active .form-label, body.theme-active .sub, body.theme-active h1, body.theme-active p { color:white!important; }
+
+  /* ===== 미션 탭 섹션 접기/펼치기 ===== */
+  .msec > div > *:first-child {
+    cursor: pointer; position: relative; padding-right: 24px;
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .msec > div > *:first-child::after {
+    content: '▾'; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    font-size: 11px; font-weight: 700; color: var(--text4); line-height: 1; opacity: .75;
+  }
+  .msec.closed > div > *:first-child::after { content: '▸'; }
+  .msec.closed > div > *:not(:first-child) { display: none !important; }
+  .msec.closed > div > *:first-child { margin-bottom: 0 !important; }
+  .msec.closed > div { padding-top: 0.95rem !important; padding-bottom: 0.95rem !important; }
+  .msec-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+  .msec-bar button {
+    padding: 6px 12px; border-radius: 9px; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text3); font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  body.theme-active .msec-bar button { background: rgba(255,255,255,0.12)!important; color: white!important; border-color: rgba(255,255,255,0.2)!important; }
+  body.theme-active .msec > div > *:first-child::after { color: rgba(255,255,255,0.75); }
 </style>
 <script>
 MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
@@ -639,26 +660,31 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           <button onclick="openShop()" style="padding:10px 16px;border-radius:12px;border:none;background:rgba(255,255,255,0.2);color:white;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">🏪 상점</button>
         </div>
 
+        <!-- 전체 접기 / 펼치기 -->
+        <div class="msec-bar"><button id="msec-all-btn" onclick="msecAllToggle()">⌃ 전체 접기</button></div>
+
         <!-- 미션 현황 -->
-        <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
-          <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🎯 오늘의 미션</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="mission-status-text">변형문제를 풀고 포인트를 모아보세요! (문제당 10P, 하루 3문제)</div>
-          <div id="mission-problem-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-size:13px;color:var(--text4);text-align:center;padding:14px;">불러오는 중...</div>
+        <div class="msec" data-msec="today">
+          <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
+            <div style="font-size:14px;font-weight:700;color:var(--text1);margin-bottom:4px;">🎯 오늘의 미션</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:12px;" id="mission-status-text">변형문제를 풀고 포인트를 모아보세요! (문제당 10P, 하루 3문제)</div>
+            <div id="mission-problem-list" style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:13px;color:var(--text4);text-align:center;padding:14px;">불러오는 중...</div>
+            </div>
           </div>
         </div>
 
         <!-- 시험지 답안 제출 -->
-        <div id="paper-box"></div>
+        <div id="paper-box" class="msec" data-msec="paper"></div>
 
         <!-- 오늘의 수학 퀴즈 -->
-        <div id="daily-quiz-box"></div>
+        <div id="daily-quiz-box" class="msec" data-msec="quiz"></div>
 
         <!-- 행운의 룰렛 -->
-        <div id="roulette-box"></div>
+        <div id="roulette-box" class="msec" data-msec="roul"></div>
 
         <!-- 똥 피하기 -->
-        <div id="dodge-box"></div>
+        <div id="dodge-box" class="msec" data-msec="dodge"></div>
       </div>
 
       <div class="tab-panel" id="tab-qna">
@@ -1667,6 +1693,69 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   // 모달 터치 이벤트 (한 번만 등록)
+  // ===== 미션 탭 섹션 접기/펼치기 =====
+  // 접힌 섹션 키를 localStorage에 저장 → 새로고침해도 유지됨
+  const MSEC_KEY = 'msec_closed';
+
+  function msecList() { return [...document.querySelectorAll('#tab-mission .msec')]; }
+
+  function msecClosedSet() {
+    try {
+      const v = JSON.parse(localStorage.getItem(MSEC_KEY) || '[]');
+      return new Set(Array.isArray(v) ? v : []);
+    } catch (e) { return new Set(); }
+  }
+
+  function msecSave(set) {
+    try { localStorage.setItem(MSEC_KEY, JSON.stringify([...set])); } catch (e) {}
+  }
+
+  function msecSyncBtn() {
+    const btn = document.getElementById('msec-all-btn');
+    if (!btn) return;
+    btn.textContent = msecList().some(el => !el.classList.contains('closed')) ? '⌃ 전체 접기' : '⌄ 전체 펼치기';
+  }
+
+  function msecApply() {
+    const closed = msecClosedSet();
+    msecList().forEach(el => el.classList.toggle('closed', closed.has(el.dataset.msec)));
+    msecSyncBtn();
+  }
+
+  function msecToggle(el) {
+    const closed = msecClosedSet();
+    if (el.classList.toggle('closed')) closed.add(el.dataset.msec);
+    else closed.delete(el.dataset.msec);
+    msecSave(closed);
+    msecSyncBtn();
+  }
+
+  function msecAllToggle() {
+    const list = msecList();
+    const fold = list.some(el => !el.classList.contains('closed'));  // 하나라도 열려 있으면 전부 접기
+    const closed = msecClosedSet();
+    list.forEach(el => {
+      el.classList.toggle('closed', fold);
+      if (fold) closed.add(el.dataset.msec); else closed.delete(el.dataset.msec);
+    });
+    msecSave(closed);
+    msecSyncBtn();
+  }
+
+  // 카드 제목줄을 누르면 접힘/펼침. 안쪽 버튼·입력창 클릭은 무시
+  document.addEventListener('click', e => {
+    if (!e.target.closest) return;
+    const sec = e.target.closest('#tab-mission .msec');
+    if (!sec) return;
+    const card = sec.firstElementChild;
+    const head = card && card.firstElementChild;
+    if (!head || !head.contains(e.target)) return;
+    if (e.target.closest('button, input, select, textarea, a')) return;
+    msecToggle(sec);
+  });
+
+  document.addEventListener('DOMContentLoaded', msecApply);
+
   document.addEventListener('DOMContentLoaded', () => {
     const img = document.getElementById('modal-img');
     const overlay = document.getElementById('modal-overlay');
