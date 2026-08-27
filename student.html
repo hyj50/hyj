@@ -1200,6 +1200,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   function showMainContent() {
     document.getElementById('content-area').style.display = 'block';
     document.getElementById('no-student-msg').style.display = 'none';
+    restorePendingPhotos();      // 카메라 쓰다 앱이 죽었다면 찍은 사진을 되살린다
     checkSubmitButton();
     loadMyEntries();
     const studentId = document.getElementById('student-select').value;
@@ -1281,18 +1282,93 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     }
   }
 
-  function onFileSelect(e, kind) {
+  // 미리보기용 objectURL — 새 사진을 고르면 이전 것을 반드시 반납해야 메모리가 안 샌다
+  const _prevUrl = { problem: null, mine: null };
+
+  function _setPreview(kind, blob) {
+    const zone = document.getElementById('upload-zone-' + kind);
+    if (!zone) return;
+    if (_prevUrl[kind]) { try { URL.revokeObjectURL(_prevUrl[kind]); } catch (e) {} }
+    const url = URL.createObjectURL(blob);
+    _prevUrl[kind] = url;
+    zone.classList.add('has-image');
+    zone.innerHTML = `<img src="${url}" alt="미리보기" />`;
+  }
+
+  // 카메라로 찍은 사진은 4000×3000(12MP)이 넘는다.
+  // 예전처럼 원본을 dataURL로 읽어서 <img>에 넣으면
+  //   base64 문자열(원본의 1.33배) + 풀해상도 비트맵(48MB 이상)이 사진마다 메모리에 남는다.
+  // 사진 두 장이면 100MB를 넘겨 안드로이드가 앱을 강제로 죽인다(= 튕김).
+  // → 고르는 즉시 줄여서 작은 JPEG 한 장만 들고 있는다.
+  async function onFileSelect(e, kind) {
     const file = e.target.files[0];
     if (!file) return;
-    pendingFiles[kind] = file;
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      const zone = document.getElementById('upload-zone-' + kind);
-      zone.classList.add('has-image');
-      zone.innerHTML = `<img src="${ev.target.result}" alt="미리보기" />`;
-      checkSubmitButton();
+    const zone = document.getElementById('upload-zone-' + kind);
+    if (zone) {
+      zone.classList.remove('has-image');
+      zone.innerHTML = '<div class="upload-text"><div class="upload-icon">⏳</div>사진 준비 중...</div>';
+    }
+    // 파일 입력창은 바로 비운다 — 같은 사진을 다시 찍어도 onchange가 걸리게
+    try { e.target.value = ''; } catch (err) {}
+
+    try {
+      const small = await compressImage(file, 1400, 0.82);
+      pendingFiles[kind] = small;
+      _setPreview(kind, small);
+      _savePendingSnap(kind, small);            // 앱이 죽어도 사진을 되살릴 수 있게
+    } catch (err) {
+      console.error('사진 축소 실패, 원본으로 진행:', err);
+      // 폰이 처리 못 하는 형식(HEIC 등)이면 원본을 그대로 쓰되 미리보기는 objectURL로
+      pendingFiles[kind] = file;
+      try { _setPreview(kind, file); }
+      catch (e2) { if (zone) zone.innerHTML = '<div class="upload-text"><div class="upload-icon">🖼</div>사진 선택됨</div>'; }
+    }
+    checkSubmitButton();
+  }
+
+  // ── 앱이 강제 종료돼도 찍은 사진을 살려두기 ──────────────────────
+  // 카메라 앱이 뜨는 동안 안드로이드가 브라우저를 메모리에서 밀어내면
+  // 돌아왔을 때 페이지가 처음부터 다시 뜬다. 그때 사진이 사라지지 않도록 저장해 둔다.
+  const SNAP_KEY = 'pending_photo_';
+  const SNAP_TTL = 30 * 60 * 1000;                           // 30분이 지난 사진은 되살리지 않는다
+  function _savePendingSnap(kind, blob) {
+    if (!blob || blob.size > 450000) return;                 // 너무 크면 저장 안 함 (저장공간 보호)
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        localStorage.setItem(SNAP_KEY + kind, r.result);
+        localStorage.setItem(SNAP_KEY + 'at', String(Date.now()));
+      } catch (e) {}
     };
-    reader.readAsDataURL(file);
+    r.readAsDataURL(blob);
+  }
+  function _clearPendingSnap() {
+    ['problem', 'mine', 'at'].forEach(k => { try { localStorage.removeItem(SNAP_KEY + k); } catch (e) {} });
+  }
+  function _dataUrlToBlob(d) {
+    const [head, b64] = String(d).split(',');
+    const mime = (head.match(/:(.*?);/) || [])[1] || 'image/jpeg';
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+  function restorePendingPhotos() {
+    let at = 0;
+    try { at = +(localStorage.getItem(SNAP_KEY + 'at') || 0); } catch (e) {}
+    // 어제 찍어 둔 사진이 오늘 슬그머니 올라가는 사고를 막는다
+    if (!at || Date.now() - at > SNAP_TTL) { _clearPendingSnap(); return; }
+    ['problem', 'mine'].forEach(kind => {
+      let d = null;
+      try { d = localStorage.getItem(SNAP_KEY + kind); } catch (e) {}
+      if (!d) return;
+      try {
+        const blob = _dataUrlToBlob(d);
+        pendingFiles[kind] = blob;
+        _setPreview(kind, blob);
+      } catch (e) { try { localStorage.removeItem(SNAP_KEY + kind); } catch (e2) {} }
+    });
+    checkSubmitButton();
   }
 
   function checkSubmitButton() {
@@ -1300,15 +1376,53 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     document.getElementById('submit-btn').disabled = !(pendingFiles.problem && pendingFiles.mine && studentId);
   }
 
+  // JPEG 헤더만 읽어서 원본 크기를 알아낸다 (전체를 펼치지 않으므로 메모리를 거의 안 쓴다)
+  async function _jpegSize(file) {
+    try {
+      const buf = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
+      if (buf[0] !== 0xFF || buf[1] !== 0xD8) return null;          // JPEG 아님
+      let i = 2;
+      while (i < buf.length - 9) {
+        if (buf[i] !== 0xFF) { i++; continue; }
+        const marker = buf[i + 1];
+        if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
+        const len = (buf[i + 2] << 8) | buf[i + 3];
+        // SOF0~SOF15 (SOF4·SOF8·SOF12 제외) 에 세로·가로가 들어 있다
+        if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+          const h = (buf[i + 5] << 8) | buf[i + 6];
+          const w = (buf[i + 7] << 8) | buf[i + 8];
+          return (w && h) ? { w, h } : null;
+        }
+        i += 2 + len;
+      }
+    } catch (e) {}
+    return null;
+  }
+
   // 이미지 디코딩: createImageBitmap 우선(메모리 적고 지원 폭 넓음) → 실패시 Image 폴백
-  async function decodeImage(file) {
+  // maxSize를 주면 디코딩 단계에서부터 줄여서 받는다.
+  // (4000×3000을 그대로 펼치면 48MB, 1400×1050으로 받으면 6MB — 카메라 사진에서 이 차이가 크다)
+  async function decodeImage(file, maxSize) {
     if (typeof createImageBitmap === 'function') {
+      if (maxSize) {
+        const sz = await _jpegSize(file);
+        if (sz && (sz.w > maxSize || sz.h > maxSize)) {
+          const sc = maxSize / Math.max(sz.w, sz.h);
+          try {
+            return await createImageBitmap(file, {
+              resizeWidth: Math.max(1, Math.round(sz.w * sc)),
+              resizeHeight: Math.max(1, Math.round(sz.h * sc)),
+              resizeQuality: 'medium'
+            });
+          } catch (e) { /* 옵션 미지원 웹뷰 → 아래로 */ }
+        }
+      }
       try { return await createImageBitmap(file); } catch (e) { /* 폴백으로 진행 */ }
     }
     return await new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
-      img.onload = () => resolve(img);
+      img.onload = () => { img._objUrl = url; resolve(img); };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('DECODE_FAIL')); };
       img.src = url;
     });
@@ -1330,7 +1444,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   async function compressImage(file, maxSize = 1200, quality = 0.85) {
-    const img = await decodeImage(file);
+    const img = await decodeImage(file, maxSize);
     let w = img.width, h = img.height;
     if (!w || !h) throw new Error('DECODE_FAIL');
     if (w > h && w > maxSize) { h = Math.round(h * maxSize / w); w = maxSize; }
@@ -1339,13 +1453,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    // 원본 비트맵은 여기서 바로 버린다. 안 버리면 사진 한 장당 수십 MB가 계속 남는다
     if (img.close) { try { img.close(); } catch (e) {} }
+    if (img._objUrl) { try { URL.revokeObjectURL(img._objUrl); } catch (e) {} }
 
     let blob = await _canvasToBlob(canvas, quality);
-    if (!blob) throw new Error('COMPRESS_FAIL');
     // 그래도 크면 단계적으로 더 줄임 (느린 학원 와이파이 대비)
-    if (blob.size > 1200000) blob = (await _canvasToBlob(canvas, 0.6)) || blob;
-    if (blob.size > 1800000) blob = (await _canvasToBlob(canvas, 0.45)) || blob;
+    if (blob && blob.size > 1200000) blob = (await _canvasToBlob(canvas, 0.6)) || blob;
+    if (blob && blob.size > 1800000) blob = (await _canvasToBlob(canvas, 0.45)) || blob;
+    canvas.width = canvas.height = 0;              // 캔버스 메모리도 즉시 반납
+    if (!blob) throw new Error('COMPRESS_FAIL');
     return blob;
   }
 
@@ -1505,6 +1622,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       showStatus('✅ 오답이 올라갔어요! 선생님이 풀이를 정리해주실 거예요', 'success');
 
       pendingFiles = { problem: null, mine: null };
+      _clearPendingSnap();
+      ['problem', 'mine'].forEach(k => {
+        if (_prevUrl[k]) { try { URL.revokeObjectURL(_prevUrl[k]); } catch (e) {} _prevUrl[k] = null; }
+      });
       document.getElementById('file-input-problem').value = '';
       document.getElementById('file-input-mine').value = '';
       resetUploadZone('problem', '탭해서 촬영', '📷');
@@ -2985,21 +3106,25 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   // ===== 문의 게시판 사진 =====
   let _qnaImgFile = null;
 
-  function onQnaImgSelect(e) {
+  let _qnaImgUrl = null;
+  async function onQnaImgSelect(e) {
     const file = e.target.files[0];
     if (!file) return;
-    _qnaImgFile = file;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      document.getElementById('qna-img-thumb').src = ev.target.result;
-      document.getElementById('qna-img-preview').style.display = 'flex';
-      document.getElementById('qna-img-name').textContent = file.name.length > 16 ? file.name.slice(0,14)+'...' : file.name;
-    };
-    reader.readAsDataURL(file);
+    const name = file.name || '사진';
+    document.getElementById('qna-img-name').textContent = '준비 중...';
+    document.getElementById('qna-img-preview').style.display = 'flex';
+    let blob = file;
+    try { blob = await compressImage(file, 1400, 0.82); } catch (err) { console.error('Q&A 사진 축소 실패:', err); }
+    _qnaImgFile = blob;
+    if (_qnaImgUrl) { try { URL.revokeObjectURL(_qnaImgUrl); } catch (er) {} }
+    _qnaImgUrl = URL.createObjectURL(blob);
+    document.getElementById('qna-img-thumb').src = _qnaImgUrl;
+    document.getElementById('qna-img-name').textContent = name.length > 16 ? name.slice(0, 14) + '...' : name;
   }
 
   function clearQnaImg() {
     _qnaImgFile = null;
+    if (_qnaImgUrl) { try { URL.revokeObjectURL(_qnaImgUrl); } catch (e) {} _qnaImgUrl = null; }
     document.getElementById('qna-img-input').value = '';
     document.getElementById('qna-img-preview').style.display = 'none';
     document.getElementById('qna-img-name').textContent = '';
