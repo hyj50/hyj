@@ -161,6 +161,13 @@
   .weakness-card { background: linear-gradient(135deg, #FFF3F0, #FFE8E0); border: 1px solid #FFD4C2; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
   .weakness-title { font-size: 13px; font-weight: 700; color: #B5421F; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
   .weakness-list { display: flex; flex-direction: column; gap: 6px; }
+  .rsn-tag-t { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700;
+               background:#FDE8F1; color:#A8336B; margin:2px 3px 0 0; }
+  .rsn-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:12px; }
+  .rsn-bar-name { flex:0 0 auto; min-width:96px; color:var(--text2); font-weight:600; }
+  .rsn-bar-wrap { flex:1; height:9px; border-radius:999px; background:var(--bg3); overflow:hidden; }
+  .rsn-bar-fill { height:100%; border-radius:999px; }
+  .rsn-bar-num { flex:0 0 auto; font-size:11px; color:var(--text4); font-weight:700; min-width:26px; text-align:right; }
   .weakness-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #6B2E16; background: var(--bg2); padding: 7px 12px; border-radius: 8px; }
   .weakness-rank { font-weight: 700; margin-right: 6px; }
   .weakness-count { font-size: 12px; font-weight: 600; color: #B5421F; }
@@ -654,6 +661,22 @@
   </div>
 </div>
 
+<!-- 주간 요약 (진도자 등 다른 프로그램에 붙여넣기용) -->
+<div id="summary-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:var(--bg2);border-radius:18px;padding:1.2rem;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:15px;font-weight:800;color:var(--text1);">📋 주간 요약</span>
+      <button onclick="closeSummarySheet()" style="background:none;border:none;font-size:20px;color:var(--text4);cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;" id="summary-range"></div>
+    <textarea id="summary-text" readonly style="flex:1;min-height:260px;width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;line-height:1.65;font-family:'Malgun Gothic',monospace;resize:vertical;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button onclick="copySummary()" id="summary-copy-btn" style="flex:1;padding:12px;border-radius:11px;border:none;background:linear-gradient(135deg,#6D5AA8,#4C3A7A);color:white;font-size:14px;font-weight:800;cursor:pointer;">📋 복사하기</button>
+    </div>
+    <div style="font-size:11px;color:var(--text4);margin-top:8px;line-height:1.5;">복사해서 「진도자」나 카카오톡에 그대로 붙여넣으면 돼요. 내용은 직접 고쳐도 됩니다.</div>
+  </div>
+</div>
+
 <!-- 업로드 액션시트 -->
 <div id="teacher-upload-action-sheet" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;align-items:flex-end;justify-content:center;">
   <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:1.2rem;width:100%;max-width:480px;">
@@ -700,12 +723,12 @@
       '작도와 합동': ['삼각형의 작도', '삼각형의 합동조건'],
       '평면도형의 성질': ['다각형', '원과 부채꼴'],
       '입체도형의 성질': ['다면체와 회전체', '입체도형의 겉넓이와 부피'],
-      '자료의 정리와 해석': ['줄기와 잎 그림, 도수분포표', '상대도수와 통계적 탐구']
+      '자료의 정리와 해석': ['줄기와 잎 그림, 도수분포표', '상대도수와 통계적 탐구', '대푯값(평균·중앙값·최빈값)']
     },
     '[22개정] 중2 수학': {
       '유리수와 순환소수': ['유리수와 소수', '순환소수'],
       '식의 계산': ['지수법칙', '단항식의 계산', '다항식의 계산'],
-      '일차부등식': ['부등식의 성질', '일차부등식', '연립일차부등식'],
+      '일차부등식': ['부등식의 성질', '일차부등식의 풀이', '일차부등식의 활용'],
       '연립일차방정식': ['연립일차방정식의 풀이', '연립일차방정식의 활용'],
       '일차함수와 그 그래프': ['함수', '일차함수와 그래프', '일차함수의 그래프의 성질', '일차함수의 활용'],
       '일차함수와 일차방정식의 관계': ['일차함수와 일차방정식', '연립방정식과 그래프'],
@@ -721,7 +744,7 @@
       '이차함수와 그 그래프': ['이차함수와 그 그래프', '이차함수의 최댓값·최솟값', '이차함수의 활용'],
       '삼각비': ['삼각비', '삼각비의 활용'],
       '원의 성질': ['원과 직선', '원주각'],
-      '대푯값과 산포도': ['대푯값', '산포도'],
+      '대푯값과 산포도': ['대푯값', '산포도(분산·표준편차)', '상자그림'],
       '상관관계': ['산점도', '상관관계']
     },
     '[22개정] 공통수학1': {
@@ -751,9 +774,9 @@
       '적분법': ['여러 가지 적분법', '정적분의 활용']
     },
     '[22개정] 확률과 통계': {
-      '경우의 수': ['순열과 조합', '이항정리'],
-      '확률': ['확률의 뜻과 덧셈정리', '조건부확률과 독립', '확률분포'],
-      '통계': ['이항분포와 정규분포', '통계적 추정']
+      '경우의 수': ['순열과 조합', '중복순열·중복조합', '이항정리'],
+      '확률': ['확률의 뜻과 덧셈정리', '조건부확률과 독립'],
+      '통계': ['확률변수와 확률분포', '이항분포와 정규분포', '모평균의 추정', '모비율의 추정']
     },
     '[22개정] 기하': {
       '이차곡선': ['포물선', '타원', '쌍곡선', '이차곡선과 직선'],
@@ -765,11 +788,27 @@
       '자료의 표현과 분석': ['자료의 수치화', '거리와 유사도', '분류와 예측'],
       '최적화': ['함수의 최적화', '경사하강법']
     },
-    '[22개정] 직업수학': {
-      '수와 연산': ['실수와 복소수', '수의 활용'],
-      '문자와 식': ['다항식', '방정식과 부등식'],
-      '함수': ['함수와 그래프', '함수의 활용'],
-      '자료와 통계': ['자료 정리', '통계 활용']
+    '[22개정] 기본수학1': {
+      '다항식': ['다항식의 사칙연산', '나머지정리', '인수분해'],
+      '방정식과 부등식': ['복소수와 이차방정식', '이차함수', '여러 가지 부등식'],
+      '경우의 수': ['합의 법칙과 곱의 법칙', '순열과 조합'],
+      '행렬': ['행렬의 뜻과 연산']
+    },
+    '[22개정] 기본수학2': {
+      '도형의 방정식': ['평면좌표', '직선의 방정식', '원의 방정식', '도형의 이동'],
+      '집합과 명제': ['집합', '명제'],
+      '함수와 그래프': ['함수', '유리함수와 무리함수']
+    },
+    '[22개정] 경제 수학': {
+      '수와 경제': ['경제 지표와 수', '이자와 환율'],
+      '함수와 경제': ['함수와 경제 현상', '수요·공급과 최적화'],
+      '자료와 경제': ['자료의 분석', '경제 지표의 해석']
+    },
+    '[22개정] 직무 수학': {
+      '수와 연산': ['실수와 사칙연산', '비와 비율·단위'],
+      '변화와 관계': ['식과 방정식', '함수와 그래프'],
+      '도형과 측정': ['도형의 측정', '삼각비의 활용'],
+      '자료와 가능성': ['자료의 정리', '확률과 통계 활용']
     },
 
     // ===== 2015 개정 교육과정 =====
@@ -1603,6 +1642,160 @@
     }
   }
 
+  // ═══ AI 자동 단원 분류 ═══════════════════════════════════════
+  // AI에게 단원 이름을 '지어내게' 하지 않는다.
+  // 후보 목록을 통째로 보내고 "몇 번째"인지 번호만 고르게 해서,
+  // 교육과정에 없는 단원이 튀어나오는 걸 막는다.
+  const AI_MIN_CONF = 0.55;          // 이 아래면 추천만 하고 자동 저장은 안 함
+  const AI_BULK_CONF = 0.75;         // 일괄 분류에서 자동 저장할 기준
+  const aiGuessCache = {};           // entryId -> 결과 (같은 사진 두 번 안 물어보게)
+
+  // 학생 학년으로 후보 과목을 좁힌다. 좁힐수록 정확도가 올라간다
+  function aiSubjectsFor(stu) {
+    const all = Object.keys(CURRICULUM);
+    if (!stu) return all;
+    const sc = String(stu.school || '');
+    const g = parseInt(String(stu.grade || '').replace(/[^0-9]/g, ''), 10) || 0;
+    const isHigh = /고/.test(sc) && !/중/.test(sc);
+    if (!g) return all;
+
+    if (!isHigh) {
+      // 중학생 — 자기 학년과 아래 학년까지 (복습 문제 대비)
+      const want = [];
+      for (let i = 1; i <= Math.min(3, g); i++) want.push(i);
+      return all.filter(k => want.some(i => k.includes(`중${i} 수학`)));
+    }
+    // 고1은 공통수학, 고2·고3은 선택과목까지. 2027년까지 고3은 15개정이라 둘 다 남겨둔다
+    const hi = ['공통수학1', '공통수학2', '기본수학1', '기본수학2', '수학(공통)'];
+    if (g >= 2) hi.push('대수', '미적분Ⅰ', '미적분Ⅱ', '확률과 통계', '기하',
+                        '수학Ⅰ', '수학Ⅱ', '미적분', '경제 수학', '인공지능 수학');
+    return all.filter(k => hi.some(h => k.endsWith(h)));
+  }
+
+  // "과목 > 대단원 > 중단원" 문자열 목록과, 번호→분류 되돌리기용 표
+  function aiCandidates(subjects) {
+    const list = [], map = [];
+    subjects.forEach(sub => {
+      Object.keys(CURRICULUM[sub] || {}).forEach(maj => {
+        (CURRICULUM[sub][maj] || []).forEach(min => {
+          list.push(`${sub.replace(/^\[\d+개정\] /, '')} > ${maj} > ${min}`);
+          map.push({ subject: sub, major: maj, minor: min });
+        });
+      });
+    });
+    return { list, map };
+  }
+
+  async function aiClassify(entry, stu) {
+    if (aiGuessCache[entry.id]) return aiGuessCache[entry.id];
+    const subjects = aiSubjectsFor(stu);
+    const { list, map } = aiCandidates(subjects);
+    if (!list.length) throw new Error('후보 단원이 없어요');
+
+    const hint = [stu?.school, stu?.grade, entry.source ? '출처: ' + entry.source : '']
+      .filter(Boolean).join(' · ');
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/classify-unit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ image_url: entry.image_url, candidates: list, hint })
+    });
+    if (res.status === 404) throw new Error('classify-unit 함수가 아직 배포되지 않았어요');
+    if (res.status === 429) throw new Error('오늘 AI 사용량을 다 썼어요');
+    if (res.status === 503) throw new Error('AI 서버가 혼잡해요');
+    if (!res.ok) {
+      let why = ''; try { why = (await res.json()).error || ''; } catch (e) {}
+      throw new Error(why || `분류 실패 (${res.status})`);
+    }
+    const out = await res.json();
+    const pick = map[out.index];
+    if (!pick) throw new Error('AI가 엉뚱한 답을 줬어요');
+    const guess = { ...pick, confidence: out.confidence, topic: out.topic, reason: out.reason };
+    aiGuessCache[entry.id] = guess;
+    return guess;
+  }
+
+  // 분류 폼의 드롭다운 3개를 AI 추천값으로 채운다 (저장은 선생님이 누른다)
+  function aiFillForm(entryId, g) {
+    const subjSel = document.getElementById(`classify-subject-${entryId}`);
+    const majorSel = document.getElementById(`classify-major-${entryId}`);
+    const minorSel = document.getElementById(`classify-minor-${entryId}`);
+    if (!subjSel) return;
+    subjSel.value = g.subject;
+    onClassifySubjectChange(entryId);
+    majorSel.value = g.major;
+    onClassifyMajorChange(entryId);
+    minorSel.value = g.minor;
+  }
+
+  function aiBoxHtml(inner) {
+    return `<div style="padding:9px 11px;border-radius:10px;background:#F3EEFF;border:1px solid #D9CBFF;
+      font-size:11.5px;color:#4C3A7A;line-height:1.6;margin-bottom:8px;">${inner}</div>`;
+  }
+
+  async function runAiClassify(entryId, silent) {
+    const box = document.getElementById(`ai-guess-${entryId}`);
+    const entry = currentEntries.find(x => x.id === entryId);
+    if (!entry) return;
+    if (box) box.innerHTML = aiBoxHtml('🤖 AI가 단원을 보는 중...');
+    try {
+      const g = await aiClassify(entry, getCurrentStudent());
+      const pct = Math.round((g.confidence || 0) * 100);
+      const low = (g.confidence || 0) < AI_MIN_CONF;
+      aiFillForm(entryId, g);
+      if (box) box.innerHTML = aiBoxHtml(
+        `<b>🤖 AI 추천 · 확신 ${pct}%</b>${low ? ' <span style="color:#B45309;">(낮음 — 꼭 확인하세요)</span>' : ''}<br>
+         ${g.subject.replace(/^\[\d+개정\] /, '')} › ${g.major} › <b>${g.minor}</b><br>
+         ${g.topic ? `<span style="opacity:.8;">핵심: ${g.topic}</span><br>` : ''}
+         ${g.reason ? `<span style="opacity:.7;">${g.reason}</span><br>` : ''}
+         <span style="opacity:.7;">아래 드롭다운에 채워뒀어요. 맞으면 저장하기를 누르세요.</span>`);
+    } catch (e) {
+      const msg = (e && e.message) || '실패';
+      if (box) box.innerHTML = aiBoxHtml(`⚠️ AI 분류 실패 — ${msg}
+        <button onclick="runAiClassify('${entryId}')" style="margin-left:6px;padding:3px 9px;border-radius:7px;border:1px solid #D9CBFF;background:white;font-size:11px;font-weight:700;cursor:pointer;">다시</button>`);
+      if (!silent) showToast('⚠️ AI 분류 실패 — ' + msg, 'warn');
+    }
+  }
+
+  // 미분류 오답을 한 번에 훑는다. 확신이 높은 것만 저장하고 나머지는 남겨둔다
+  async function aiClassifyAll() {
+    const targets = currentEntries.filter(e => !e.subject && e.image_url);
+    if (!targets.length) { showToast('미분류 오답이 없어요 🎉', 'ok'); return; }
+    if (!confirm(`미분류 ${targets.length}개를 AI로 분류할까요?\n\n확신 ${Math.round(AI_BULK_CONF*100)}% 이상만 자동 저장하고,\n애매한 건 그대로 남겨둡니다.`)) return;
+
+    const btn = document.getElementById('ai-bulk-btn');
+    const stu = getCurrentStudent();
+    let saved = 0, skipped = 0, failed = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      if (btn) btn.textContent = `🤖 분류 중... ${i + 1}/${targets.length}`;
+      try {
+        const g = await aiClassify(targets[i], stu);
+        if ((g.confidence || 0) < AI_BULK_CONF) { skipped++; continue; }
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${targets[i].id}`, {
+          method: 'PATCH',
+          headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+          body: JSON.stringify({
+            subject: g.subject, major_unit: g.major, minor_unit: g.minor, ai_classified: true
+          })
+        });
+        if (r.ok) saved++; else failed++;
+      } catch (e) {
+        failed++;
+        const m = (e && e.message) || '';
+        if (m.includes('사용량') || m.includes('배포')) {   // 더 돌려봐야 소용없음
+          showToast('⚠️ ' + m + ' — 여기서 멈췄어요', 'warn');
+          break;
+        }
+      }
+      await new Promise(r => setTimeout(r, 1200));          // 무료 티어 분당 한도 배려
+    }
+
+    if (btn) btn.textContent = '🤖 미분류 한번에 분류';
+    showToast(`🤖 자동 저장 ${saved}개 · 애매해서 남김 ${skipped}개${failed ? ' · 실패 ' + failed : ''}`, saved ? 'ok' : 'warn');
+    await refreshCurrentEntries();
+  }
+
   function subjectOptionsHtml(selected) {
     selected = selected || '';
     return '<option value="">과목 선택</option>' +
@@ -1748,7 +1941,8 @@
         major_unit: major || null,
         minor_unit: minor || null,
         teacher_memo: teacherMemo || null,
-        source: source || null
+        source: source || null,
+        ai_classified: false          // 선생님이 직접 확인해서 저장한 것
       };
 
       // 모범풀이 사진이 새로 선택되어 있으면 업로드 후 URL도 같이 저장
@@ -4285,7 +4479,11 @@
 
     const classifyFormHtml = isOpen ? `
       <div class="classify-form">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;letter-spacing:0.3px;">📝 단원 분류</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+          <span style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:0.3px;">📝 단원 분류</span>
+          <button onclick="runAiClassify('${e.id}')" style="padding:5px 11px;border-radius:8px;border:1px solid #D9CBFF;background:#F3EEFF;color:#4C3A7A;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;">🤖 AI 분류</button>
+        </div>
+        <div id="ai-guess-${e.id}"></div>
 
         <select id="classify-subject-${e.id}" onchange="onClassifySubjectChange('${e.id}')" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);font-size:13px;background:var(--bg2);color:var(--text1);margin-bottom:8px;outline:none;">
           ${subjectOptionsHtml(e.subject)}
@@ -4335,10 +4533,11 @@
             <div class="note-meta-row">
               ${statusBadge}
               ${isUnsorted ? '<span class="note-unsorted-badge">🆕 미분류</span>' : ''}
-              ${unitLabel ? `<span class="note-reason-tag">${unitLabel}</span>` : ''}
+              ${unitLabel ? `<span class="note-reason-tag">${e.ai_classified ? '🤖 ' : ''}${unitLabel}</span>` : ''}
               ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
             </div>
             ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
+            ${(e.reason_tags && e.reason_tags.length) || e.reason_note ? `<p class="note-memo" style="margin-bottom:2px;">🏷️ ${(e.reason_tags || []).map(t => `<span class="rsn-tag-t">${t}</span>`).join('')}${e.reason_note ? `<span class="rsn-tag-t" style="background:#FFF3D6;color:#8A5A15;">✏️ ${e.reason_note}</span>` : ''}</p>` : ''}
             ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
             ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
             <p class="note-date">${formatDate(e.entry_date)}</p>
@@ -4356,6 +4555,57 @@
         </div>
         ${classifyFormHtml}
       </div>`;
+  }
+
+  // ===== 틀린 이유 분포 =====
+  // 어느 단원을 틀렸는지보다 '왜' 틀렸는지가 지도 방향을 바꾼다.
+  // 계산 실수가 몰려 있으면 개념 설명이 아니라 검산 습관을 잡아야 한다.
+  const REASON_GROUPS = {
+    '계산': { c: '#EF4444', items: ['부호를 틀림', '이항하다 실수', '단순 사칙연산 실수', '분수·소수 계산 실수', '약분·통분 실수'] },
+    '개념': { c: '#F59E0B', items: ['개념을 아예 몰랐음', '공식이 기억 안 남', '공식을 잘못 씀', '조건·범위를 몰랐음'] },
+    '문제 읽기': { c: '#10B981', items: ['문제를 잘못 읽음', '조건을 빠뜨림', '무슨 말인지 모르겠음', '단위를 놓침'] },
+    '풀이 방법': { c: '#3B82F6', items: ['어떻게 시작할지 몰랐음', '풀다가 중간에 막힘', '돌아가는 방법으로 풀다 꼬임', '그림·그래프를 잘못 그림'] },
+    '그 밖에': { c: '#8B5CF6', items: ['시간이 부족했음', '아는데 실수함', '찍었는데 틀림', '글씨를 잘못 옮겨 씀', '답만 쓰고 검산 안 함'] },
+  };
+  function reasonGroupOf(tag) {
+    for (const g of Object.keys(REASON_GROUPS)) {
+      if (REASON_GROUPS[g].items.includes(tag)) return g;
+    }
+    return '그 밖에';
+  }
+
+  function renderReasonStats() {
+    const box = document.getElementById('reason-stats');
+    if (!box) return;
+    const rows = currentEntries.filter(e => (e.reason_tags && e.reason_tags.length) || e.reason_note);
+    if (!rows.length) {
+      box.innerHTML = '<p class="weakness-empty">아직 학생이 고른 이유가 없어요</p>';
+      return;
+    }
+
+    const byGroup = {}, byTag = {};
+    rows.forEach(e => (e.reason_tags || []).forEach(t => {
+      const g = reasonGroupOf(t);
+      byGroup[g] = (byGroup[g] || 0) + 1;
+      byTag[t] = (byTag[t] || 0) + 1;
+    }));
+
+    const total = Object.values(byGroup).reduce((a, b) => a + b, 0) || 1;
+    const groups = Object.entries(byGroup).sort((a, b) => b[1] - a[1]);
+    const topTags = Object.entries(byTag).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const notes = rows.filter(e => e.reason_note).slice(0, 3);
+
+    box.innerHTML =
+      groups.map(([g, n]) => `
+        <div class="rsn-bar-row">
+          <span class="rsn-bar-name">${g}</span>
+          <span class="rsn-bar-wrap"><span class="rsn-bar-fill" style="width:${Math.round(n / total * 100)}%;background:${REASON_GROUPS[g] ? REASON_GROUPS[g].c : '#999'};"></span></span>
+          <span class="rsn-bar-num">${n}</span>
+        </div>`).join('') +
+      (topTags.length ? `<div style="margin-top:9px;font-size:11px;color:var(--text4);font-weight:700;">자주 고른 것</div>
+        <div style="margin-top:3px;">${topTags.map(([t, n]) => `<span class="rsn-tag-t">${t} ${n}</span>`).join('')}</div>` : '') +
+      (notes.length ? `<div style="margin-top:9px;font-size:11px;color:var(--text4);font-weight:700;">학생이 직접 쓴 것</div>
+        ${notes.map(e => `<div style="font-size:11.5px;color:var(--text2);margin-top:3px;">· ${e.reason_note}</div>`).join('')}` : '');
   }
 
   // ===== 약점 TOP3 =====
@@ -4415,6 +4665,155 @@
         <span class="review-tag ${tagClass}">${label}</span>
       </div>`;
     }).join('');
+  }
+
+  // ═══ 주간 요약 ═══════════════════════════════════════════════
+  // 「진도자」와 DB를 직접 잇지 않고, 사람이 옮겨 붙이는 방식으로 만든 이유:
+  // 두 앱이 학생 ID를 공유하기 시작하면 동명이인·전학·중도등록 때 매핑이 깨지고,
+  // 한번 꼬이면 어느 쪽이 맞는지 알 수 없게 된다. 사진이 딸린 오답은 복구도 어렵다.
+  const SUMMARY_RANGES = [7, 14, 30];
+  let summaryDays = 7;
+
+  function _shiftDate(dStr, delta) {
+    const d = new Date(dStr + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function buildSummary(days) {
+    const stu = getCurrentStudent();
+    if (!stu) return '학생을 먼저 선택해주세요.';
+    const today = todayStr();
+    const from = _shiftDate(today, -(days - 1));
+    const rows = currentEntries.filter(e => e.entry_date && e.entry_date >= from && e.entry_date <= today);
+
+    const L = [];
+    L.push(`${stu.name}${stu.grade ? ' (' + stu.grade + ')' : ''} · ${formatDate(from)}~${formatDate(today)} 오답노트`);
+    L.push('');
+
+    if (!rows.length) {
+      L.push(`이 기간에 올라온 오답이 없습니다. (최근 ${days}일)`);
+      return L.join('\n');
+    }
+
+    // 1) 개수와 검수 현황
+    const done = rows.filter(e => (e.review_status || (e.solved ? 'approved' : 'pending')) === 'approved').length;
+    const redo = rows.filter(e => e.review_status === 'rejected').length;
+    const wait = rows.length - done - redo;
+    L.push(`■ 오답 ${rows.length}개  (검수완료 ${done} / 다시풀기 ${redo} / 대기 ${wait})`);
+
+    // 2) 단원 분포 — 학부모가 보는 글이라 대단원으로 묶는다. 중단원까지 나열하면 못 읽는다
+    const byUnit = {}, byMinor = {};
+    rows.forEach(e => {
+      const k = e.major_unit || (e.subject ? '기타' : '미분류');
+      byUnit[k] = (byUnit[k] || 0) + 1;
+      if (e.minor_unit) {
+        byMinor[k] = byMinor[k] || {};
+        byMinor[k][e.minor_unit] = (byMinor[k][e.minor_unit] || 0) + 1;
+      }
+    });
+    const units = Object.entries(byUnit).sort((a, b) => b[1] - a[1]);
+    L.push(`■ 단원: ${units.slice(0, 5).map(([k, n]) => `${k} ${n}`).join(' / ')}${units.length > 5 ? ` 외 ${units.length - 5}개` : ''}`);
+    // 가장 많이 틀린 대단원만 중단원까지 한 줄 더
+    if (units[0] && byMinor[units[0][0]] && Object.keys(byMinor[units[0][0]]).length > 1) {
+      const det = Object.entries(byMinor[units[0][0]]).sort((a, b) => b[1] - a[1]);
+      L.push(`   └ ${units[0][0]}: ${det.map(([k, n]) => `${k} ${n}`).join(', ')}`);
+    }
+
+    // 3) 반복해서 틀린 것
+    const rep = rows.filter(e => (e.retry_count || 0) >= 2)
+      .sort((a, b) => (b.retry_count || 0) - (a.retry_count || 0)).slice(0, 3);
+    if (rep.length) {
+      L.push(`■ 반복 오답: ${rep.map(e => `${[e.minor_unit, e.major_unit].find(Boolean) || '미분류'}(${e.retry_count}회)`).join(' / ')}`);
+    }
+
+    // 4) 틀린 이유
+    const byGroup = {}, byTag = {};
+    rows.forEach(e => (e.reason_tags || []).forEach(t => {
+      const g = reasonGroupOf(t);
+      byGroup[g] = (byGroup[g] || 0) + 1;
+      byTag[t] = (byTag[t] || 0) + 1;
+    }));
+    const groups = Object.entries(byGroup).sort((a, b) => b[1] - a[1]);
+    if (groups.length) {
+      L.push(`■ 틀린 이유: ${groups.map(([g, n]) => `${g} ${n}`).join(' / ')}`);
+      const topTag = Object.entries(byTag).sort((a, b) => b[1] - a[1])[0];
+      if (topTag && topTag[1] >= 2) L.push(`   가장 잦음: ${topTag[0]} (${topTag[1]}번)`);
+    }
+
+    // 5) 학생이 직접 쓴 것
+    const notes = rows.filter(e => e.reason_note).slice(0, 2);
+    if (notes.length) {
+      L.push('■ 학생 메모:');
+      notes.forEach(e => L.push(`   "${e.reason_note}"`));
+    }
+
+    // 6) 지도 방향 제안 — 판단은 선생님이 하되, 실마리는 던져준다
+    L.push('');
+    const tip = [];
+    const top = groups[0];
+    if (top) {
+      if (top[0] === '계산') tip.push('개념보다 검산 습관 쪽을 잡는 게 빠를 것으로 보임');
+      else if (top[0] === '개념') tip.push('해당 단원 개념 재설명이 필요해 보임');
+      else if (top[0] === '문제 읽기') tip.push('문제를 소리 내어 읽고 조건에 밑줄 긋는 연습 권장');
+      else if (top[0] === '풀이 방법') tip.push('첫 한 줄을 세우는 훈련(무엇을 미지수로 둘지)이 필요해 보임');
+    }
+    if (units[0] && units[0][1] >= 3) tip.push(`${units[0][0]} 집중 보강 필요 (${units[0][1]}개)`);
+    if (wait >= 3) tip.push(`검수 대기 ${wait}개 — 다음 수업 때 확인 필요`);
+    if (tip.length) L.push('→ ' + tip.join(' / '));
+
+    return L.join('\n');
+  }
+
+  function renderSummary() {
+    const box = document.getElementById('summary-range');
+    if (box) {
+      box.innerHTML = SUMMARY_RANGES.map(d => `
+        <button onclick="setSummaryDays(${d})" style="padding:7px 14px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;
+          border:${summaryDays === d ? '2px solid #4C3A7A' : '1px solid var(--border2)'};
+          background:${summaryDays === d ? '#F3EEFF' : 'var(--bg3)'};
+          color:${summaryDays === d ? '#4C3A7A' : 'var(--text3)'};">최근 ${d}일</button>`).join('');
+    }
+    const ta = document.getElementById('summary-text');
+    if (ta) ta.value = buildSummary(summaryDays);
+  }
+
+  function setSummaryDays(d) { summaryDays = d; renderSummary(); }
+
+  function openSummarySheet() {
+    if (!getCurrentStudent()) { showToast('학생을 먼저 선택해주세요', 'warn'); return; }
+    renderSummary();
+    document.getElementById('summary-overlay').style.display = 'flex';
+  }
+  function closeSummarySheet() {
+    document.getElementById('summary-overlay').style.display = 'none';
+  }
+
+  async function copySummary() {
+    const ta = document.getElementById('summary-text');
+    const btn = document.getElementById('summary-copy-btn');
+    const text = ta.value;
+    let ok = false;
+    try {
+      // 클립보드 API는 https + 사용자 클릭이 있어야 동작한다. 안 되면 옛날 방식으로
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch (e) { /* 아래 폴백 */ }
+    if (!ok) {
+      try {
+        ta.removeAttribute('readonly');
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        ok = document.execCommand('copy');
+        ta.setAttribute('readonly', 'readonly');
+      } catch (e) { ok = false; }
+    }
+    if (btn) {
+      btn.textContent = ok ? '✅ 복사됐어요' : '⚠️ 위 글을 길게 눌러 복사해주세요';
+      setTimeout(() => { btn.textContent = '📋 복사하기'; }, 2000);
+    }
   }
 
   // ===== 히트맵 =====
@@ -4506,6 +4905,7 @@
           <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;flex-wrap:wrap;">
             <button onclick="exportAnswerPDF()" style="padding:9px 16px;border-radius:10px;border:1px solid #0F6E56;background:white;color:#0F6E56;font-size:13px;font-weight:600;cursor:pointer;">📄 오답 모음 PDF</button>
             <button onclick="exportReportPDF()" style="padding:9px 16px;border-radius:10px;border:1px solid #854F0B;background:white;color:#854F0B;font-size:13px;font-weight:600;cursor:pointer;">📊 성적 리포트 PDF</button>
+            <button onclick="openSummarySheet()" style="padding:9px 16px;border-radius:10px;border:1px solid #4C3A7A;background:white;color:#4C3A7A;font-size:13px;font-weight:600;cursor:pointer;">📋 주간 요약 복사</button>
           </div>
         </div>
 
@@ -4539,6 +4939,7 @@
         <div class="unsorted-alert" id="unsorted-alert">
           <div class="unsorted-title" id="unsorted-title">⚠️ 분류 대기 중인 오답이 있어요</div>
           <div class="unsorted-sub">학생이 올린 사진에 과목·단원을 지정해주세요 (아래 "🆕 미분류" 필터에서 확인)</div>
+          <button id="ai-bulk-btn" onclick="aiClassifyAll()" style="margin-top:9px;padding:8px 14px;border-radius:9px;border:1px solid #D9CBFF;background:white;color:#4C3A7A;font-size:12px;font-weight:800;cursor:pointer;">🤖 미분류 한번에 분류</button>
         </div>
 
         <div class="unsorted-alert" id="reviewing-alert" style="background:linear-gradient(135deg,#FFF8E7,#FFEFC9);border-color:#FAC775;">
@@ -4549,6 +4950,11 @@
         <div class="weakness-card">
           <div class="weakness-title">🎯 약점 TOP 3</div>
           <div class="weakness-list" id="weakness-list"></div>
+        </div>
+
+        <div class="weakness-card">
+          <div class="weakness-title">🏷️ 틀린 이유 <span style="font-size:10.5px;font-weight:600;opacity:.6;">학생이 직접 고른 것</span></div>
+          <div id="reason-stats"></div>
         </div>
 
         <div class="review-alert" id="review-alert">
@@ -4657,6 +5063,7 @@
     }
 
     renderWeakness();
+    renderReasonStats();
     renderReviewAlert();
     renderHeatmap();
 
