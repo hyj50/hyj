@@ -179,6 +179,24 @@
   .upload-icon { font-size: 26px; margin-bottom: 4px; }
   .file-input-hidden { display: none; }
 
+  /* 틀린 이유 태그 */
+  .rsn-group { margin-bottom: 9px; }
+  .rsn-head { font-size: 11px; font-weight: 700; color: var(--text4); margin-bottom: 5px; letter-spacing: .02em; }
+  .rsn-row { display: flex; flex-wrap: wrap; gap: 5px; }
+  .rsn-chip {
+    padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border2); background: var(--bg3); color: var(--text2);
+    cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; line-height: 1.2;
+  }
+  /* --pink 는 테마를 켜야 생기는 변수라 여기선 쓰면 안 된다 (안 켜면 글씨가 안 보임) */
+  .rsn-chip.on { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
+  body.theme-active .rsn-chip { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.2); }
+  body.theme-active .rsn-chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+  .rsn-tag-view {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+    background: var(--green-light); color: var(--green-text); margin: 2px 3px 0 0;
+  }
+
   .btn-submit { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--green); color: white; font-size: 15px; font-weight: 700; cursor: pointer; }
   .btn-submit:active { opacity: 0.85; }
   .btn-submit:disabled { background: var(--border2); cursor: not-allowed; }
@@ -471,8 +489,24 @@
   body.theme-active input::placeholder, body.theme-active textarea::placeholder { color:rgba(255,255,255,0.4)!important; }
   body.theme-active .note-unsorted-tag, body.theme-active .student-status-badge, body.theme-active .note-solution-tag, body.theme-active .note-retry-badge-s { background:rgba(255,255,255,0.12)!important; color:rgba(255,255,255,0.85)!important; border-color:rgba(255,255,255,0.2)!important; }
   body.theme-active .upload-zone { background:rgba(255,255,255,0.07)!important; border-color:rgba(255,255,255,0.2)!important; }
-  body.theme-active .board { background:transparent!important; }
-  body.theme-active .bottom-nav { background:rgba(10,10,20,0.85)!important; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-top-color:rgba(255,255,255,0.1)!important; }
+  /* 테마를 켜면 본문 판을 '투명'으로 두던 게 가독성의 주범이었다.
+     사진 위에 글씨가 바로 얹혀 밝은 부분에서 안 보였다.
+     → 반투명 어두운 판을 깔고, 진하기는 학생이 3단계로 고를 수 있게 한다 */
+  body.theme-active .board {
+    background: rgba(10,10,18,var(--panelA,0.74))!important;
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35)!important;
+  }
+  body.theme-active .dashboard { box-shadow: 0 6px 24px rgba(0,0,0,0.4)!important; }
+  /* 판 위에 얹히는 카드들은 조금 더 진하게 — 판+카드가 겹쳐 글씨가 또렷해진다 */
+  body.theme-active .msec > div,
+  body.theme-active .note-card { background: rgba(0,0,0,0.5)!important; }
+  body.theme-active .qna-card,
+  body.theme-active .weakness-card-s { background: rgba(255,255,255,0.10)!important; }
+  /* 판 밖에 놓이는 글씨(제목·안내문)는 그림자로 한 번 더 받쳐준다 */
+  body.theme-active .wrap > h1, body.theme-active .empty { text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
+  body.theme-active .bottom-nav { background:rgba(8,8,16,0.94)!important; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-top-color:rgba(255,255,255,0.1)!important; }
   body.theme-active .qna-card { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.13)!important; }
   body.theme-active .weakness-card-s { background:rgba(255,255,255,0.08)!important; border-color:rgba(255,255,255,0.15)!important; }
   body.theme-active .weakness-item-s { background:rgba(255,255,255,0.1)!important; color:white!important; }
@@ -585,6 +619,13 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         <div class="form-group">
           <label class="form-label">출처 (선택)</label>
           <input type="text" id="source-input" placeholder="예: 교과서 p.52, 2024 수능, 학원 모의고사" maxlength="60" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">왜 틀렸어요? <span style="font-weight:500;color:var(--text4);font-size:11.5px;">(여러 개 골라도 돼요 · 선택)</span></label>
+          <div id="reason-chips"></div>
+          <input type="text" id="reason-etc" placeholder="✏️ 직접 쓰기 — 예: 근의 공식에서 b를 -b로 잘못 씀" maxlength="80"
+                 style="margin-top:8px;" />
         </div>
 
         <div class="form-group">
@@ -791,6 +832,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     <div class="theme-section-title" style="margin-top:14px;">배경 사진</div>
     <div class="bg-grid" id="bg-grid"></div>
 
+    <div class="theme-section-title" style="margin-top:16px;">배경 진하기 <span style="font-size:10px;opacity:.55;font-weight:600;">글씨가 잘 안 보이면 진하게</span></div>
+    <div id="bg-dim-box" style="display:flex;gap:6px;"></div>
+
     <div class="theme-section-title">포인트 색상</div>
     <div class="palette-row" id="palette-row"></div>
     <div id="custom-color-box" style="margin-top:10px;"></div>
@@ -798,7 +842,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     <div class="theme-section-title" style="margin-top:16px;">글씨 크기 <span style="font-size:10px;opacity:.55;font-weight:600;">앱 전체에 적용</span></div>
     <div id="font-scale-box" style="display:flex;gap:6px;"></div>
 
-    <div class="theme-section-title" style="margin-top:16px;">글꼴 <span style="font-size:10px;opacity:.55;font-weight:600;">레벨 5마다 해금권 1장</span></div>
+    <div class="theme-section-title" style="margin-top:16px;">글꼴 <span style="font-size:10px;opacity:.55;font-weight:600;">레벨 3마다 해금권 1장</span></div>
     <div id="font-list" style="display:flex;flex-direction:column;gap:6px;"></div>
 
     <div style="display:flex;gap:8px;margin-top:20px;">
@@ -1200,6 +1244,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   function showMainContent() {
     document.getElementById('content-area').style.display = 'block';
     document.getElementById('no-student-msg').style.display = 'none';
+    renderReasonChips();
     restorePendingPhotos();      // 카메라 쓰다 앱이 죽었다면 찍은 사진을 되살린다
     checkSubmitButton();
     loadMyEntries();
@@ -1369,6 +1414,42 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       } catch (e) { try { localStorage.removeItem(SNAP_KEY + kind); } catch (e2) {} }
     });
     checkSubmitButton();
+  }
+
+  // ═══ 틀린 이유 태그 ═══════════════════════════════════════════
+  // 나중에 "이 학생은 개념은 아는데 계산에서 다 까먹는다" 같은 게 숫자로 보이게 하려는 것.
+  // 그래서 문구는 학생이 고민 없이 고를 수 있게 짧고 구체적으로 잡았다.
+  const REASON_TAGS = [
+    { g: '계산', c: '#EF4444', items: ['부호를 틀림', '이항하다 실수', '단순 사칙연산 실수', '분수·소수 계산 실수', '약분·통분 실수'] },
+    { g: '개념', c: '#F59E0B', items: ['개념을 아예 몰랐음', '공식이 기억 안 남', '공식을 잘못 씀', '조건·범위를 몰랐음'] },
+    { g: '문제 읽기', c: '#10B981', items: ['문제를 잘못 읽음', '조건을 빠뜨림', '무슨 말인지 모르겠음', '단위를 놓침'] },
+    { g: '풀이 방법', c: '#3B82F6', items: ['어떻게 시작할지 몰랐음', '풀다가 중간에 막힘', '돌아가는 방법으로 풀다 꼬임', '그림·그래프를 잘못 그림'] },
+    { g: '그 밖에', c: '#8B5CF6', items: ['시간이 부족했음', '아는데 실수함', '찍었는데 틀림', '글씨를 잘못 옮겨 씀', '답만 쓰고 검산 안 함'] },
+  ];
+  let pickedReasons = new Set();
+
+  function renderReasonChips() {
+    const box = document.getElementById('reason-chips');
+    if (!box) return;
+    box.innerHTML = REASON_TAGS.map(gr => `
+      <div class="rsn-group">
+        <div class="rsn-head" style="color:${gr.c};">${gr.g}</div>
+        <div class="rsn-row">${gr.items.map(t =>
+          `<span class="rsn-chip${pickedReasons.has(t) ? ' on' : ''}" onclick="toggleReason(this,'${t}')">${t}</span>`
+        ).join('')}</div>
+      </div>`).join('');
+  }
+
+  function toggleReason(el, tag) {
+    if (pickedReasons.has(tag)) { pickedReasons.delete(tag); el.classList.remove('on'); }
+    else { pickedReasons.add(tag); el.classList.add('on'); }
+  }
+
+  function clearReasons() {
+    pickedReasons = new Set();
+    const etc = document.getElementById('reason-etc');
+    if (etc) etc.value = '';
+    renderReasonChips();
   }
 
   function checkSubmitButton() {
@@ -1608,6 +1689,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           image_mine_url: imageMineUrl,
           memo: memo,
           source: source,
+          reason_tags: pickedReasons.size ? [...pickedReasons] : null,
+          reason_note: (document.getElementById('reason-etc')?.value || '').trim() || null,
           entry_date: dateStr,
           solved: false,
           retry_count: 0
@@ -1632,6 +1715,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       resetUploadZone('mine', '탭해서 촬영', '✏️');
       document.getElementById('memo-input').value = '';
       document.getElementById('source-input').value = '';
+      clearReasons();
       checkSubmitButton();
 
       currentPage = 1;
@@ -2050,6 +2134,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge-s">틀린 횟수 ${e.retry_count}회</span>` : ''}
         </div>
         ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
+        ${(e.reason_tags && e.reason_tags.length) || e.reason_note ? `<p class="note-memo" style="margin-bottom:2px;">🏷️ ${(e.reason_tags || []).map(t => `<span class="rsn-tag-view">${t}</span>`).join('')}${e.reason_note ? `<span class="rsn-tag-view">✏️ ${e.reason_note}</span>` : ''}</p>` : ''}
         ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
         ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -2671,30 +2756,29 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (sc) applyFontScale(sc.v);
   })();
 
-  // ===== 레벨 보상: 글꼴 20종 (레벨 5마다 해금권 1장, 원하는 걸 골라서 해금) =====
+  // ===== 레벨 보상: 글꼴 12종 (레벨 3마다 해금권 1장, 원하는 걸 골라서 해금) =====
+  // 손글씨체·초굵은 장식체(동글·베이글팻·모이라이·나눔손글씨 등)는 본문에 쓰면
+  // 수식과 숫자가 뭉개져서 전부 뺐다. 남긴 건 전부 본문용으로 만들어진 글꼴이고
+  // 굵은 획(700)이 실제로 있는 것만 골랐다 — 없으면 브라우저가 억지로 늘려서 더 안 보인다.
   const UNLOCK_FONTS = [
-    { ko:'본고딕',        family:'Noto Sans KR' },
-    { ko:'고딕 A1',       family:'Gothic A1' },
-    { ko:'나눔고딕',      family:'Nanum Gothic' },
-    { ko:'고운돋움',      family:'Gowun Dodum' },
-    { ko:'플렉스산스',    family:'IBM Plex Sans KR' },
-    { ko:'코딩체',        family:'Nanum Gothic Coding' },
-    { ko:'고운바탕',      family:'Gowun Batang' },
-    { ko:'나눔명조',      family:'Nanum Myeongjo' },
-    { ko:'송명',          family:'Song Myung' },
-    { ko:'함렛',          family:'Hahmlet' },
-    { ko:'도현',          family:'Do Hyeon' },
-    { ko:'주아',          family:'Jua' },
-    { ko:'검은고딕',      family:'Black Han Sans' },
-    { ko:'동글',          family:'Dongle' },
-    { ko:'나눔손글씨 펜', family:'Nanum Pen Script' },
-    { ko:'개구',          family:'Gaegu' },
-    { ko:'감자꽃',        family:'Gamja Flower' },
-    { ko:'연성',          family:'Yeon Sung' },
-    { ko:'베이글팻',      family:'Bagel Fat One' },
-    { ko:'모이라이',      family:'Moirai One' },
+    // 고딕 — 화면에서 가장 읽기 편한 계열
+    { ko:'프리텐다드',   family:'Pretendard',          tag:'고딕', note:'가장 무난해요',
+      href:'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.css' },
+    { ko:'본고딕',       family:'Noto Sans KR',        tag:'고딕', note:'구글 기본 한글', wght:'400;700' },
+    { ko:'고딕 A1',      family:'Gothic A1',           tag:'고딕', note:'또렷하고 시원해요', wght:'400;700' },
+    { ko:'나눔고딕',     family:'Nanum Gothic',        tag:'고딕', note:'교과서에서 많이 봐요', wght:'400;700' },
+    { ko:'플렉스산스',   family:'IBM Plex Sans KR',    tag:'고딕', note:'숫자가 예뻐요', wght:'400;700' },
+    { ko:'고운돋움',     family:'Gowun Dodum',         tag:'고딕', note:'부드러운 고딕' },
+    // 명조 — 긴 글 읽을 때 편한 계열
+    { ko:'본명조',       family:'Noto Serif KR',       tag:'명조', note:'책 같은 느낌', wght:'400;700' },
+    { ko:'나눔명조',     family:'Nanum Myeongjo',      tag:'명조', note:'단정해요', wght:'400;700' },
+    { ko:'고운바탕',     family:'Gowun Batang',        tag:'명조', note:'차분해요', wght:'400;700' },
+    { ko:'함렛',         family:'Hahmlet',             tag:'명조', note:'묵직해요', wght:'400;700' },
+    // 개성 — 읽기는 되면서 분위기가 다른 것만
+    { ko:'도현',         family:'Do Hyeon',            tag:'개성', note:'각지고 단단해요' },
+    { ko:'주아',         family:'Jua',                 tag:'개성', note:'동글동글해요' },
   ];
-  const FONT_PICK_EVERY = 5;    // 몇 레벨마다 해금권 1장인지
+  const FONT_PICK_EVERY = 3;    // 몇 레벨마다 해금권 1장인지
   const CUSTOM_COLOR_LV = 10;   // 색상 직접 고르기 해금 레벨
 
   function _myLevel() {
@@ -2706,23 +2790,49 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
   function _ownedFonts() {
     const sid = document.getElementById('student-select')?.value;
-    try { return JSON.parse(localStorage.getItem(`fonts_owned_${sid}`) || '[]'); } catch (e) { return []; }
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(`fonts_owned_${sid}`) || '[]'); } catch (e) { return []; }
+    // 목록에서 빠진 옛 글꼴은 해금권 계산에서 제외 (안 그러면 남은 장수가 음수가 된다)
+    const valid = list.filter(f => UNLOCK_FONTS.some(x => x.family === f));
+    if (valid.length !== list.length) {
+      try { localStorage.setItem(`fonts_owned_${sid}`, JSON.stringify(valid)); } catch (e) {}
+    }
+    return valid;
   }
 
-  function _gfUrl(families) {
+  // 굵기(700)까지 같이 받아온다. 400만 받으면 브라우저가 가짜 굵기를 만들어 글씨가 뭉갠다
+  function _gfUrl(fonts) {
+    const g = fonts.filter(f => !f.href);
+    if (!g.length) return '';
     return 'https://fonts.googleapis.com/css2?' +
-      families.map(f => 'family=' + f.replace(/ /g, '+')).join('&') + '&display=swap';
+      g.map(f => 'family=' + f.family.replace(/ /g, '+') + (f.wght ? ':wght@' + f.wght : '')).join('&') +
+      '&display=swap';
+  }
+  // 구글 폰트가 아닌 글꼴(프리텐다드 등)은 각자 주소로 따로 불러온다
+  function _loadExtraFonts(fonts) {
+    fonts.filter(f => f.href).forEach(f => {
+      const id = 'extrafont-' + f.family.replace(/\W/g, '');
+      if (document.getElementById(id)) return;
+      const l = document.createElement('link');
+      l.id = id; l.rel = 'stylesheet'; l.href = f.href;
+      document.head.appendChild(l);
+    });
   }
 
   // 선택한 글꼴을 앱 전체에 적용
   function applyFont(family) {
     let st = document.getElementById('app-font-style');
     if (!st) { st = document.createElement('style'); st.id = 'app-font-style'; document.head.appendChild(st); }
-    if (!family) { st.textContent = ''; return; }
-    let link = document.getElementById('app-font-link');
-    if (!link) { link = document.createElement('link'); link.id = 'app-font-link'; link.rel = 'stylesheet'; document.head.appendChild(link); }
-    const href = _gfUrl([family]);
-    if (link.href !== href) link.href = href;
+    const f = UNLOCK_FONTS.find(x => x.family === family);
+    if (!family || !f) { st.textContent = ''; return; }      // 없어진 글꼴이면 기본으로
+    if (f.href) {
+      _loadExtraFonts([f]);
+    } else {
+      let link = document.getElementById('app-font-link');
+      if (!link) { link = document.createElement('link'); link.id = 'app-font-link'; link.rel = 'stylesheet'; document.head.appendChild(link); }
+      const href = _gfUrl([f]);
+      if (href && link.href !== href) link.href = href;
+    }
     st.textContent = `body, button, input, textarea, select, .dashboard, .bottom-nav-btn {
       font-family:'${family}', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; }`;
   }
@@ -2761,11 +2871,12 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const left = Math.max(0, picks - owned.length);
     const lv = _myLevel();
 
-    // 고르려면 다 보여야 하니 20종 전부 미리보기 로딩 (미리보기 글자만 받아와서 가벼움)
+    // 고르려면 다 보여야 하니 전부 미리보기 로딩
     let pl = document.getElementById('font-preview-link');
     if (!pl) { pl = document.createElement('link'); pl.id = 'font-preview-link'; pl.rel = 'stylesheet'; document.head.appendChild(pl); }
-    const href = _gfUrl(UNLOCK_FONTS.map(f => f.family));
-    if (pl.href !== href) pl.href = href;
+    const href = _gfUrl(UNLOCK_FONTS);
+    if (href && pl.href !== href) pl.href = href;
+    _loadExtraFonts(UNLOCK_FONTS);
 
     // 상단 안내
     const nextAt = (owned.length + 1) * FONT_PICK_EVERY;
@@ -2775,27 +2886,30 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           ? `<div style="padding:7px 11px;border-radius:9px;background:rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:3px;">👑 모든 글꼴을 모았어요!</div>`
           : `<div style="padding:7px 11px;border-radius:9px;background:rgba(255,255,255,0.08);font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:3px;">🔒 Lv.${nextAt} 달성하면 해금권 1장을 받아요 (현재 Lv.${lv})</div>`);
 
-    const SAMPLE = '가나다라 ABC 123';
-    const row = (name, on, click, dim, fam, btn) => `
+    // 숫자·괄호가 섞인 샘플이라야 실제로 문제 풀 때 읽기 편한지 알 수 있다
+    const SAMPLE = '오답 2x(3x-1)=0 답 15';
+    const row = (name, on, click, dim, fam, btn, tag, note) => `
       <div ${click ? `onclick="${click}"` : ''} style="padding:11px 13px;border-radius:11px;cursor:${click ? 'pointer' : 'default'};
         border:${on ? '2px solid rgba(255,255,255,0.85)' : '1px solid rgba(255,255,255,0.15)'};
         background:${on ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'};opacity:${dim ? '.5' : '1'};">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;height:18px;">
-          <span style="font-size:12px;line-height:18px;font-weight:700;color:rgba(255,255,255,0.7);">${name}</span>
-          ${btn || (on ? '<span style="font-size:11px;font-weight:800;color:#fff;">✓ 사용중</span>' : '')}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;min-height:18px;">
+          <span style="font-size:12px;line-height:18px;font-weight:700;color:rgba(255,255,255,0.75);">${name}
+            ${tag ? `<span style="font-size:9.5px;font-weight:700;opacity:.6;margin-left:5px;">${tag}</span>` : ''}
+            ${note ? `<span style="font-size:10px;font-weight:500;opacity:.5;margin-left:4px;">· ${note}</span>` : ''}</span>
+          ${btn || (on ? '<span style="font-size:11px;font-weight:800;color:#fff;white-space:nowrap;">✓ 사용중</span>' : '')}
         </div>
-        <div style="font-size:19px;line-height:27px;height:27px;overflow:hidden;color:white;${fam ? `font-family:'${fam}',sans-serif;` : ''}">${SAMPLE}</div>
+        <div style="font-size:18px;line-height:27px;height:27px;overflow:hidden;color:white;${fam ? `font-family:'${fam}',sans-serif;` : ''}">${SAMPLE}</div>
       </div>`;
 
     box.innerHTML = head +
-      row('기본 글꼴', cur === '', 'selectFont(-1)', false, '', '') +
+      row('기본 글꼴', cur === '', 'selectFont(-1)', false, '', '', '', '기기 기본') +
       UNLOCK_FONTS.map((f, i) => {
         const has = owned.includes(f.family);
-        if (has) return row(f.ko, cur === f.family, `selectFont(${i})`, false, f.family, '');
+        if (has) return row(f.ko, cur === f.family, `selectFont(${i})`, false, f.family, '', f.tag, f.note);
         const btn = left > 0
           ? `<span style="font-size:11px;font-weight:800;color:#fff;background:rgba(255,255,255,0.28);padding:4px 10px;border-radius:7px;white-space:nowrap;">🎁 해금</span>`
           : `<span style="font-size:11px;color:rgba(255,255,255,0.5);">🔒</span>`;
-        return row(f.ko, false, left > 0 ? `unlockFont(${i})` : '', left <= 0, f.family, btn);
+        return row(f.ko, false, left > 0 ? `unlockFont(${i})` : '', left <= 0, f.family, btn, f.tag, f.note);
       }).join('');
   }
 
@@ -2833,6 +2947,45 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     </label>`;
   }
 
+  // 배경 진하기 — 사진을 어둡게·흐리게 덮는 정도와 본문 판의 불투명도를 같이 조절한다
+  const BG_DIMS = [
+    { id:'soft', ko:'연하게', ov:0.42, blur:0,   panel:0.58 },
+    { id:'mid',  ko:'보통',   ov:0.62, blur:2,   panel:0.74 },
+    { id:'hard', ko:'진하게', ov:0.78, blur:4.5, panel:0.88 },
+  ];
+  function _bgDimId() {
+    const sid = document.getElementById('student-select')?.value;
+    return localStorage.getItem(`bgdim_${sid}`) || 'mid';
+  }
+  function applyBgDim(id) {
+    const d = BG_DIMS.find(x => x.id === id) || BG_DIMS[1];
+    const ov = document.getElementById('theme-bg-overlay');
+    const img = document.getElementById('theme-bg-image');
+    if (ov) ov.style.background = `rgba(0,0,0,${d.ov})`;
+    if (img) {
+      // 흐리게 할 때 가장자리가 비는 걸 막으려고 살짝 확대해서 흐린다
+      img.style.filter = d.blur ? `blur(${d.blur}px)` : '';
+      img.style.transform = d.blur ? 'scale(1.06)' : '';
+    }
+    document.documentElement.style.setProperty('--panelA', String(d.panel));
+  }
+  function selectBgDim(id) {
+    const sid = document.getElementById('student-select').value;
+    localStorage.setItem(`bgdim_${sid}`, id);
+    applyBgDim(id);
+    renderBgDim();
+  }
+  function renderBgDim() {
+    const box = document.getElementById('bg-dim-box');
+    if (!box) return;
+    const cur = _bgDimId();
+    box.innerHTML = BG_DIMS.map(d => `
+      <button onclick="selectBgDim('${d.id}')" style="flex:1;padding:9px 4px;border-radius:9px;cursor:pointer;
+        font-size:12px;font-weight:700;color:white;
+        border:${cur === d.id ? '2px solid rgba(255,255,255,0.85)' : '1px solid rgba(255,255,255,0.15)'};
+        background:${cur === d.id ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'};">${d.ko}</button>`).join('');
+  }
+
   function applyBg(src) {
     const wrap = document.getElementById('theme-bg-wrap');
     const img  = document.getElementById('theme-bg-image');
@@ -2840,6 +2993,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       img.style.backgroundImage = `url('${src}')`;
       wrap.style.display = 'block';
       document.body.classList.add('theme-active');
+      applyBgDim(_bgDimId());
     } else {
       wrap.style.display = 'none';
       document.body.classList.remove('theme-active');
@@ -2918,6 +3072,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
            onclick="selectPalette('${p.id}')"></div>`).join('');
 
     renderFontScale();
+    renderBgDim();
     renderCustomColor();
     renderFontPicker();
     document.body.classList.add('theme-mode');
