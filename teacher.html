@@ -190,6 +190,14 @@
   .weakness-card { background: linear-gradient(135deg, #FFF3F0, #FFE8E0); border: 1px solid #FFD4C2; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
   .weakness-title { font-size: 13px; font-weight: 700; color: #B5421F; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
   .weakness-list { display: flex; flex-direction: column; gap: 6px; }
+  .wait-photo {
+    font-size: 11.5px; font-weight: 700; color: #8A5A15; background: #FFF3D6;
+    border: 1px solid #F0DBA8; border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+  }
+  .btn-force {
+    font-size: 11px; font-weight: 700; color: var(--text4); background: none;
+    border: none; text-decoration: underline; cursor: pointer; padding: 6px 4px;
+  }
   .rsn-tag-t { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700;
                background:#FDE8F1; color:#A8336B; margin:2px 3px 0 0; }
   .rsn-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:12px; }
@@ -3864,6 +3872,13 @@
     }
   }
 
+  // 사진 없이도 검수해야 할 때 (학생이 직접 보여줬거나, 옛날 오답이라 사진이 없는 경우)
+  const _forceReviewIds = new Set();
+  function forceReview(entryId) {
+    _forceReviewIds.add(entryId);
+    renderStudentDetails();
+  }
+
   // 완료된 걸 다시 검수 대기로 되돌리기 (실수로 OK 눌렀을 때)
   async function reopenEntry(entryId) {
     if (_reviewLock.has(entryId)) return; // 처리 중이면 무시 (중복 클릭 방지)
@@ -4548,6 +4563,12 @@
     ` : '';
 
     const reviewStatus = e.review_status || (e.solved ? 'approved' : 'pending');
+    // NO를 누르면 학생 풀이 사진이 지워진다. 그 상태에서 OK/NO가 그대로 보이면
+    // 볼 것도 없는데 검수를 누르게 되고, 선생님이 헷갈린다.
+    // → 학생이 새 사진을 올릴 때까지 버튼을 감춘다 ('직접 검수'로 빠져나갈 수는 있게)
+    const waitingPhoto = reviewStatus !== 'approved'
+      && !e.image_mine_url
+      && !_forceReviewIds.has(e.id);
     const statusBadge =
       reviewStatus === 'approved' ? '<span class="status-badge approved">✅ 완료</span>'
       : reviewStatus === 'rejected' ? '<span class="status-badge rejected">🔄 다시풀기</span>'
@@ -4577,8 +4598,11 @@
           <div class="review-btns">
             ${reviewStatus === 'approved'
               ? `<button class="btn-reopen" onclick="reopenEntry('${e.id}')">↩️ 검수 취소</button>`
-              : `<button class="btn-ok" onclick="approveEntry('${e.id}')">✅ OK</button>
-                 <button class="btn-no" onclick="rejectEntry('${e.id}')">❌ NO</button>`}
+              : waitingPhoto
+                ? `<span class="wait-photo">📸 새 풀이 사진 기다리는 중</span>
+                   <button class="btn-force" onclick="forceReview('${e.id}')" title="사진 없이 검수하기">직접 검수</button>`
+                : `<button class="btn-ok" onclick="approveEntry('${e.id}')">✅ OK</button>
+                   <button class="btn-no" onclick="rejectEntry('${e.id}')">❌ NO</button>`}
           </div>
           <button class="btn-delete" onclick="deleteEntry('${e.id}')" title="삭제">✕</button>
         </div>
