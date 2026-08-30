@@ -14,6 +14,9 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+  /* 당겨서 새로고침 차단 — 자바스크립트 없이 (위 주석 참고) */
+  html, body { overscroll-behavior-y: contain; }
+
   /* ── 안드로이드에서 버튼이 안 눌리고 구글 검색창이 뜨는 문제 ──
      손가락이 조금이라도 밀리거나 오래 눌리면 브라우저가 '글자 선택'으로 알아듣는다.
      그러면 버튼 글자가 파랗게 선택되면서 클릭은 씹히고 검색 시트가 올라온다.
@@ -4575,7 +4578,7 @@
       : '<span class="status-badge pending">⏳ 검수 대기</span>';
 
     return `
-      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}" onclick="${bulkMode ? `toggleSelectCard('${e.id}')` : ''}">
+      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}"${bulkMode ? ` onclick="toggleSelectCard('${e.id}')"` : ''}>
         <div class="note-top-row">
           ${bulkMode ? `<input type="checkbox" id="cb-${e.id}" class="note-card-checkbox" ${selectedIds.has(e.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectCard('${e.id}')" />` : ''}
           <div style="display:flex;gap:6px;width:100%;margin-bottom:8px;">${thumbsHtml}</div>
@@ -6783,21 +6786,13 @@
     }
   }
 
-  // 당겨서 새로고침 막기 (스크롤은 유지)
-  let touchStartY = 0;
-  document.addEventListener('touchstart', e => {
-    if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  document.addEventListener('touchmove', e => {
-    if (!e.touches || !e.touches[0]) return;
-    // 버튼·입력칸 위에서는 건드리지 않는다 (탭이 씹히는 원인이 될 수 있음)
-    if (e.target.closest && e.target.closest('button, input, textarea, select, [onclick]')) return;
-    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-    const touchY = e.touches[0].clientY;
-    if (scrollTop === 0 && touchY > touchStartY + 8) {
-      e.preventDefault();
-    }
-  }, { passive: false });
+  // 당겨서 새로고침 막기 → CSS의 overscroll-behavior 로 옮겼다.
+  // 예전에는 document 에 passive:false 인 touchmove 리스너를 걸어서 막았는데,
+  // 그러면 화면 전체가 '터치를 자바스크립트가 가로챌 수 있는 구역'이 된다.
+  // 브라우저는 손가락이 닿을 때마다 "이 터치를 취소할 건가?"를 자바스크립트에
+  // 물어보고 답을 기다린 뒤에야 스크롤·클릭을 진행한다.
+  // 오답 카드가 많아 화면 그리기가 바쁠 때 이 대기가 길어지면서 탭이 통째로 씹혔다.
+  // CSS 로 막으면 자바스크립트를 거치지 않아 이런 대기가 아예 없다.
 
   // 뒤로가기 버튼 막기
   history.pushState(null, '', location.href);
