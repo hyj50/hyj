@@ -231,6 +231,13 @@
     border: none; text-decoration: underline; cursor: pointer; padding: 6px 4px;
   }
   .rsn-tag-t { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700;
+  .aig-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:800; }
+  .aig-correct { background:#DCF5E7; color:#0F6E56; }
+  .aig-wrong   { background:#FFE0DC; color:#B5421F; }
+  .aig-unclear { background:#FFF3D6; color:#8A5A15; }
+  .aig-note { font-size:11.5px; color:var(--text3); background:var(--bg3); border-radius:8px; padding:6px 9px; margin-top:5px; line-height:1.5; }
+  .btn-aigrade { padding:6px 10px; border-radius:8px; border:1px solid #D9CBFF; background:#F3EEFF; color:#4C3A7A; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
+  .btn-ok.aig-hint { box-shadow:0 0 0 2.5px rgba(15,110,86,.35); }
                background:#FDE8F1; color:#A8336B; margin:2px 3px 0 0; }
   .rsn-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:12px; }
   .rsn-bar-name { flex:0 0 auto; min-width:96px; color:var(--text2); font-weight:600; }
@@ -2046,6 +2053,88 @@
   // 다시풀기 체크 토글
   // 같은 오답에 대해 승인/취소가 동시에(더블탭 등) 실행되는 것을 막는 잠금장치
   // (포인트 중복지급/중복차감의 실제 원인이 이 경합 상태였음)
+  // ═══ 풀이 사진 AI 1차 채점 ══════════════════════════════════════
+  // 선생님이 사진을 하나하나 열어보기 전에 AI가 먼저 맞았는지 봐준다.
+  // 최종 판단은 여전히 선생님이 한다 — AI는 배지만 달고 OK/NO를 대신 누르지 않는다.
+  const _gradeLock = new Set();
+  const AI_GRADE_AUTO_MAX = 5;    // 한 번에 자동 채점할 최대 건수
+  const AI_GRADE_SESSION_MAX = 20; // 앱을 켠 뒤 자동 채점 총 한도 (새로고침하면 초기화)
+  let _autoGradeUsed = 0;
+
+  async function runAiGrade(entryId, silent) {
+    if (_gradeLock.has(entryId)) return;
+    const e = currentEntries.find(x => x.id === entryId);
+    if (!e || !e.image_url || !e.image_mine_url) return;
+    _gradeLock.add(entryId);
+
+    const btn = document.getElementById('aig-btn-' + entryId);
+    if (btn) { btn.disabled = true; btn.textContent = '🤖 보는 중'; }
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/grade-solution`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          note_id: entryId,
+          problem_url: e.image_url,
+          solution_url: e.image_mine_url,
+          answer_url: e.image_solution_url || null,
+          reason_tags: e.reason_tags || null
+        })
+      });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok || r.error) {
+        if (!silent) showToast('❌ AI 채점 실패: ' + (r.error || res.status), 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 채점'; }
+        return;
+      }
+
+      const verdict = ['correct', 'wrong', 'unclear'].includes(r.verdict) ? r.verdict : 'unclear';
+      const comment = String(r.comment || '').slice(0, 300);
+
+      await fetch(`${SUPABASE_URL}/rest/v1/wrong_notes?id=eq.${entryId}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ ai_grade: verdict, ai_grade_comment: comment, ai_graded_at: new Date().toISOString() })
+      });
+
+      // 화면에도 즉시 반영 (다시 불러오지 않아도 되게)
+      e.ai_grade = verdict; e.ai_grade_comment = comment;
+      renderNoteList();
+      if (!silent) showToast({ correct: '🤖 맞은 것 같아요', wrong: '🤖 틀린 것 같아요', unclear: '🤖 사진으로는 판단이 어려워요' }[verdict], verdict === 'unclear' ? 'warn' : 'ok');
+    } catch (err) {
+      console.error('AI 채점 오류:', err);
+      if (!silent) showToast('❌ AI 채점 중 오류', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🤖 AI 채점'; }
+    } finally {
+      _gradeLock.delete(entryId);
+    }
+  }
+
+  // 목록을 열면 아직 안 본 검수대기 건을 조용히 미리 채점해 둔다.
+  // 화면을 막지 않고 순서대로, 최대 AI_GRADE_AUTO_MAX건까지만.
+  let _autoGradeRunning = false;
+  async function autoGradePending() {
+    if (_autoGradeRunning) return;
+    if (_autoGradeUsed >= AI_GRADE_SESSION_MAX) return;   // 채점이 끝없이 번지는 걸 막는다
+    const targets = (currentEntries || []).filter(e =>
+      (e.review_status || (e.solved ? 'approved' : 'pending')) !== 'approved'
+      && e.image_url && e.image_mine_url && !e.ai_grade
+    ).slice(0, AI_GRADE_AUTO_MAX);
+    if (!targets.length) return;
+
+    _autoGradeRunning = true;
+    try {
+      for (const t of targets) {
+        if (_autoGradeUsed >= AI_GRADE_SESSION_MAX) break;
+        _autoGradeUsed++;
+        await runAiGrade(t.id, true);
+      }
+    } finally {
+      _autoGradeRunning = false;
+    }
+  }
+
   const _reviewLock = new Set();
   // ✅ OK: 검수 통과 → 완료 처리
   async function approveEntry(entryId) {
@@ -4617,11 +4706,13 @@
               ${isUnsorted ? '<span class="note-unsorted-badge">🆕 미분류</span>' : ''}
               ${unitLabel ? `<span class="note-reason-tag">${e.ai_classified ? '🤖 ' : ''}${unitLabel}</span>` : ''}
               ${(e.retry_count || 0) > 0 ? `<span class="note-retry-badge">틀린 횟수 ${e.retry_count}회</span>` : ''}
+              ${e.ai_grade ? `<span class="aig-badge aig-${e.ai_grade}">🤖 ${{correct:'맞은 듯',wrong:'틀린 듯',unclear:'판독 불가'}[e.ai_grade] || e.ai_grade}</span>` : ''}
             </div>
             ${e.source ? `<p class="note-memo">📚 <span style="font-weight:700;color:var(--text1);">출처:</span> ${e.source}</p>` : ''}
             ${(e.reason_tags && e.reason_tags.length) || e.reason_note ? `<p class="note-memo" style="margin-bottom:2px;">🏷️ ${(e.reason_tags || []).map(t => `<span class="rsn-tag-t">${t}</span>`).join('')}${e.reason_note ? `<span class="rsn-tag-t" style="background:#FFF3D6;color:#8A5A15;">✏️ ${e.reason_note}</span>` : ''}</p>` : ''}
             ${e.memo ? `<p class="note-memo">🙋 <span style="font-weight:700;color:var(--pink);">학생의견:</span> ${e.memo}</p>` : ''}
             ${e.teacher_memo ? `<p class="note-memo">👩‍🏫 <span style="font-weight:700;color:var(--green);">선생님의견:</span> ${e.teacher_memo}</p>` : ''}
+            ${e.ai_grade_comment ? `<div class="aig-note">🤖 ${e.ai_grade_comment}</div>` : ''}
             <p class="note-date">${formatDate(e.entry_date)}</p>
           </div>
         </div>
@@ -4633,7 +4724,8 @@
               : waitingPhoto
                 ? `<span class="wait-photo">📸 새 풀이 사진 기다리는 중</span>
                    <button class="btn-force" onclick="forceReview('${e.id}')" title="사진 없이 검수하기">직접 검수</button>`
-                : `<button class="btn-ok" onclick="approveEntry('${e.id}')">✅ OK</button>
+                : `${e.image_mine_url ? `<button class="btn-aigrade" id="aig-btn-${e.id}" onclick="runAiGrade('${e.id}')">${e.ai_grade ? '🤖 다시' : '🤖 AI 채점'}</button>` : ''}
+                   <button class="btn-ok${e.ai_grade === 'correct' ? ' aig-hint' : ''}" onclick="approveEntry('${e.id}')">✅ OK</button>
                    <button class="btn-no" onclick="rejectEntry('${e.id}')">❌ NO</button>`}
           </div>
           <button class="btn-delete" onclick="deleteEntry('${e.id}')" title="삭제">✕</button>
@@ -5156,6 +5248,9 @@
   }
 
   function renderNoteList() {
+    // 그림을 다 그린 뒤 백그라운드로 미채점 건을 훑는다 (렌더를 막지 않게)
+    setTimeout(() => { try { autoGradePending(); } catch (e) {} }, 0);
+
     const container = document.getElementById('note-list');
     const pag = document.getElementById('pagination');
     const info = document.getElementById('page-info');

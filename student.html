@@ -190,6 +190,10 @@
   }
   /* --pink 는 테마를 켜야 생기는 변수라 여기선 쓰면 안 된다 (안 켜면 글씨가 안 보임) */
   .rsn-chip.on { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
+  .mgrp-badge { display:inline-block; padding:1.5px 7px; border-radius:999px; font-size:10px; font-weight:800; margin-right:5px; vertical-align:1.5px; }
+  .mgrp-wrong  { background:#FFE0DC; color:#B5421F; }
+  .mgrp-review { background:#E0EDFF; color:#1E4E8C; }
+  .mgrp-rest   { background:#EFEFEF; color:#777; }
   body.theme-active .rsn-chip { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.2); }
   body.theme-active .rsn-chip.on { background: var(--green); color: #fff; border-color: var(--green); }
   .rsn-tag-view {
@@ -4931,13 +4935,18 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     // (각 그룹 안에서는 무작위. 실패하면 예전 방식으로 자동 복귀)
     let picked;
     try {
-      let history = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?student_id=eq.${studentId}&select=variation_id,correct,attempt_date`, { headers: sbHeaders() }).then(r => r.json());
+      let history = await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts?student_id=eq.${studentId}&select=variation_id,correct,attempt_date,next_review_at`, { headers: sbHeaders() }).then(r => r.json());
       if (!Array.isArray(history)) history = [];
 
       const stat = {};
       history.forEach(a => {
-        const st = stat[a.variation_id] || (stat[a.variation_id] = { last: '', lastCorrect: true });
-        if (String(a.attempt_date) >= st.last) { st.last = String(a.attempt_date); st.lastCorrect = !!a.correct; }
+        const st = stat[a.variation_id] || (stat[a.variation_id] = { last: '', lastCorrect: true, wrongCount: 0, due: '' });
+        if (!a.correct) st.wrongCount++;              // 몇 번이나 틀렸는지 (마지막 한 번만 보면 안 됨)
+        if (String(a.attempt_date) >= st.last) {
+          st.last = String(a.attempt_date);
+          st.lastCorrect = !!a.correct;
+          st.due = a.next_review_at ? String(a.next_review_at).slice(0, 10) : '';
+        }
       });
 
       const shuffle = arr => {
@@ -4948,17 +4957,25 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         return arr;
       };
 
-      const gWrong = [], gNew = [], gDone = [];
+      const todayK = addDaysKST(0);
+      const gWrong = [], gNew = [], gDone = [], gResting = [];
       available.forEach(v => {
         const st = stat[v.id];
-        if (!st) gNew.push(v);
-        else if (!st.lastCorrect) gWrong.push(v);
-        else gDone.push(v);
+        v.__grp = '';
+        if (!st) { gNew.push(v); return; }
+        if (!st.lastCorrect) { v.__grp = 'wrong'; gWrong.push(v); return; }
+        // 맞힌 문제는 복습일이 될 때까지 쉬게 둔다 (망각곡선)
+        if (st.due && st.due > todayK) { v.__grp = 'rest'; gResting.push(v); return; }
+        v.__grp = 'review'; gDone.push(v);
       });
       shuffle(gWrong); shuffle(gNew);
+      // 많이 틀린 문제가 위로. (sort가 안정 정렬이라 같은 횟수끼리는 위에서 섞은 순서 유지)
+      gWrong.sort((a, b) => stat[b.id].wrongCount - stat[a.id].wrongCount);
       gDone.sort((a, b) => String(stat[a.id].last).localeCompare(String(stat[b.id].last)));
+      gResting.sort((a, b) => String(stat[a.id].due).localeCompare(String(stat[b.id].due)));
 
-      picked = [...gWrong, ...gNew, ...gDone];
+      // 쉬는 중인 문제는 맨 뒤. 풀 게 하나도 없을 때만 나온다 (빈 화면 방지)
+      picked = [...gWrong, ...gNew, ...gDone, ...gResting];
     } catch (e) {
       console.error('미션 우선순위 계산 실패, 기본 순서로 표시:', e);
       picked = available;
@@ -4972,7 +4989,11 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border-radius:12px;padding:12px;">
         ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" onclick="openModal('${v.wrong_notes.image_url}','원본 오답 문제')" style="width:52px;height:52px;border-radius:8px;object-fit:cover;cursor:zoom-in;flex-shrink:0;" />` : '<span style="font-size:26px;">📝</span>'}
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:var(--text1);">변형문제 도전 ${v.wrong_notes?.image_url ? '<span style="font-size:10.5px;color:var(--text4);font-weight:600;">· 사진을 누르면 원본 문제</span>' : ''}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text1);">${
+            v.__grp === 'wrong'  ? '<span class="mgrp-badge mgrp-wrong">🔴 또 틀린 문제</span>' :
+            v.__grp === 'review' ? '<span class="mgrp-badge mgrp-review">🔁 복습할 때</span>' :
+            v.__grp === 'rest'   ? '<span class="mgrp-badge mgrp-rest">💤 미리 보기</span>' : ''
+          }변형문제 도전 ${v.wrong_notes?.image_url ? '<span style="font-size:10.5px;color:var(--text4);font-weight:600;">· 사진을 누르면 원본 문제</span>' : ''}</div>
           <div style="font-size:11px;color:var(--text3);">제한시간 ${Math.round(((v.time_limit_sec||300)+timerBonusFor(_myLevel()))/60)}분${timerBonusFor(_myLevel())?' <span style="color:#F59E0B;font-weight:700;">(+'+(timerBonusFor(_myLevel())/60)+'분)</span>':''} · 성공시 +${POINT_PER_PROBLEM}P</div>
         </div>
         <button onclick="startMission('${v.id}')" style="padding:9px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:white;font-size:12.5px;font-weight:700;cursor:pointer;">도전!</button>
@@ -5912,7 +5933,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   }
 
   async function startMission(variationId) {
-    const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${variationId}&select=*,wrong_notes(image_url)`, { headers: sbHeaders() }).then(r => r.json());
+    const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${variationId}&select=*,wrong_notes(image_url,reason_tags)`, { headers: sbHeaders() }).then(r => r.json());
     const v = rows[0];
     if (!v) { alert('문제를 불러올 수 없어요'); return; }
     _missionCurrent = v;
@@ -6070,12 +6091,66 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     loadMissions();
   }
 
+  // ═══ 망각곡선 복습 ══════════════════════════════════════════════
+  // 맞힌 문제를 바로 다음날 또 내면 시간 낭비고, 영영 안 내면 까먹는다.
+  // 그래서 연속으로 맞힌 횟수만큼 간격을 벌린다. 틀리면 간격을 1일로 되돌린다.
+  const REVIEW_STEPS = [1, 3, 7, 14, 30];
+
+  // 학생이 고른 '틀린 이유'에 따라 간격을 늘리거나 줄인다.
+  // 개념을 모르는 거면 자주 봐야 하고, 단순 실수면 덜 봐도 된다.
+  const _RSN_SHORT = ['개념을 아예 몰랐음','공식이 기억 안 남','공식을 잘못 씀','조건·범위를 몰랐음',
+    '어떻게 시작할지 몰랐음','풀다가 중간에 막힘','돌아가는 방법으로 풀다 꼬임','그림·그래프를 잘못 그림',
+    '무슨 말인지 모르겠음','찍었는데 틀림'];
+  const _RSN_LONG = ['아는데 실수함','답만 쓰고 검산 안 함','글씨를 잘못 옮겨 씀','시간이 부족했음'];
+
+  function reviewTagFactor(tags) {
+    const t = Array.isArray(tags) ? tags : [];
+    if (t.some(x => _RSN_SHORT.includes(x))) return 0.6;   // 개념 구멍 → 자주
+    if (t.some(x => _RSN_LONG.includes(x)))  return 1.5;   // 단순 실수 → 뜸하게
+    return 1;
+  }
+
+  // 한국 날짜 기준으로 n일 뒤 (UTC로 계산하면 새벽에 하루 어긋난다)
+  function addDaysKST(n) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function nextReviewDate(correct, streak, tags) {
+    if (!correct) return addDaysKST(1);                    // 틀렸으면 내일 또
+    // streak는 '연속 몇 번째 정답인가'(1부터). 배열은 0부터라 한 칸 당겨야 한다.
+    const base = REVIEW_STEPS[Math.min(Math.max(0, streak - 1), REVIEW_STEPS.length - 1)];
+    return addDaysKST(Math.max(1, Math.round(base * reviewTagFactor(tags))));
+  }
+
   async function recordMissionAttempt(correct) {
     const studentId = document.getElementById('student-select').value;
+
+    // 이 문제를 연속 몇 번 맞혔는지 세서 다음 복습일을 정한다.
+    // 계산이 실패해도 기록 자체는 반드시 남아야 하므로 통째로 감싼다.
+    let nextAt = null;
+    try {
+      const past = await fetch(
+        `${SUPABASE_URL}/rest/v1/mission_attempts?student_id=eq.${studentId}&variation_id=eq.${_missionCurrent.id}&select=correct,attempt_date&order=attempt_date.desc`,
+        { headers: sbHeaders() }).then(r => r.json());
+      let streak = 0;
+      if (Array.isArray(past)) {
+        for (const a of past) { if (a.correct) streak++; else break; }
+      }
+      nextAt = nextReviewDate(correct, correct ? streak + 1 : 0, _missionCurrent?.wrong_notes?.reason_tags);
+    } catch (e) {
+      console.error('복습일 계산 실패, 기록만 남김:', e);
+    }
+
+    const body = { student_id: studentId, variation_id: _missionCurrent.id, correct };
+    if (nextAt) body.next_review_at = nextAt;
+
     await fetch(`${SUPABASE_URL}/rest/v1/mission_attempts`, {
       method: 'POST',
       headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
-      body: JSON.stringify({ student_id: studentId, variation_id: _missionCurrent.id, correct })
+      body: JSON.stringify(body)
     });
   }
 
