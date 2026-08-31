@@ -14,6 +14,31 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+  /* ── 설정 시트(시험지 만들기 등)의 버튼이 안 눌리던 문제 ──
+     내용이 길어서 시트 안을 스크롤해야 '만들기'가 나왔는데, 두 가지가 겹쳤다.
+       ① 스크롤한 직후의 첫 탭은 '관성 스크롤 멈추기'로 먹혀서 버튼까지 안 간다
+       ② 88vh 는 주소창·하단바가 차지하는 높이를 빼지 않아서
+          버튼이 브라우저 하단바 밑에 깔린다 (눌러도 하단바가 먹는다)
+     → 버튼줄을 시트 바닥에 고정해 스크롤 없이 항상 보이게 하고,
+        높이는 실제로 보이는 영역만 세는 dvh 로 잡는다. */
+  .sheet-box {
+    background: var(--bg2); border-radius: 16px; width: 100%; max-width: 400px;
+    border: 1px solid var(--border);
+    max-height: 88vh;
+    max-height: 88dvh;                 /* dvh 를 아는 브라우저는 이걸 쓴다 */
+    padding: 16px 16px 0;
+    overflow-y: auto;
+  }
+  .sheet-actions {
+    position: sticky; bottom: 0; z-index: 2;
+    display: flex; gap: 8px;
+    margin: 6px -16px 0; padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+  }
+  .sheet-actions button { min-height: 48px; }   /* 손가락으로 확실히 잡히는 크기 */
+
   /* 당겨서 새로고침 차단 — 자바스크립트 없이 (아래쪽 주석 참고)
      ⚠️ body 에 걸면 안 된다. 이 앱은 html·body 둘 다 overflow-y:auto 라
      스크롤 상자가 두 겹인데, body 에 contain 을 주면 그 사이의 스크롤 전달이
@@ -403,7 +428,7 @@
 
   .review-modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; padding: 1.5rem; }
   .review-modal-overlay.show { display: flex; }
-  .review-modal { background: var(--bg2); border-radius: 20px; max-width: 480px; width: 100%; max-height: 88vh; overflow-y: auto; padding: 1.5rem; }
+  .review-modal { background: var(--bg2); border-radius: 20px; max-width: 480px; width: 100%; max-height: 88vh; max-height: 88dvh; overflow-y: auto; padding: 1.5rem; }
   .review-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .review-modal-title { font-size: 16px; font-weight: 700; color: var(--text1); }
   .review-modal-close { background: none; border: none; font-size: 20px; color: var(--text3); cursor: pointer; }
@@ -707,7 +732,7 @@
 
 <!-- 주간 요약 (진도자 등 다른 프로그램에 붙여넣기용) -->
 <div id="summary-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99998;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:var(--bg2);border-radius:18px;padding:1.2rem;width:100%;max-width:520px;max-height:88vh;display:flex;flex-direction:column;">
+  <div style="background:var(--bg2);border-radius:18px;padding:1.2rem;width:100%;max-width:520px;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <span style="font-size:15px;font-weight:800;color:var(--text1);">📋 주간 요약</span>
       <button onclick="closeSummarySheet()" style="background:none;border:none;font-size:20px;color:var(--text4);cursor:pointer;line-height:1;">✕</button>
@@ -5814,7 +5839,7 @@
     box.id = 'paper-setup';
     box.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9600;display:flex;align-items:center;justify-content:center;padding:14px;';
     box.innerHTML = `
-      <div style="background:var(--bg2);border-radius:16px;padding:16px;width:100%;max-width:400px;max-height:88vh;overflow:auto;border:1px solid var(--border);">
+      <div class="sheet-box">
         <div style="font-size:15px;font-weight:800;color:var(--text1);margin-bottom:3px;">🖨 시험지 만들기</div>
         <div style="font-size:11.5px;color:var(--text4);margin-bottom:13px;">${picked.length}문항 · 단답 ${nShort} / 객관식 ${picked.length - nShort}${names.length ? ' · 학생 ' + names.length + '명' : ''}</div>
 
@@ -5875,9 +5900,9 @@
           <span style="font-size:12.5px;color:var(--text2);font-weight:600;">해설지도 만들기 <span style="color:var(--text4);font-weight:500;">(풀이가 있는 문항만)</span></span>
         </label>
 
-        <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('paper-setup').remove()" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
-          <button onclick="vmPrintGo()" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:#fff;font-size:13px;font-weight:800;cursor:pointer;">만들기</button>
+        <div class="sheet-actions">
+          <button onclick="document.getElementById('paper-setup').remove()" style="flex:1;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;">취소</button>
+          <button onclick="vmPrintGo()" style="flex:2;border-radius:10px;border:none;background:linear-gradient(135deg,#E8639A,#C94080);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기</button>
         </div>
       </div>`;
     document.body.appendChild(box);
