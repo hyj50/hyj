@@ -1745,16 +1745,30 @@
     const hi = ['공통수학1', '공통수학2', '기본수학1', '기본수학2', '수학(공통)'];
     if (g >= 2) hi.push('대수', '미적분Ⅰ', '미적분Ⅱ', '확률과 통계', '기하',
                         '수학Ⅰ', '수학Ⅱ', '미적분', '경제 수학', '인공지능 수학');
-    return all.filter(k => hi.some(h => k.endsWith(h)));
+    const picked = all.filter(k => hi.some(h => k.endsWith(h)));
+    // 후보가 많을수록 AI가 헷갈린다. 고1·고2는 22개정만 배우므로 15개정을 뺀다.
+    // (고3은 2027년까지 15개정이라 그대로 둔다)
+    if (g <= 2) {
+      const only22 = picked.filter(k => k.startsWith('[22개정]'));
+      if (only22.length) return only22;
+    }
+    return picked;
   }
 
   // "과목 > 대단원 > 중단원" 문자열 목록과, 번호→분류 되돌리기용 표
   function aiCandidates(subjects) {
-    const list = [], map = [];
+    // ⚠️ 22개정과 15개정은 단원 이름이 거의 같다. 개정 딱지를 떼고 보내므로
+    //    그대로 두면 "글자가 완전히 똑같은 선택지" 가 두 개 생긴다.
+    //    AI 입장에선 둘 다 정답이라 확신이 깎이고, 같은 단원이 두 과목으로 쪼개져 저장된다.
+    //    → 같은 이름이면 앞선 것(주로 22개정) 하나만 남긴다.
+    const list = [], map = [], seen = new Set();
     subjects.forEach(sub => {
       Object.keys(CURRICULUM[sub] || {}).forEach(maj => {
         (CURRICULUM[sub][maj] || []).forEach(min => {
-          list.push(`${sub.replace(/^\[\d+개정\] /, '')} > ${maj} > ${min}`);
+          const label = `${sub.replace(/^\[\d+개정\] /, '')} > ${maj} > ${min}`;
+          if (seen.has(label)) return;
+          seen.add(label);
+          list.push(label);
           map.push({ subject: sub, major: maj, minor: min });
         });
       });
@@ -1762,8 +1776,9 @@
     return { list, map };
   }
 
-  async function aiClassify(entry, stu) {
-    if (aiGuessCache[entry.id]) return aiGuessCache[entry.id];
+  async function aiClassify(entry, stu, force) {
+    // force 면 캐시를 건너뛴다. 안 그러면 "다시" 를 눌러도 같은 답만 계속 나온다.
+    if (!force && aiGuessCache[entry.id]) return aiGuessCache[entry.id];
     const subjects = aiSubjectsFor(stu);
     const { list, map } = aiCandidates(subjects);
     if (!list.length) throw new Error('후보 단원이 없어요');
@@ -1786,7 +1801,7 @@
     const out = await res.json();
     const pick = map[out.index];
     if (!pick) throw new Error('AI가 엉뚱한 답을 줬어요');
-    const guess = { ...pick, confidence: out.confidence, topic: out.topic, reason: out.reason };
+    const guess = { ...pick, confidence: out.confidence, topic: out.topic, reason: out.reason, model: out.model };
     aiGuessCache[entry.id] = guess;
     return guess;
   }
@@ -1809,26 +1824,26 @@
       font-size:11.5px;color:#4C3A7A;line-height:1.6;margin-bottom:8px;">${inner}</div>`;
   }
 
-  async function runAiClassify(entryId, silent) {
+  async function runAiClassify(entryId, silent, force) {
     const box = document.getElementById(`ai-guess-${entryId}`);
     const entry = currentEntries.find(x => x.id === entryId);
     if (!entry) return;
     if (box) box.innerHTML = aiBoxHtml('🤖 AI가 단원을 보는 중...');
     try {
-      const g = await aiClassify(entry, getCurrentStudent());
+      const g = await aiClassify(entry, getCurrentStudent(), force);
       const pct = Math.round((g.confidence || 0) * 100);
       const low = (g.confidence || 0) < AI_MIN_CONF;
       aiFillForm(entryId, g);
       if (box) box.innerHTML = aiBoxHtml(
         `<b>🤖 AI 추천 · 확신 ${pct}%</b>${low ? ' <span style="color:#B45309;">(낮음 — 꼭 확인하세요)</span>' : ''}<br>
-         ${g.subject.replace(/^\[\d+개정\] /, '')} › ${g.major} › <b>${g.minor}</b><br>
+         ${g.subject} › ${g.major} › <b>${g.minor}</b><br>
          ${g.topic ? `<span style="opacity:.8;">핵심: ${g.topic}</span><br>` : ''}
          ${g.reason ? `<span style="opacity:.7;">${g.reason}</span><br>` : ''}
          <span style="opacity:.7;">아래 드롭다운에 채워뒀어요. 맞으면 저장하기를 누르세요.</span>`);
     } catch (e) {
       const msg = (e && e.message) || '실패';
       if (box) box.innerHTML = aiBoxHtml(`⚠️ AI 분류 실패 — ${msg}
-        <button onclick="runAiClassify('${entryId}')" style="margin-left:6px;padding:3px 9px;border-radius:7px;border:1px solid #D9CBFF;background:white;font-size:11px;font-weight:700;cursor:pointer;">다시</button>`);
+        <button onclick="runAiClassify('${entryId}',false,true)" style="margin-left:6px;padding:3px 9px;border-radius:7px;border:1px solid #D9CBFF;background:white;font-size:11px;font-weight:700;cursor:pointer;">다시</button>`);
       if (!silent) showToast('⚠️ AI 분류 실패 — ' + msg, 'warn');
     }
   }
