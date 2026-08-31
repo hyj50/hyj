@@ -14,8 +14,12 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-  /* 당겨서 새로고침 차단 — 자바스크립트 없이 (위 주석 참고) */
-  html, body { overscroll-behavior-y: contain; }
+  /* 당겨서 새로고침 차단 — 자바스크립트 없이 (아래쪽 주석 참고)
+     ⚠️ body 에 걸면 안 된다. 이 앱은 html·body 둘 다 overflow-y:auto 라
+     스크롤 상자가 두 겹인데, body 에 contain 을 주면 그 사이의 스크롤 전달이
+     끊겨서 페이지가 아예 안 움직인다. 실제로 그렇게 만들어 스크롤이 죽었었다.
+     스크롤을 실제로 담당하는 html 에만 건다. */
+  html { overscroll-behavior-y: contain; }
 
   /* ── 안드로이드에서 버튼이 안 눌리고 구글 검색창이 뜨는 문제 ──
      손가락이 조금이라도 밀리거나 오래 눌리면 브라우저가 '글자 선택'으로 알아듣는다.
