@@ -6981,7 +6981,7 @@
 (function () {
   'use strict';
 
-  const _cc = { subject: '', major: '', rows: {}, cur: null, editing: false, busy: false };
+  const _cc = { subject: '', major: '', rows: {}, all: [], counts: {}, cur: null, editing: false, busy: false, touched: false };
 
   const esc = t => String(t == null ? '' : t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -6998,15 +6998,70 @@
 
   // ---------- 초기화 ----------
   async function initConcept() {
+    await ccLoadAll();
     const sSel = document.getElementById('cc-subject');
-    if (!sSel.options.length) {
-      const subs = Object.keys(CURRICULUM);
-      sSel.innerHTML = subs.map(s => `<option value="${attr(s)}">${esc(s)}</option>`).join('');
-      _cc.subject = subs[0] || '';
-      sSel.value = _cc.subject;
+    const subs = Object.keys(CURRICULUM);
+    // 카드가 하나라도 있는 과목을 기본으로 (없으면 첫 과목)
+    if (!_cc.subject || !CURRICULUM[_cc.subject] || (!_cc.touched && !_cc.counts[_cc.subject])) {
+      _cc.subject = subs.find(s => _cc.counts[s]) || subs[0] || '';
     }
+    sSel.innerHTML = subs.map(s => {
+      const c = _cc.counts[s];
+      const tag = c ? `  (${c.n}개${c.draft ? ` · 검수 ${c.draft}` : ''})` : '';
+      return `<option value="${attr(s)}">${esc(s + tag)}</option>`;
+    }).join('');
+    sSel.value = _cc.subject;
     ccFillMajors();
-    await ccLoad();
+    ccPickRows();
+    ccRender();
+  }
+
+  // 개념 카드 전체를 한 번에 읽는다. 과목마다 다시 부르지 않으려고.
+  async function ccLoadAll() {
+    const box = document.getElementById('cc-list');
+    if (box && !box.innerHTML) box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
+    try {
+      const rows = await fetch(
+        `${SUPABASE_URL}/rest/v1/concepts?select=id,subject,major_unit,minor_unit,status,summary,updated_at&order=subject.asc,major_unit.asc,minor_unit.asc`,
+        { headers: sbHeaders() }).then(r => r.json());
+      _cc.all = Array.isArray(rows) ? rows : [];
+      _cc.counts = {};
+      _cc.all.forEach(r => {
+        const c = (_cc.counts[r.subject] ||= { n: 0, draft: 0, pub: 0 });
+        c.n++;
+        if (r.status === 'draft') c.draft++;
+        if (r.status === 'published') c.pub++;
+      });
+    } catch (e) {
+      console.error('ccLoadAll:', e);
+      if (box) box.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:12.5px;padding:20px;">불러오지 못했어요.</div>';
+    }
+  }
+
+  function ccRecount() {
+    _cc.counts = {};
+    _cc.all.forEach(r => {
+      const c = (_cc.counts[r.subject] ||= { n: 0, draft: 0, pub: 0 });
+      c.n++;
+      if (r.status === 'draft') c.draft++;
+      if (r.status === 'published') c.pub++;
+    });
+    const sel = document.getElementById('cc-subject');
+    if (sel) {
+      const keep = sel.value;
+      sel.innerHTML = Object.keys(CURRICULUM).map(s2 => {
+        const c = _cc.counts[s2];
+        const tag = c ? `  (${c.n}개${c.draft ? ` · 검수 ${c.draft}` : ''})` : '';
+        return `<option value="${attr(s2)}">${esc(s2 + tag)}</option>`;
+      }).join('');
+      sel.value = keep;
+    }
+  }
+
+  function ccPickRows() {
+    _cc.rows = {};
+    _cc.all.filter(r => r.subject === _cc.subject)
+      .forEach(r => { _cc.rows[r.major_unit + '|' + r.minor_unit] = r; });
   }
 
   function ccFillMajors() {
@@ -7018,25 +7073,10 @@
     _cc.major = mSel.value;
   }
 
-  function ccOnSubject(v) { _cc.subject = v; _cc.major = ''; ccFillMajors(); ccLoad(); }
+  function ccOnSubject(v) { _cc.subject = v; _cc.major = ''; _cc.touched = true; ccFillMajors(); ccPickRows(); ccRender(); }
   function ccOnMajor(v) { _cc.major = v; ccRender(); }
 
-  // 이 과목의 개념 카드를 통째로 받아서 키로 정리
-  async function ccLoad() {
-    const box = document.getElementById('cc-list');
-    box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
-    try {
-      const rows = await fetch(
-        `${SUPABASE_URL}/rest/v1/concepts?subject=eq.${encodeURIComponent(_cc.subject)}&select=id,major_unit,minor_unit,status,summary,updated_at`,
-        { headers: sbHeaders() }).then(r => r.json());
-      _cc.rows = {};
-      (Array.isArray(rows) ? rows : []).forEach(r => { _cc.rows[r.major_unit + '|' + r.minor_unit] = r; });
-      ccRender();
-    } catch (e) {
-      console.error('ccLoad:', e);
-      box.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:12.5px;padding:20px;">불러오지 못했어요.</div>';
-    }
-  }
+  async function ccLoad() { await initConcept(); }
 
   const STATUS_BADGE = {
     published: '<span style="font-size:10px;font-weight:800;color:#16A34A;background:#DCFCE7;padding:2px 7px;border-radius:99px;">공개</span>',
@@ -7056,7 +7096,17 @@
       if (r) { made++; if (r.status === 'published') pub++; }
     }));
 
-    let html = `
+    const drafts = Object.keys(_cc.counts).filter(s2 => _cc.counts[s2].draft > 0);
+    let html = '';
+    if (drafts.length) {
+      html += `<div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:10px 12px;margin-bottom:12px;">
+        <div style="font-size:11.5px;font-weight:800;color:#92400E;margin-bottom:6px;">🔔 검수 대기 중인 카드가 있어요</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${drafts.map(s2 => `<button onclick="ccGoto('${attr(s2).replace(/'/g, "\\'")}')" style="padding:5px 10px;border-radius:8px;border:1px solid #FDE68A;background:#fff;color:#92400E;font-size:11px;font-weight:800;cursor:pointer;${s2 === _cc.subject ? 'outline:2px solid #F59E0B;' : ''}">${esc(s2)} ${_cc.counts[s2].draft}</button>`).join('')}
+        </div></div>`;
+    }
+
+    html += `
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <div style="flex:1;background:var(--bg3);border-radius:12px;padding:10px;text-align:center;">
           <div style="font-size:10.5px;color:var(--text3);font-weight:700;">전체 중단원</div>
@@ -7095,7 +7145,27 @@
       </div>`;
     }).join('');
 
+    // 교육과정 목록에 없는 단원으로 만들어진 카드 (안 그러면 영영 못 찾음)
+    const known = new Set();
+    Object.keys(tree).forEach(m => (tree[m] || []).forEach(mi => known.add(m + '|' + mi)));
+    const orphans = _cc.all.filter(r => r.subject === _cc.subject && !known.has(r.major_unit + '|' + r.minor_unit));
+    if (orphans.length) {
+      html += `<div style="background:var(--bg2);border:1px solid #FCA5A5;border-radius:14px;margin-top:12px;overflow:hidden;">
+        <div style="padding:11px 13px;background:#FEF2F2;border-bottom:1px solid #FCA5A5;font-size:12.5px;font-weight:800;color:#DC2626;">⚠️ 교육과정 목록에 없는 단원 ${orphans.length}개</div>
+        ${orphans.map(r => `<div style="display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);">
+          <span style="flex:1;min-width:0;font-size:12.5px;color:var(--text2);font-weight:600;">${esc(r.major_unit)} › ${esc(r.minor_unit)}</span>
+          ${STATUS_BADGE[r.status] || ''}
+          <button onclick="ccOpen('${r.id}')" style="padding:6px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:11px;font-weight:700;cursor:pointer;">열기</button>
+        </div>`).join('')}</div>`;
+    }
+
     box.innerHTML = html;
+  }
+
+  function ccGoto(sub) {
+    _cc.subject = sub; _cc.major = ''; _cc.touched = true;
+    document.getElementById('cc-subject').value = sub;
+    ccFillMajors(); ccPickRows(); ccRender();
   }
 
   // ---------- AI 생성 ----------
@@ -7119,7 +7189,11 @@
         return false;
       }
       const data = await res.json();
-      if (data.concept) _cc.rows[maj + '|' + mi] = data.concept;
+      if (data.concept) {
+        _cc.rows[maj + '|' + mi] = data.concept;
+        _cc.all = _cc.all.filter(r => r.id !== data.concept.id).concat([data.concept]);
+        ccRecount();
+      }
       bar.textContent = `✅ 「${mi}」 완료 — 검수 대기`;
       if (!silent) { ccRender(); setTimeout(() => { bar.style.display = 'none'; }, 2500); }
       return true;
@@ -7315,6 +7389,9 @@
       _cc.cur.status = st;
       const k = _cc.cur.major_unit + '|' + _cc.cur.minor_unit;
       if (_cc.rows[k]) _cc.rows[k].status = st;
+      const a = _cc.all.find(r => r.id === _cc.cur.id);
+      if (a) a.status = st;
+      ccRecount();
       say(st === 'published' ? '학생에게 공개했어요' : st === 'hidden' ? '숨겼어요' : '검수 대기로 바꿨어요');
       ccDetail();
     } catch (e) { console.error(e); }
@@ -7351,6 +7428,8 @@
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${_cc.cur.id}`, { method: 'DELETE', headers: sbHeaders() });
       delete _cc.rows[_cc.cur.major_unit + '|' + _cc.cur.minor_unit];
+      _cc.all = _cc.all.filter(r => r.id !== _cc.cur.id);
+      ccRecount();
       _cc.cur = null;
       say('삭제했어요');
       ccRender();
@@ -7394,6 +7473,7 @@
   window.ccOnSubject  = ccOnSubject;
   window.ccOnMajor    = ccOnMajor;
   window.ccLoad       = ccLoad;
+  window.ccGoto       = ccGoto;
   window.ccOpen       = ccOpen;
   window.ccBack       = ccBack;
   window.ccDetail     = ccDetail;
