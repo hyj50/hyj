@@ -2393,90 +2393,203 @@
     t._timer = setTimeout(() => { t.style.opacity = '0'; }, type === 'ok' ? 3000 : 6000);
   }
 
+  // AI 가 문제에 "(힌트: ...)"를 끼워 넣는 일이 있다. 힌트가 같이 나오면
+  // 학생이 스스로 풀어볼 기회가 없어지므로 저장 전에 잘라낸다.
+  //  1) 괄호가 통째로 힌트면 닫는 괄호까지 지운다
+  //  2) "(단, ... 힌트: ...)" 처럼 진짜 조건과 섞였으면 힌트 부분만 지운다
+  const HINT_PAREN = /\s*[(（]\s*(?:힌트|도움말|참고|Hint)\s*[:：][^)）\n]*[)）]/gi;
+  const HINT_BARE  = /\s*(?:힌트|도움말|참고|Hint)\s*[:：][^)）\n]*/gi;
+  function stripHint(t) {
+    if (t == null) return t;
+    return String(t)
+      .replace(HINT_PAREN, '')
+      .replace(HINT_BARE, '')
+      .replace(/[(（]\s*[)）]/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  // 그림이 문제 조건과 어긋나면 검수 화면에서 알려준다.
+  // 앱이 자동으로 좌표를 바로잡지만, 못 잡는 경우(원의 접점 등)가 남는다.
+  function figWarnBox(v) {
+    let f = v.figure;
+    if (!f) return '';
+    if (typeof f === 'string') { try { f = JSON.parse(f); } catch (e) { return ''; } }
+    let bad = [];
+    try { bad = geoCheck(geoSolve(f).fig); } catch (e) { return ''; }
+    if (!bad.length) return '';
+    const list = bad.slice(0, 3).map(b => `${b.what} 표기 ${b.want}° / 그림 ${b.got}°`).join(' · ');
+    return `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:11.5px;color:#B91C1C;font-weight:700;line-height:1.5;">
+      ⚠️ 그림이 문제 조건과 안 맞아요<div style="font-weight:600;opacity:.85;margin-top:2px;">${list}</div>
+      <div style="font-weight:600;opacity:.85;">🔄 재생성하거나, 그림 없이 내보내세요</div></div>`;
+  }
+
   // ===== 미션: 변형문제 생성 =====
-  // ===== 변형문제 생성 진행 배너 (자리를 뜨면 요청이 끊기므로 눈에 보이게) =====
-  let _genCount = 0;
-  function genBannerShow(name) {
-    _genCount++;
-    let el = document.getElementById('gen-banner');
+  // 예전에는 브라우저가 generate-variation 을 직접 부르고 응답을 받아 저장했다.
+  // 그래서 30~60초 동안 화면을 지키고 있어야 했고, 나가면 통째로 날아갔다.
+  // 이제 queue-variation 이 접수만 받고 서버가 혼자 끝낸다.
+  // 브라우저는 variation_jobs 를 가끔 들여다보기만 하면 된다.
+  const BG_KEY = 'bg_variation_jobs';
+  const BG_TIMEOUT = 5 * 60 * 1000;      // 5분 넘게 소식 없으면 포기
+  let _bgTimer = null;
+
+  function bgLoad() {
+    try { return JSON.parse(localStorage.getItem(BG_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function bgSave(jobs) {
+    try { localStorage.setItem(BG_KEY, JSON.stringify(jobs)); } catch (e) {}
+  }
+  function bgAdd(noteId, who) {
+    const jobs = bgLoad().filter(j => j.id !== noteId);
+    jobs.push({ id: noteId, who: who || '', at: Date.now() });
+    bgSave(jobs);
+    bgPaint();
+    bgStartPolling();
+  }
+  function bgRemove(noteId) {
+    bgSave(bgLoad().filter(j => j.id !== noteId));
+    bgPaint();
+  }
+
+  function bgPaint() {
+    const jobs = bgLoad();
+    let el = document.getElementById('bg-chip');
+    if (!jobs.length) { el?.remove(); return; }
     if (!el) {
       el = document.createElement('div');
-      el.id = 'gen-banner';
-      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:76px;z-index:9998;border-radius:14px;padding:12px 14px;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4);font-size:13px;font-weight:700;line-height:1.5;';
+      el.id = 'bg-chip';
+      el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:76px;z-index:9998;border-radius:14px;padding:11px 14px;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4);font-size:13px;font-weight:700;line-height:1.5;';
       document.body.appendChild(el);
+      if (!document.getElementById('genspin-style')) {
+        const st = document.createElement('style');
+        st.id = 'genspin-style';
+        st.textContent = '@keyframes genspin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(st);
+      }
     }
-    el.style.display = 'block';
+    const names = [...new Set(jobs.map(j => j.who).filter(Boolean))].slice(0, 2).join(', ');
+    el.style.background = 'linear-gradient(135deg,#7C3AED,#4C1D95)';
     el.innerHTML = `<div style="display:flex;align-items:center;gap:9px;">
         <div style="width:16px;height:16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:genspin .8s linear infinite;flex-shrink:0;"></div>
-        <div>🤖 변형문제 만드는 중${_genCount > 1 ? ` (${_genCount}건)` : ''}…<div style="font-size:11px;font-weight:600;opacity:.85;margin-top:2px;">30초쯤 걸려요. <b>이 화면에 머물러 주세요</b> — 나가면 중단돼요.</div></div>
+        <div style="flex:1;">🤖 변형문제 만드는 중${jobs.length > 1 ? ` (${jobs.length}건)` : ''}${names ? ` · ${names}` : ''}
+          <div style="font-size:11px;font-weight:600;opacity:.9;margin-top:2px;">서버가 알아서 끝내요. <b>나가거나 새로고침해도 괜찮아요</b></div>
+        </div>
       </div>`;
-    if (!document.getElementById('genspin-style')) {
-      const st = document.createElement('style');
-      st.id = 'genspin-style';
-      st.textContent = '@keyframes genspin{to{transform:rotate(360deg)}}';
-      document.head.appendChild(st);
-    }
   }
-  function genBannerDone(msg, ok) {
-    _genCount = Math.max(0, _genCount - 1);
-    const el = document.getElementById('gen-banner');
-    if (!el) return;
-    if (_genCount > 0) { genBannerShow(); _genCount--; genBannerShow(); _genCount--; return; }
-    el.style.background = ok ? 'linear-gradient(135deg,#059669,#065F46)' : 'linear-gradient(135deg,#DC2626,#7F1D1D)';
-    el.innerHTML = `<div style="font-size:13px;">${msg}</div>`;
-    setTimeout(() => { if (_genCount === 0 && el) el.style.display = 'none'; }, 4000);
+
+  function bgDone(noteId, ok, msg) {
+    bgRemove(noteId);
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;left:12px;right:12px;bottom:${document.getElementById('bg-chip') ? 138 : 76}px;z-index:9999;border-radius:14px;padding:12px 14px;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.4);font-size:13px;font-weight:700;line-height:1.5;background:linear-gradient(135deg,${ok ? '#059669,#065F46' : '#DC2626,#7F1D1D'});`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
   }
+
+  async function bgPoll() {
+    const jobs = bgLoad();
+    if (!jobs.length) { clearInterval(_bgTimer); _bgTimer = null; bgPaint(); return; }
+    const ids = jobs.map(j => j.id);
+    try {
+      const rows = await fetch(
+        `${SUPABASE_URL}/rest/v1/variation_jobs?note_id=in.(${ids.join(',')})&select=note_id,status,detail`,
+        { headers: sbHeaders() }).then(r => r.json());
+      const byId = {};
+      (Array.isArray(rows) ? rows : []).forEach(r => { byId[r.note_id] = r; });
+
+      let changed = false;
+      for (const j of jobs) {
+        const r = byId[j.id];
+        if (r && r.status === 'done') {
+          bgDone(j.id, true, `✅ 변형문제 완성${j.who ? ` · ${j.who}` : ''}${r.detail ? ` (⚠️ ${r.detail})` : ''} — 미션탭에서 검수해 주세요`);
+          changed = true;
+        } else if (r && r.status === 'failed') {
+          bgDone(j.id, false, `❌ 변형문제 실패${j.who ? ` · ${j.who}` : ''} — ${r.detail || '미션탭 누락 목록에서 다시 만들 수 있어요'}`);
+          changed = true;
+        } else if (Date.now() - j.at > BG_TIMEOUT) {
+          bgDone(j.id, false, `⏱️ 응답이 없어요${j.who ? ` · ${j.who}` : ''} — 미션탭 누락 목록에서 확인해 주세요`);
+          changed = true;
+        }
+      }
+      if (changed) { bgPaint(); if (typeof loadVariationReviews === 'function') loadVariationReviews(); }
+    } catch (e) { console.error('bgPoll:', e); }
+  }
+
+  function bgStartPolling() {
+    if (_bgTimer) return;
+    _bgTimer = setInterval(bgPoll, 5000);
+    bgPoll();
+  }
+
+  // 앱을 다시 열었을 때 진행 중이던 작업 이어보기
+  document.addEventListener('DOMContentLoaded', () => { bgPaint(); if (bgLoad().length) bgStartPolling(); });
 
   async function generateVariation(entry) {
     if (!entry.image_url) { showToast('문제 사진이 없어서 변형문제를 만들 수 없어요.', 'warn'); return; }
     try {
-      // 이미 변형문제 있으면 스킵
       const existing = await fetch(`${SUPABASE_URL}/rest/v1/variations?note_id=eq.${entry.id}&select=id`, { headers: sbHeaders() }).then(r => r.json());
       if (existing.length > 0) {
         showToast('이 오답은 이미 변형문제가 있어요.\n새로 만들려면 미션탭에서 🔄 재생성을 눌러주세요.', 'warn');
         return;
       }
-      genBannerShow();
 
+      const who = (entry.students && entry.students.name) || '';
+      const body = JSON.stringify({
+        image_url: entry.image_url,
+        note_id: entry.id,
+        difficulty: (typeof pickedDifficulty === 'function' ? pickedDifficulty(entry.id) : undefined)
+      });
+
+      // 접수만 하고 바로 빠져나온다. 실제 생성은 서버가 끝낸다.
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/queue-variation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body
+      });
+
+      if (res.status === 202 || res.ok) {
+        bgAdd(entry.id, who);
+        showToast('🤖 변형문제를 서버에서 만들고 있어요. 화면을 나가도 괜찮아요!', 'ok');
+        return;
+      }
+
+      // queue-variation 이 아직 배포 안 된 경우 → 예전 방식으로 처리
+      if (res.status === 404) { await generateVariationInline(entry); return; }
+
+      let reason = '';
+      try { reason = (await res.json()).error || ''; } catch (e) {}
+      showToast(`❌ 변형문제 접수 실패 (${res.status})\n${reason.slice(0, 80)}`, 'error');
+    } catch (e) {
+      console.error('generateVariation:', e);
+      showToast('❌ 변형문제 접수 중 오류\n' + String(e && e.message || e).slice(0, 90), 'error');
+    }
+  }
+
+  // queue-variation 이 없을 때만 쓰는 예전 방식 (화면을 지켜야 함)
+  async function generateVariationInline(entry) {
+    try {
+      genStart('변형문제 만드는 중');
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
         body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id })
       });
-      if (res.status === 429) {
-        genBannerDone('⚠️ 오늘 AI 사용량을 다 썼어요. 내일 미션탭 누락 목록에서 만들 수 있어요.', false);
-        showToast('⚠️ AI가 잠시 바빠요. 잠시 후 🔄 재생성을 눌러주세요.', 'warn');
-        return;
-      }
-      if (res.status === 503) {
-        genBannerDone('⚠️ AI 서버 혼잡 — 미션탭 누락 목록에서 다시 만들 수 있어요', false);
-        alert('⚠️ AI 서버가 잠시 혼잡해요. 잠시 후 미션탭에서 🔄 재생성을 눌러주세요.');
-        return;
-      }
       if (!res.ok) {
         let reason = '';
         try { reason = (await res.json()).error || ''; } catch (e) {}
-        console.error('변형문제 생성 실패:', res.status, reason);
-        genBannerDone('❌ ' + (reason || `생성 실패 (${res.status})`), false);
-        showToast(res.status === 422
-          ? '❌ ' + (reason || '사진에서 문제를 읽지 못했어요. 문제가 잘 보이게 다시 찍어 올려주세요.')
-          : `❌ 변형문제 생성 실패 (${res.status})\n${reason.slice(0, 80)}`, 'error');
+        showToast(`❌ 변형문제 생성 실패 (${res.status})\n${reason.slice(0, 80)}`, 'error');
         return;
       }
       const v = await res.json();
-      if (v.error) {
-        console.error('변형문제 생성 오류:', v.error);
-        genBannerDone('❌ ' + String(v.error).slice(0, 70), false);
-        showToast('❌ 변형문제 생성 실패\n' + String(v.error).slice(0, 70), 'error');
-        return;
-      }
+      if (v.error) { showToast('❌ 변형문제 생성 실패\n' + String(v.error).slice(0, 70), 'error'); return; }
 
       const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
         method: 'POST',
         headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
           note_id: entry.id,
-          problem_text: v.problem_text || v.problem,
+          problem_text: stripHint(v.problem_text || v.problem),
           answer: v.answer,
           qtype: v.qtype || 'short',
           choices: v.choices || null,
@@ -2488,21 +2601,13 @@
           approved: false
         })
       });
-      if (!ins.ok) {
-        const why = (await ins.text()).slice(0, 120);
-        console.error('변형문제 저장 실패:', ins.status, why);
-        genBannerDone(`❌ 만들었지만 저장 실패 (${ins.status})`, false);
-        showToast(`❌ 변형문제를 만들었지만 저장에 실패했어요 (${ins.status})\n${why}`, 'error');
-        return;
-      }
-      if (v.warning) { genBannerDone('⚠️ 만들었어요 — ' + v.warning, true); showToast('⚠️ 주의: ' + v.warning + '\n검수 시 문제 조건을 꼭 확인해주세요.', 'warn'); }
-      else genBannerDone('✅ 변형문제 완성! 미션탭 → 🤖 변형문제 검수에서 승인해주세요.', true);
+      if (!ins.ok) { showToast(`❌ 만들었지만 저장에 실패했어요 (${ins.status})`, 'error'); return; }
+      showToast('✅ 변형문제 완성! 미션탭에서 승인해주세요.', 'ok');
       loadVariationReviews();
     } catch (e) {
-      console.error('generateVariation:', e);
-      genBannerDone('❌ 생성 중 오류 — 미션탭 누락 목록에서 다시 만들 수 있어요', false);
-      showToast('❌ 변형문제 생성 중 오류\n' + String(e && e.message || e).slice(0, 90), 'error');
-    }
+      console.error('generateVariationInline:', e);
+      showToast('❌ 변형문제 생성 중 오류', 'error');
+    } finally { genStop(); }
   }
 
   // ===== 검수는 했는데 변형문제가 안 만들어진 오답 찾기 =====
@@ -2585,7 +2690,7 @@
       const ins = await fetch(`${SUPABASE_URL}/rest/v1/variations`, {
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
-          note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
+          note_id: n.id, problem_text: stripHint(v.problem_text || v.problem), answer: v.answer,
           qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
           is_original: v.is_variation === false,
@@ -2623,7 +2728,7 @@
           method: 'POST',
           headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
           body: JSON.stringify({
-            note_id: n.id, problem_text: v.problem_text || v.problem, answer: v.answer,
+            note_id: n.id, problem_text: stripHint(v.problem_text || v.problem), answer: v.answer,
             qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
             time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
             is_original: v.is_variation === false,
@@ -2666,6 +2771,7 @@
           </div>
           ${v.wrong_notes?.image_url ? `<img src="${v.wrong_notes.image_url}" style="max-width:100%;max-height:110px;border-radius:8px;object-fit:contain;margin-bottom:8px;cursor:pointer;" onclick="openModal('${v.wrong_notes.image_url}')" />` : ''}
           <div style="font-size:13px;color:var(--text1);line-height:1.6;margin-bottom:8px;white-space:pre-wrap;">${renderProblemHtml(v.problem_text)}</div>
+          ${figWarnBox(v)}
           ${choiceBox(v)}
           ${solBox(v)}
           ${(() => {
@@ -3357,8 +3463,125 @@
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">${out}</svg>`;
   }
 
+  // 도형 좌표를 문제 조건에 맞게 바로잡는다 (AI 재호출 없음)
+  function geoSolve(fig){
+    const names=[], P=[];
+    (fig.points||[]).forEach(p=>{ if(Array.isArray(p)&&p.length>=3){names.push(String(p[0]));P.push([+p[1],+p[2]]);} });
+    if(names.length<3) return {fig, moved:0};
+    const idx={}; names.forEach((n,i)=>idx[n]=i);
+    const P0=P.map(p=>[p[0],p[1]]);
+    const scale=Math.max(1e-6, Math.max(...P.map(p=>Math.hypot(p[0],p[1]))));
+
+    const cons=[];
+    const angOf=(p,at,a,b)=>{
+      const v=p[at],x=p[a],y=p[b];
+      const u=[x[0]-v[0],x[1]-v[1]], w=[y[0]-v[0],y[1]-v[1]];
+      const n1=Math.hypot(...u), n2=Math.hypot(...w);
+      if(n1<1e-9||n2<1e-9) return null;
+      let c=(u[0]*w[0]+u[1]*w[1])/(n1*n2);
+      return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
+    };
+    (fig.angles||[]).forEach(g=>{
+      const lab=String(g.label==null?'':g.label).replace(/[°$\s]/g,'');
+      const t=parseFloat(lab);
+      if(!isFinite(t)) return;
+      const at=idx[g.at], a=idx[g.from], b=idx[g.to];
+      if(at==null||a==null||b==null) return;
+      cons.push({w:1, f:p=>{const v=angOf(p,at,a,b); return v==null?0:(v-t)/30;}});
+    });
+    (fig.rightAngles||[]).forEach(t=>{
+      const a=idx[t[0]], v=idx[t[1]], b=idx[t[2]];
+      if(a==null||v==null||b==null) return;
+      cons.push({w:1.2, f:p=>{const x=angOf(p,v,a,b); return x==null?0:(x-90)/30;}});
+    });
+    // 같은 눈금 = 같은 길이
+    const grp={};
+    (fig.ticks||[]).forEach(s=>{
+      if(!Array.isArray(s)||s.length<2) return;
+      const a=idx[s[0]], b=idx[s[1]];
+      if(a==null||b==null) return;
+      const key=(s[2]!=null)?'g'+s[2]:'L'+Math.hypot(P0[b][0]-P0[a][0],P0[b][1]-P0[a][1]).toFixed(2);
+      (grp[key]=grp[key]||[]).push([a,b]);
+    });
+    Object.values(grp).forEach(list=>{
+      for(let i=1;i<list.length;i++){
+        const [a1,b1]=list[0], [a2,b2]=list[i];
+        cons.push({w:1, f:p=>{
+          const L1=Math.hypot(p[b1][0]-p[a1][0],p[b1][1]-p[a1][1]);
+          const L2=Math.hypot(p[b2][0]-p[a2][0],p[b2][1]-p[a2][1]);
+          return (L1-L2)/scale;
+        }});
+      }
+    });
+    if(!cons.length) return {fig, moved:0};
+
+    const LAM=0.02;                       // 원래 배치에서 너무 멀어지지 않게
+    const cost=p=>{
+      let s=0;
+      for(const c of cons){const r=c.f(p); s+=c.w*r*r;}
+      for(let i=0;i<p.length;i++){
+        const dx=(p[i][0]-P0[i][0])/scale, dy=(p[i][1]-P0[i][1])/scale;
+        s+=LAM*(dx*dx+dy*dy);
+      }
+      return s;
+    };
+    let cur=P.map(p=>[p[0],p[1]]);
+    let step=scale*0.04;
+    const H=1e-5*scale;
+    for(let it=0; it<400 && step>scale*1e-5; it++){
+      const c0=cost(cur);
+      const g=cur.map(()=>[0,0]);
+      for(let i=0;i<cur.length;i++)for(let d=0;d<2;d++){
+        cur[i][d]+=H; const cp=cost(cur); cur[i][d]-=H;
+        g[i][d]=(cp-c0)/H;
+      }
+      const gn=Math.hypot(...g.flat());
+      if(gn<1e-12) break;
+      const nxt=cur.map((p,i)=>[p[0]-step*g[i][0]/gn, p[1]-step*g[i][1]/gn]);
+      if(cost(nxt)<c0) cur=nxt; else step*=0.6;
+    }
+    let moved=0;
+    cur.forEach((p,i)=>{ moved=Math.max(moved, Math.hypot(p[0]-P0[i][0],p[1]-P0[i][1])/scale); });
+    const out=JSON.parse(JSON.stringify(fig));
+    out.points=(fig.points||[]).map(p=>{
+      const i=idx[String(p[0])];
+      return i==null?p:[p[0], +cur[i][0].toFixed(4), +cur[i][1].toFixed(4)];
+    });
+    return {fig:out, moved};
+  }
+
+  // 그림이 문제 조건과 맞는지 검사한다. 어긋난 각을 도 단위로 돌려준다.
+  function geoCheck(fig) {
+    if (!fig || fig.type !== 'geometry') return [];
+    const P = {};
+    (fig.points || []).forEach(p => { if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [+p[1], +p[2]]; });
+    const ang = (at, a, b) => {
+      const v = P[at], x = P[a], y = P[b];
+      if (!v || !x || !y) return null;
+      const u = [x[0]-v[0], x[1]-v[1]], w = [y[0]-v[0], y[1]-v[1]];
+      const n1 = Math.hypot(u[0],u[1]), n2 = Math.hypot(w[0],w[1]);
+      if (n1 < 1e-9 || n2 < 1e-9) return null;
+      return Math.acos(Math.max(-1, Math.min(1, (u[0]*w[0]+u[1]*w[1])/(n1*n2)))) * 180 / Math.PI;
+    };
+    const bad = [];
+    (fig.angles || []).forEach(g => {
+      const t = parseFloat(String(g.label == null ? '' : g.label).replace(/[°$\s]/g, ''));
+      if (!isFinite(t)) return;
+      const v = ang(g.at, g.from, g.to);
+      if (v != null && Math.abs(v - t) > 2) bad.push({ what: '∠' + g.at, want: t, got: +v.toFixed(1) });
+    });
+    (fig.rightAngles || []).forEach(t => {
+      const v = ang(t[1], t[0], t[2]);
+      if (v != null && Math.abs(v - 90) > 2) bad.push({ what: '직각 ' + t[1], want: 90, got: +v.toFixed(1) });
+    });
+    return bad;
+  }
+
   function geoRender(fig, W, H) {
     W = W || 320; H = H || 260;
+    // 좌표를 문제 조건(각·직각·같은 길이)에 맞게 먼저 바로잡는다.
+    // AI 가 찍은 좌표는 표기한 각도와 최대 19° 까지 어긋났었다.
+    try { fig = geoSolve(fig).fig; } catch (e) {}
     const P = {};
     (fig.points || []).forEach(p => {
       if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
@@ -3755,6 +3978,7 @@
   }
 
   function renderProblemHtml(text) {
+    text = stripHint(text);
     const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const isRow = l => /^\s*\|.*\|\s*$/.test(l);
     const isSep = l => /^\s*\|[\s\-:|]+\|\s*$/.test(l);
@@ -3835,7 +4059,7 @@
 
       // 되돌리기용으로 지금 상태를 통째로 보관해둔다
       const prev = {
-        problem_text: v.problem_text ?? null,
+        problem_text: v.problem_text == null ? null : stripHint(v.problem_text),
         answer: v.answer ?? null,
         qtype: v.qtype ?? 'short',
         choices: v.choices ?? null,
@@ -3869,7 +4093,7 @@
         method: 'PATCH',
         headers: sbHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          problem_text: nv.problem_text || nv.problem,
+          problem_text: stripHint(nv.problem_text || nv.problem),
           answer: nv.answer,
           qtype: nv.qtype || 'short',
           choices: nv.choices || null,
@@ -5815,7 +6039,7 @@
         method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
         body: JSON.stringify({
           note_id: noteId,
-          problem_text: nv.problem_text || nv.problem,
+          problem_text: stripHint(nv.problem_text || nv.problem),
           answer: nv.answer,
           qtype: nv.qtype || 'short',
           choices: nv.choices || null,
@@ -6742,7 +6966,7 @@
             headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
             body: JSON.stringify({
               note_id: v.note_id,
-              problem_text: nv.problem_text || nv.problem,
+              problem_text: stripHint(nv.problem_text || nv.problem),
               answer: nv.answer,
               qtype: nv.qtype || 'short',
               choices: nv.choices || null,
