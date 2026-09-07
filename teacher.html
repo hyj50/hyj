@@ -2138,9 +2138,13 @@
         body: JSON.stringify({ ai_grade: verdict, ai_grade_comment: comment, ai_graded_at: new Date().toISOString() })
       });
 
-      // 화면에도 즉시 반영 (다시 불러오지 않아도 되게)
+      // 화면에도 즉시 반영.
+      // ⚠️ 예전엔 여기서 renderNoteList() 를 불렀다. 그런데 자동 채점은 5건을
+      //    10~25초 간격으로 도는 작업이라, 목록이 통째로 다시 그려지면서
+      //    그 순간 손가락이 올라가 있던 ✅OK 버튼이 DOM 에서 사라져 탭이 씹혔다.
+      //    → 배지/코멘트만 콕 집어 바꾼다.
       e.ai_grade = verdict; e.ai_grade_comment = comment;
-      renderNoteList();
+      patchAiGrade(entryId, verdict, comment);
       if (!silent) showToast({ correct: '🤖 맞은 것 같아요', wrong: '🤖 틀린 것 같아요', unclear: '🤖 사진으로는 판단이 어려워요' }[verdict], verdict === 'unclear' ? 'warn' : 'ok');
     } catch (err) {
       console.error('AI 채점 오류:', err);
@@ -2149,6 +2153,41 @@
     } finally {
       _gradeLock.delete(entryId);
     }
+  }
+
+  // 카드 하나의 AI 채점 결과만 갈아끼운다 (목록 전체를 건드리지 않음)
+  const AIG_LABEL = { correct: '맞은 듯', wrong: '틀린 듯', unclear: '판독 불가' };
+  function patchAiGrade(entryId, verdict, comment) {
+    const card = document.getElementById('note-card-' + entryId);
+    if (!card) return;
+
+    const row = card.querySelector('.note-meta-row');
+    if (row) {
+      let badge = row.querySelector('.aig-badge');
+      if (!badge) { badge = document.createElement('span'); row.appendChild(badge); }
+      badge.className = 'aig-badge aig-' + verdict;
+      badge.textContent = '🤖 ' + (AIG_LABEL[verdict] || verdict);
+    }
+
+    const bodyEl = card.querySelector('.note-body');
+    if (bodyEl) {
+      let note = bodyEl.querySelector('.aig-note');
+      if (comment) {
+        if (!note) {
+          note = document.createElement('div');
+          note.className = 'aig-note';
+          const dateEl = bodyEl.querySelector('.note-date');
+          dateEl ? bodyEl.insertBefore(note, dateEl) : bodyEl.appendChild(note);
+        }
+        note.textContent = '🤖 ' + comment;
+      } else if (note) { note.remove(); }
+    }
+
+    const btn = document.getElementById('aig-btn-' + entryId);
+    if (btn) { btn.disabled = false; btn.textContent = '🤖 다시'; }
+
+    const okBtn = card.querySelector('.btn-ok');
+    if (okBtn) okBtn.classList.toggle('aig-hint', verdict === 'correct');
   }
 
   // 목록을 열면 아직 안 본 검수대기 건을 조용히 미리 채점해 둔다.
@@ -2179,7 +2218,8 @@
   // ✅ OK: 검수 통과 → 완료 처리
   async function approveEntry(entryId) {
     const e = currentEntries.find(x => x.id === entryId);
-    if (!e) return;
+    // 목록이 갱신돼 이 오답이 사라진 경우. 조용히 끝내면 "눌러도 반응 없음"이 된다.
+    if (!e) { showToast('목록이 바뀌었어요. 새로고침 후 다시 눌러주세요', 'warn'); return; }
     if (_reviewLock.has(entryId)) return; // 처리 중이면 무시 (중복 클릭 방지)
     _reviewLock.add(entryId);
 
@@ -4736,7 +4776,7 @@
       : '<span class="status-badge pending">⏳ 검수 대기</span>';
 
     return `
-      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}"${bulkMode ? ` onclick="toggleSelectCard('${e.id}')"` : ''}>
+      <div class="note-card ${e.solved ? 'solved' : ''} ${isStruggling ? 'struggling' : ''} ${isUnsorted ? 'unsorted' : ''}" id="note-card-${e.id}"${bulkMode ? ` onclick="toggleSelectCard('${e.id}')"` : ''}>
         <div class="note-top-row">
           ${bulkMode ? `<input type="checkbox" id="cb-${e.id}" class="note-card-checkbox" ${selectedIds.has(e.id) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectCard('${e.id}')" />` : ''}
           <div style="display:flex;gap:6px;width:100%;margin-bottom:8px;">${thumbsHtml}</div>
@@ -5287,7 +5327,26 @@
     renderNoteList();
   }
 
+  // 탭이 씹히는 걸 막는 안전장치.
+  // 배경 작업(자동 채점·알림 확인)이 목록을 다시 그리는 순간 손가락이 버튼 위에
+  // 있으면, 눌렀던 DOM 이 사라져서 click 이 아예 발생하지 않는다.
+  // → 마지막으로 화면을 만진 지 700ms 안이면 다시 그리기를 뒤로 미룬다.
+  let _lastTouchAt = 0;
+  let _renderHold = null;
+  ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click'].forEach(ev =>
+    document.addEventListener(ev, () => { _lastTouchAt = Date.now(); }, { passive: true, capture: true })
+  );
+
   function renderNoteList() {
+    const since = Date.now() - _lastTouchAt;
+    if (since < 700) {
+      clearTimeout(_renderHold);
+      _renderHold = setTimeout(renderNoteList, 700 - since);
+      return;
+    }
+    clearTimeout(_renderHold);
+    _renderHold = null;
+
     // 그림을 다 그린 뒤 백그라운드로 미채점 건을 훑는다 (렌더를 막지 않게)
     setTimeout(() => { try { autoGradePending(); } catch (e) {} }, 0);
 
