@@ -2376,7 +2376,8 @@
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id })
+        body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id,
+          difficulty: pickedDifficulty(entry.id) })
       });
       if (res.status === 429) {
         genBannerDone('⚠️ 오늘 AI 사용량을 다 썼어요. 내일 미션탭 누락 목록에서 만들 수 있어요.', false);
@@ -2513,7 +2514,8 @@
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ image_url: n.image_url, note_id: n.id })
+        body: JSON.stringify({ image_url: n.image_url, note_id: n.id,
+          difficulty: pickedDifficulty(n.id) })
       });
       const v = await res.json().catch(() => ({}));
       if (!res.ok) { showToast('❌ ' + (v.error || res.status), 'error'); if (btn) { btn.disabled = false; btn.textContent = '🤖 만들기'; } return; }
@@ -2550,7 +2552,8 @@
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ image_url: n.image_url, note_id: n.id })
+          body: JSON.stringify({ image_url: n.image_url, note_id: n.id,
+            difficulty: pickedDifficulty(n.id) })
         });
         const v = await res.json().catch(() => ({}));
         if (!res.ok) { fails.push((n.minor_unit || n.id.slice(0, 6)) + ': ' + (v.error || res.status)); continue; }
@@ -3790,8 +3793,12 @@
           image_url: v.wrong_notes.image_url,
           note_id: v.note_id,
           force_figure: !!forceFigure,
+          difficulty: pickedDifficulty(v.note_id),
           // 지금 문제를 알려줘서 똑같은 문제가 또 나오지 않게 한다
-          avoid: v.problem_text ? [v.problem_text] : []
+          // 자기 자신만 피하면 "이미 있는 다른 문제" 와 똑같은 게 나온다.
+          // 같은 원본에서 나온 형제 문제를 전부 알려준다.
+          avoid: _vmData.filter(x => x.note_id === v.note_id)
+            .map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 6)
         })
       });
       genStop();
@@ -5698,6 +5705,20 @@
       </div>`;
   }
 
+  // ═══ 난이도 ═══════════════════════════════════════════════
+  // 난이도 고르는 칸은 「＋추가 생성」 옆에만 있었다. 그래서 「어렵게」로 골라놓고
+  // 「재생성」을 누르면 조용히 무시됐다. 이제 모든 생성 경로가 이걸 거쳐 간다.
+  function pickedDifficulty(noteId) {
+    const el = noteId ? document.getElementById('vmdiff-' + noteId) : null;
+    if (el && el.value) {
+      try { localStorage.setItem('vm_diff_' + noteId, el.value); } catch (e) {}
+      return el.value;
+    }
+    // 화면에 칸이 없는 경로(승인 시 자동 생성 등)에서는 마지막에 고른 값을 쓴다
+    try { return localStorage.getItem('vm_diff_' + noteId) || 'same'; } catch (e) { return 'same'; }
+  }
+  const DIFF_NAME = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' };
+
   // 같은 원본으로 변형문제를 "추가" 생성 (기존 것을 지우지 않음)
   async function addMoreVariation(noteId, forceFigure) {
     const list = _vmData.filter(x => x.note_id === noteId);
@@ -5706,8 +5727,8 @@
 
     // 이미 있는 문제를 알려줘서 복사본이 나오지 않게 한다
     const avoid = list.map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 5);
-    const diff = document.getElementById('vmdiff-' + noteId)?.value || 'same';
-    const diffName = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' }[diff] || '';
+    const diff = pickedDifficulty(noteId);
+    const diffName = DIFF_NAME[diff] || '';
 
     genStart('변형문제 만드는 중' + diffName);
     try {
@@ -6647,7 +6668,8 @@
 
           const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
             method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, avoid })
+            body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, avoid,
+              difficulty: pickedDifficulty(v.note_id) })
           });
           const nv = await res.json();
           if (!res.ok || nv.error) { console.error('재시험 생성 실패:', nv.error); continue; }
