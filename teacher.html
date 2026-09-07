@@ -505,6 +505,7 @@
     <button class="main-tab-btn" data-main-tab="qna" onclick="switchMainTab('qna')">💬<br>문의</button>
     <button class="main-tab-btn" data-main-tab="mission" onclick="switchMainTab('mission')">🎯<br>미션</button>
     <button class="main-tab-btn" data-main-tab="vmanage" onclick="switchMainTab('vmanage')">📚<br>문제관리</button>
+    <button class="main-tab-btn" data-main-tab="concept" onclick="switchMainTab('concept')">📚<br>개념</button>
     <button class="main-tab-btn" data-main-tab="theme" onclick="switchMainTab('theme')">🎨<br>테마</button>
   </div>
 
@@ -701,6 +702,30 @@
   </div>
 
   <!-- 테마 관리 탭 -->
+  <div class="main-tab-panel" id="main-tab-concept">
+    <div style="margin-bottom:12px;">
+      <div style="font-size:17px;font-weight:900;color:var(--text1);">📚 개념 카드 관리</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:3px;">AI로 단원 개념을 만들고, 검수해서 학생에게 공개합니다</div>
+    </div>
+
+    <div id="cc-bar" style="display:none;background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;margin-bottom:10px;"></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <select id="cc-subject" onchange="ccOnSubject(this.value)" style="flex:1;min-width:0;padding:10px;border-radius:11px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:12.5px;font-weight:700;outline:none;"></select>
+      <select id="cc-major" onchange="ccOnMajor(this.value)" style="flex:1;min-width:0;padding:10px;border-radius:11px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:12.5px;font-weight:700;outline:none;"></select>
+    </div>
+
+    <div id="cc-list"></div>
+
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-top:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="flex:1;font-size:13px;font-weight:800;color:var(--text1);">🧑‍🎓 학생 개념 학습 현황</span>
+        <button onclick="ccProgress()" style="padding:6px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:11px;font-weight:700;cursor:pointer;">새로고침</button>
+      </div>
+      <div id="cc-progress"><div style="font-size:12px;color:var(--text4);padding:10px;">새로고침을 눌러 확인하세요.</div></div>
+    </div>
+  </div>
+
   <div class="main-tab-panel" id="main-tab-theme">
     <div style="background:var(--bg2);border-radius:16px;padding:1.2rem;margin-bottom:14px;border:1px solid var(--border);">
       <div style="font-size:15px;font-weight:800;color:var(--text1);margin-bottom:4px;">🎨 배경 테마 관리</div>
@@ -2376,8 +2401,7 @@
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id,
-          difficulty: pickedDifficulty(entry.id) })
+        body: JSON.stringify({ image_url: entry.image_url, note_id: entry.id })
       });
       if (res.status === 429) {
         genBannerDone('⚠️ 오늘 AI 사용량을 다 썼어요. 내일 미션탭 누락 목록에서 만들 수 있어요.', false);
@@ -2514,8 +2538,7 @@
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ image_url: n.image_url, note_id: n.id,
-          difficulty: pickedDifficulty(n.id) })
+        body: JSON.stringify({ image_url: n.image_url, note_id: n.id })
       });
       const v = await res.json().catch(() => ({}));
       if (!res.ok) { showToast('❌ ' + (v.error || res.status), 'error'); if (btn) { btn.disabled = false; btn.textContent = '🤖 만들기'; } return; }
@@ -2552,8 +2575,7 @@
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
-          body: JSON.stringify({ image_url: n.image_url, note_id: n.id,
-            difficulty: pickedDifficulty(n.id) })
+          body: JSON.stringify({ image_url: n.image_url, note_id: n.id })
         });
         const v = await res.json().catch(() => ({}));
         if (!res.ok) { fails.push((n.minor_unit || n.id.slice(0, 6)) + ': ' + (v.error || res.status)); continue; }
@@ -3793,12 +3815,8 @@
           image_url: v.wrong_notes.image_url,
           note_id: v.note_id,
           force_figure: !!forceFigure,
-          difficulty: pickedDifficulty(v.note_id),
           // 지금 문제를 알려줘서 똑같은 문제가 또 나오지 않게 한다
-          // 자기 자신만 피하면 "이미 있는 다른 문제" 와 똑같은 게 나온다.
-          // 같은 원본에서 나온 형제 문제를 전부 알려준다.
-          avoid: _vmData.filter(x => x.note_id === v.note_id)
-            .map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 6)
+          avoid: v.problem_text ? [v.problem_text] : []
         })
       });
       genStop();
@@ -5540,6 +5558,7 @@
     if (tab === 'mission') { restoreSecs(); loadVariationReviews(); loadShopItems(); loadPurchases(); loadPointOverview(); loadWeaknessTeacher(); loadQuizBands(); loadQuizEditor(); }
     if (tab === 'theme') { renderThemeEmojiPicker(); loadThemeBgs(); }
     if (tab === 'vmanage') initVManage();
+    if (tab === 'concept') { initConcept(); ccProgress(); }
   }
 
   // ===== 변형문제 관리 =====
@@ -5705,20 +5724,6 @@
       </div>`;
   }
 
-  // ═══ 난이도 ═══════════════════════════════════════════════
-  // 난이도 고르는 칸은 「＋추가 생성」 옆에만 있었다. 그래서 「어렵게」로 골라놓고
-  // 「재생성」을 누르면 조용히 무시됐다. 이제 모든 생성 경로가 이걸 거쳐 간다.
-  function pickedDifficulty(noteId) {
-    const el = noteId ? document.getElementById('vmdiff-' + noteId) : null;
-    if (el && el.value) {
-      try { localStorage.setItem('vm_diff_' + noteId, el.value); } catch (e) {}
-      return el.value;
-    }
-    // 화면에 칸이 없는 경로(승인 시 자동 생성 등)에서는 마지막에 고른 값을 쓴다
-    try { return localStorage.getItem('vm_diff_' + noteId) || 'same'; } catch (e) { return 'same'; }
-  }
-  const DIFF_NAME = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' };
-
   // 같은 원본으로 변형문제를 "추가" 생성 (기존 것을 지우지 않음)
   async function addMoreVariation(noteId, forceFigure) {
     const list = _vmData.filter(x => x.note_id === noteId);
@@ -5727,8 +5732,8 @@
 
     // 이미 있는 문제를 알려줘서 복사본이 나오지 않게 한다
     const avoid = list.map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 5);
-    const diff = pickedDifficulty(noteId);
-    const diffName = DIFF_NAME[diff] || '';
+    const diff = document.getElementById('vmdiff-' + noteId)?.value || 'same';
+    const diffName = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' }[diff] || '';
 
     genStart('변형문제 만드는 중' + diffName);
     try {
@@ -6668,8 +6673,7 @@
 
           const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
             method: 'POST', headers: sbHeaders({ 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, avoid,
-              difficulty: pickedDifficulty(v.note_id) })
+            body: JSON.stringify({ image_url: v.wrong_notes.image_url, note_id: v.note_id, avoid })
           });
           const nv = await res.json();
           if (!res.ok || nv.error) { console.error('재시험 생성 실패:', nv.error); continue; }
@@ -6970,6 +6974,438 @@
       navigator.serviceWorker.register('/service-worker.js').catch(() => {});
     });
   }
+</script>
+
+<!-- ===================== 📚 개념 관리 ===================== -->
+<script>
+(function () {
+  'use strict';
+
+  const _cc = { subject: '', major: '', rows: {}, cur: null, editing: false, busy: false };
+
+  const esc = t => String(t == null ? '' : t)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const attr = t => esc(t).replace(/"/g, '&quot;');
+  const nl2br = t => esc(t).replace(/\n/g, '<br>');
+
+  function typeset(el) {
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+  }
+  function say(msg, kind) {
+    if (typeof showToast === 'function') showToast(msg, kind || 'ok');
+    else alert(msg);
+  }
+
+  // ---------- 초기화 ----------
+  async function initConcept() {
+    const sSel = document.getElementById('cc-subject');
+    if (!sSel.options.length) {
+      const subs = Object.keys(CURRICULUM);
+      sSel.innerHTML = subs.map(s => `<option value="${attr(s)}">${esc(s)}</option>`).join('');
+      _cc.subject = subs[0] || '';
+      sSel.value = _cc.subject;
+    }
+    ccFillMajors();
+    await ccLoad();
+  }
+
+  function ccFillMajors() {
+    const mSel = document.getElementById('cc-major');
+    const majors = Object.keys(CURRICULUM[_cc.subject] || {});
+    mSel.innerHTML = '<option value="">— 대단원 전체 —</option>' +
+      majors.map(m => `<option value="${attr(m)}">${esc(m)}</option>`).join('');
+    mSel.value = _cc.major && majors.includes(_cc.major) ? _cc.major : '';
+    _cc.major = mSel.value;
+  }
+
+  function ccOnSubject(v) { _cc.subject = v; _cc.major = ''; ccFillMajors(); ccLoad(); }
+  function ccOnMajor(v) { _cc.major = v; ccRender(); }
+
+  // 이 과목의 개념 카드를 통째로 받아서 키로 정리
+  async function ccLoad() {
+    const box = document.getElementById('cc-list');
+    box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">불러오는 중...</div>';
+    try {
+      const rows = await fetch(
+        `${SUPABASE_URL}/rest/v1/concepts?subject=eq.${encodeURIComponent(_cc.subject)}&select=id,major_unit,minor_unit,status,summary,updated_at`,
+        { headers: sbHeaders() }).then(r => r.json());
+      _cc.rows = {};
+      (Array.isArray(rows) ? rows : []).forEach(r => { _cc.rows[r.major_unit + '|' + r.minor_unit] = r; });
+      ccRender();
+    } catch (e) {
+      console.error('ccLoad:', e);
+      box.innerHTML = '<div style="text-align:center;color:#EF4444;font-size:12.5px;padding:20px;">불러오지 못했어요.</div>';
+    }
+  }
+
+  const STATUS_BADGE = {
+    published: '<span style="font-size:10px;font-weight:800;color:#16A34A;background:#DCFCE7;padding:2px 7px;border-radius:99px;">공개</span>',
+    draft:     '<span style="font-size:10px;font-weight:800;color:#B45309;background:#FEF3C7;padding:2px 7px;border-radius:99px;">검수 대기</span>',
+    hidden:    '<span style="font-size:10px;font-weight:800;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:99px;">숨김</span>'
+  };
+
+  function ccRender() {
+    const box = document.getElementById('cc-list');
+    const tree = CURRICULUM[_cc.subject] || {};
+    const majors = _cc.major ? [_cc.major] : Object.keys(tree);
+
+    let made = 0, pub = 0, all = 0;
+    Object.keys(tree).forEach(m => (tree[m] || []).forEach(mi => {
+      all++;
+      const r = _cc.rows[m + '|' + mi];
+      if (r) { made++; if (r.status === 'published') pub++; }
+    }));
+
+    let html = `
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="flex:1;background:var(--bg3);border-radius:12px;padding:10px;text-align:center;">
+          <div style="font-size:10.5px;color:var(--text3);font-weight:700;">전체 중단원</div>
+          <div style="font-size:18px;font-weight:900;color:var(--text1);">${all}</div>
+        </div>
+        <div style="flex:1;background:var(--bg3);border-radius:12px;padding:10px;text-align:center;">
+          <div style="font-size:10.5px;color:var(--text3);font-weight:700;">만들어진 카드</div>
+          <div style="font-size:18px;font-weight:900;color:#B45309;">${made}</div>
+        </div>
+        <div style="flex:1;background:var(--bg3);border-radius:12px;padding:10px;text-align:center;">
+          <div style="font-size:10.5px;color:var(--text3);font-weight:700;">학생 공개</div>
+          <div style="font-size:18px;font-weight:900;color:#16A34A;">${pub}</div>
+        </div>
+      </div>`;
+
+    html += majors.map(maj => {
+      const list = tree[maj] || [];
+      const missing = list.filter(mi => !_cc.rows[maj + '|' + mi]).length;
+      return `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--bg4);border-bottom:1px solid var(--border);">
+          <span style="flex:1;font-size:13px;font-weight:800;color:var(--text1);">${esc(maj)}</span>
+          ${missing ? `<button onclick="ccGenMajor('${attr(maj).replace(/'/g, "\\'")}')" style="padding:6px 10px;border-radius:9px;border:none;background:#2563EB;color:#fff;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">🤖 없는 ${missing}개 만들기</button>` : ''}
+        </div>
+        ${list.map(mi => {
+          const r = _cc.rows[maj + '|' + mi];
+          return `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--border);">
+            <span style="flex:1;min-width:0;font-size:12.5px;color:var(--text2);font-weight:600;overflow:hidden;text-overflow:ellipsis;">${esc(mi)}</span>
+            ${r ? STATUS_BADGE[r.status] || '' : '<span style="font-size:10px;color:var(--text4);font-weight:700;">없음</span>'}
+            ${r
+              ? `<button onclick="ccOpen('${r.id}')" style="padding:6px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">열기</button>`
+              : `<button onclick="ccGenOne('${attr(maj).replace(/'/g, "\\'")}','${attr(mi).replace(/'/g, "\\'")}')" style="padding:6px 10px;border-radius:9px;border:none;background:#2563EB;color:#fff;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🤖 만들기</button>`}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+
+    box.innerHTML = html;
+  }
+
+  // ---------- AI 생성 ----------
+  async function ccGenOne(maj, mi, silent) {
+    if (_cc.busy && !silent) { say('아직 만들고 있어요. 잠시만요.', 'warn'); return; }
+    _cc.busy = true;
+    const bar = document.getElementById('cc-bar');
+    bar.style.display = 'block';
+    bar.textContent = `🤖 「${mi}」 개념 카드 만드는 중...`;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-concept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ subject: _cc.subject, major_unit: maj, minor_unit: mi })
+      });
+      if (!res.ok) {
+        let msg = '';
+        try { msg = (await res.json()).error || ''; } catch (e) {}
+        bar.textContent = `❌ ${mi}: ${msg || res.status}`;
+        if (!silent) say(`생성 실패 (${res.status}) ${msg}`, 'warn');
+        return false;
+      }
+      const data = await res.json();
+      if (data.concept) _cc.rows[maj + '|' + mi] = data.concept;
+      bar.textContent = `✅ 「${mi}」 완료 — 검수 대기`;
+      if (!silent) { ccRender(); setTimeout(() => { bar.style.display = 'none'; }, 2500); }
+      return true;
+    } catch (e) {
+      console.error('ccGenOne:', e);
+      bar.textContent = '❌ 네트워크 오류';
+      return false;
+    } finally { _cc.busy = false; }
+  }
+
+  // 대단원 전체 — 무료 티어를 생각해서 한 개씩, 사이에 텀을 둔다
+  async function ccGenMajor(maj) {
+    const list = (CURRICULUM[_cc.subject] || {})[maj] || [];
+    const todo = list.filter(mi => !_cc.rows[maj + '|' + mi]);
+    if (!todo.length) return;
+    if (!confirm(`「${maj}」의 없는 개념 ${todo.length}개를 AI로 만들까요?\n(1개당 10~30초, 중간에 창을 닫지 마세요)`)) return;
+
+    const bar = document.getElementById('cc-bar');
+    bar.style.display = 'block';
+    let done = 0, fail = 0;
+    for (let i = 0; i < todo.length; i++) {
+      bar.textContent = `🤖 ${i + 1}/${todo.length} — ${todo[i]}`;
+      const ok = await ccGenOne(maj, todo[i], true);
+      ok ? done++ : fail++;
+      ccRender();
+      await new Promise(r => setTimeout(r, 1500));   // rate limit 회피
+    }
+    bar.textContent = `✅ ${done}개 완료${fail ? ` · ❌ ${fail}개 실패` : ''} — 검수 후 공개하세요`;
+    setTimeout(() => { bar.style.display = 'none'; }, 5000);
+  }
+
+  // ---------- 열기 / 미리보기 ----------
+  async function ccOpen(id) {
+    const box = document.getElementById('cc-list');
+    box.innerHTML = '<div style="text-align:center;color:var(--text4);font-size:12.5px;padding:20px;">여는 중...</div>';
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${id}&select=*`, { headers: sbHeaders() }).then(r => r.json());
+      if (!r || !r[0]) { ccRender(); return; }
+      _cc.cur = r[0];
+      _cc.editing = false;
+      ccDetail();
+    } catch (e) { console.error('ccOpen:', e); ccRender(); }
+  }
+
+  function ccDetail() {
+    const c = _cc.cur, box = document.getElementById('cc-list');
+    const A = k => Array.isArray(c[k]) ? c[k] : [];
+
+    box.innerHTML = `
+      <button onclick="ccBack()" style="background:none;border:none;color:var(--text3);font-size:12.5px;font-weight:700;cursor:pointer;padding:0 0 10px;">‹ 단원 목록</button>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--text4);font-weight:700;">${esc(c.subject)} · ${esc(c.major_unit)}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text1);margin:3px 0 8px;">${esc(c.minor_unit)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${STATUS_BADGE[c.status] || ''}
+          <button onclick="ccSetStatus('published')" style="padding:6px 11px;border-radius:9px;border:none;background:${c.status === 'published' ? '#16A34A' : 'var(--bg3)'};color:${c.status === 'published' ? '#fff' : 'var(--text2)'};font-size:11px;font-weight:800;cursor:pointer;">👀 학생 공개</button>
+          <button onclick="ccSetStatus('hidden')" style="padding:6px 11px;border-radius:9px;border:none;background:${c.status === 'hidden' ? '#6B7280' : 'var(--bg3)'};color:${c.status === 'hidden' ? '#fff' : 'var(--text2)'};font-size:11px;font-weight:800;cursor:pointer;">🙈 숨김</button>
+          <button onclick="ccEdit()" style="padding:6px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:11px;font-weight:800;cursor:pointer;">✏️ 편집</button>
+          <button onclick="ccRegen()" style="padding:6px 11px;border-radius:9px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:11px;font-weight:800;cursor:pointer;">🔄 AI 재생성</button>
+          <button onclick="ccDelete()" style="padding:6px 11px;border-radius:9px;border:1px solid #FCA5A5;background:var(--bg2);color:#DC2626;font-size:11px;font-weight:800;cursor:pointer;">🗑 삭제</button>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.1rem;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--text4);font-weight:800;margin-bottom:8px;">— 학생에게 보이는 화면 —</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.65;background:var(--bg4);border-radius:10px;padding:10px 11px;margin-bottom:12px;">${nl2br(c.summary)}</div>
+
+        ${A('points').length ? `<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:12px 0 6px;">🔑 핵심 개념</div>` +
+          A('points').map((p, i) => `<div style="padding:7px 0;border-bottom:1px solid var(--border);">
+            <div style="font-size:12.5px;font-weight:800;color:var(--text1);">${i + 1}. ${nl2br(p.title)}</div>
+            <div style="font-size:12.5px;color:var(--text2);line-height:1.7;margin-top:3px;">${nl2br(p.body)}</div></div>`).join('') : ''}
+
+        ${A('formulas').length ? `<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:14px 0 6px;">📐 공식</div>` +
+          A('formulas').map(f => `<div style="background:var(--bg4);border-radius:9px;padding:8px 10px;margin-bottom:6px;">
+            <div style="font-size:11px;color:var(--text3);font-weight:700;">${esc(f.name)}</div>
+            <div style="font-size:13.5px;color:var(--text1);overflow-x:auto;">${nl2br(f.tex)}</div></div>`).join('') : ''}
+
+        ${A('examples').length ? `<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:14px 0 6px;">✏️ 예제</div>` +
+          A('examples').map((e, i) => `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
+            <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${i + 1}. ${nl2br(e.q)}</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border2);">${nl2br(e.sol)}</div></div>`).join('') : ''}
+
+        ${A('mistakes').length ? `<div style="font-size:12.5px;font-weight:800;color:#DC2626;margin:14px 0 6px;">⚠️ 자주 하는 실수</div>` +
+          A('mistakes').map(m => `<div style="font-size:12px;color:var(--text2);line-height:1.7;padding:3px 0 3px 12px;">· ${nl2br(m)}</div>`).join('') : ''}
+
+        ${A('checks').length ? `<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:14px 0 6px;">🧠 확인문제 (학생 화면에선 보기 순서가 섞임)</div>` +
+          A('checks').map((q, i) => `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
+            <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${i + 1}. ${nl2br(q.q)}</div>
+            ${(q.o || []).map((o, j) => `<div style="font-size:12px;line-height:1.7;color:${j === (q.a || 0) ? '#16A34A' : 'var(--text2)'};font-weight:${j === (q.a || 0) ? '800' : '400'};">${j === (q.a || 0) ? '✔' : '·'} ${nl2br(o)}</div>`).join('')}
+            <div style="font-size:11.5px;color:var(--text3);margin-top:5px;line-height:1.6;">해설 · ${nl2br(q.why)}</div></div>`).join('') : ''}
+      </div>`;
+    typeset(box);
+  }
+
+  function ccBack() { _cc.cur = null; ccRender(); }
+
+  // ---------- 편집 ----------
+  const joinPoints   = a => (a || []).map(p => `${p.title} | ${p.body}`).join('\n');
+  const joinFormulas = a => (a || []).map(f => `${f.name} | ${f.tex}`).join('\n');
+  const joinExamples = a => (a || []).map(e => `${e.q} ||| ${String(e.sol || '').replace(/\n/g, '\\n')}`).join('\n');
+  const joinChecks   = a => (a || []).map(q => {
+    const o = (q.o || []).slice();
+    const ai = q.a || 0;
+    const ordered = [o[ai]].concat(o.filter((_, i) => i !== ai));
+    return [q.q].concat(ordered).concat([q.why]).join(' | ');
+  }).join('\n');
+
+  function ccEdit() {
+    const c = _cc.cur, box = document.getElementById('cc-list');
+    const ta = (id, val, rows, ph) =>
+      `<textarea id="${id}" rows="${rows}" placeholder="${attr(ph)}" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:12.5px;line-height:1.7;font-family:inherit;outline:none;resize:vertical;">${esc(val)}</textarea>`;
+    const lab = t => `<div style="font-size:12px;font-weight:800;color:var(--text1);margin:14px 0 5px;">${t}</div>`;
+    const hint = t => `<div style="font-size:11px;color:var(--text4);margin-bottom:5px;line-height:1.6;">${t}</div>`;
+
+    box.innerHTML = `
+      <button onclick="ccDetail()" style="background:none;border:none;color:var(--text3);font-size:12.5px;font-weight:700;cursor:pointer;padding:0 0 10px;">‹ 편집 취소</button>
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.1rem;">
+        <div style="font-size:15px;font-weight:900;color:var(--text1);margin-bottom:4px;">${esc(c.minor_unit)} 편집</div>
+        <div style="font-size:11px;color:var(--text4);line-height:1.6;">수식은 달러기호로 감싸세요. 예: $x^2+2x+1$ · 백슬래시는 한 개만</div>
+
+        ${lab('한 줄 정의')}
+        ${ta('cc-e-sum', c.summary || '', 2, '이 단원이 뭘 하는 단원인지')}
+
+        ${lab('🔑 핵심 개념')}${hint('한 줄에 하나 · <b>제목 | 설명</b>')}
+        ${ta('cc-e-pts', joinPoints(c.points), 7, '이차방정식의 근의 공식 | $ax^2+bx+c=0$ 의 해는 ...')}
+
+        ${lab('📐 공식')}${hint('한 줄에 하나 · <b>이름 | 수식</b> · 없으면 비워두세요')}
+        ${ta('cc-e-fml', joinFormulas(c.formulas), 4, '근의 공식 | $x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$')}
+
+        ${lab('✏️ 예제')}${hint('한 줄에 하나 · <b>문제 ||| 풀이</b> · 풀이 안 줄바꿈은 \\n')}
+        ${ta('cc-e-ex', joinExamples(c.examples), 6, '$x^2-5x+6=0$ 을 풀어라. ||| 인수분해하면 ...')}
+
+        ${lab('⚠️ 자주 하는 실수')}${hint('한 줄에 하나')}
+        ${ta('cc-e-mis', (c.mistakes || []).join('\n'), 4, '판별식 부호를 반대로 씀')}
+
+        ${lab('🧠 확인문제')}${hint('한 줄에 하나 · <b>문제 | 정답 | 오답1 | 오답2 | 오답3 | 해설</b><br>정답을 항상 두 번째 칸에 두세요. 학생 화면에선 자동으로 섞입니다.')}
+        ${ta('cc-e-chk', joinChecks(c.checks), 8, '$x^2=9$ 의 해는? | $x=\\pm3$ | $x=3$ | $x=9$ | 없다 | 제곱근은 두 개예요.')}
+
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button onclick="ccDetail()" style="flex:1;padding:12px;border-radius:11px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;">취소</button>
+          <button onclick="ccSave()" style="flex:2;padding:12px;border-radius:11px;border:none;background:#2563EB;color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;">💾 저장</button>
+        </div>
+      </div>`;
+  }
+
+  const lines = id => (document.getElementById(id).value || '')
+    .split('\n').map(s => s.trim()).filter(Boolean);
+
+  async function ccSave() {
+    const body = {
+      summary: document.getElementById('cc-e-sum').value.trim(),
+      points: lines('cc-e-pts').map(l => {
+        const i = l.indexOf('|');
+        return i < 0 ? { title: l, body: '' } : { title: l.slice(0, i).trim(), body: l.slice(i + 1).trim() };
+      }),
+      formulas: lines('cc-e-fml').map(l => {
+        const i = l.indexOf('|');
+        return i < 0 ? { name: '', tex: l } : { name: l.slice(0, i).trim(), tex: l.slice(i + 1).trim() };
+      }),
+      examples: lines('cc-e-ex').map(l => {
+        const p = l.split('|||');
+        return { q: (p[0] || '').trim(), sol: (p[1] || '').trim().replace(/\\n/g, '\n') };
+      }),
+      mistakes: lines('cc-e-mis'),
+      checks: lines('cc-e-chk').map(l => {
+        const p = l.split('|').map(s => s.trim());
+        return { q: p[0] || '', o: p.slice(1, 5), a: 0, why: p[5] || '' };
+      }).filter(q => q.q && q.o.length >= 2)
+    };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${_cc.cur.id}`, {
+        method: 'PATCH',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) { say('저장 실패 ' + res.status, 'warn'); return; }
+      const r = await res.json();
+      _cc.cur = Array.isArray(r) ? r[0] : r;
+      _cc.rows[_cc.cur.major_unit + '|' + _cc.cur.minor_unit] = _cc.cur;
+      say('저장했어요');
+      ccDetail();
+    } catch (e) { console.error('ccSave:', e); say('저장 중 오류', 'warn'); }
+  }
+
+  async function ccSetStatus(st) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${_cc.cur.id}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ status: st })
+      });
+      if (!res.ok) { say('변경 실패', 'warn'); return; }
+      _cc.cur.status = st;
+      const k = _cc.cur.major_unit + '|' + _cc.cur.minor_unit;
+      if (_cc.rows[k]) _cc.rows[k].status = st;
+      say(st === 'published' ? '학생에게 공개했어요' : st === 'hidden' ? '숨겼어요' : '검수 대기로 바꿨어요');
+      ccDetail();
+    } catch (e) { console.error(e); }
+  }
+
+  async function ccRegen() {
+    if (!confirm('AI로 다시 만들면 지금 내용은 사라집니다. 계속할까요?')) return;
+    const bar = document.getElementById('cc-bar');
+    bar.style.display = 'block';
+    bar.textContent = '🤖 다시 만드는 중...';
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-concept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({
+          subject: _cc.cur.subject, major_unit: _cc.cur.major_unit,
+          minor_unit: _cc.cur.minor_unit, force: true
+        })
+      });
+      if (!res.ok) { bar.textContent = '❌ 재생성 실패 ' + res.status; return; }
+      const data = await res.json();
+      if (data.concept) {
+        _cc.cur = data.concept;
+        _cc.rows[_cc.cur.major_unit + '|' + _cc.cur.minor_unit] = _cc.cur;
+      }
+      bar.textContent = '✅ 새로 만들었어요 — 검수해 주세요';
+      setTimeout(() => { bar.style.display = 'none'; }, 2500);
+      ccDetail();
+    } catch (e) { console.error(e); bar.textContent = '❌ 오류'; }
+  }
+
+  async function ccDelete() {
+    if (!confirm('이 개념 카드를 삭제할까요? 학생 학습 기록도 함께 지워집니다.')) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${_cc.cur.id}`, { method: 'DELETE', headers: sbHeaders() });
+      delete _cc.rows[_cc.cur.major_unit + '|' + _cc.cur.minor_unit];
+      _cc.cur = null;
+      say('삭제했어요');
+      ccRender();
+    } catch (e) { console.error(e); }
+  }
+
+  // ---------- 학생 학습 현황 ----------
+  async function ccProgress() {
+    const box = document.getElementById('cc-progress');
+    box.innerHTML = '<div style="font-size:12px;color:var(--text4);padding:10px;">불러오는 중...</div>';
+    try {
+      const [rows, pubs] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/concept_progress?select=student_id,mastered,concept_id,students(name),concepts(minor_unit)&order=updated_at.desc`,
+          { headers: sbHeaders() }).then(r => r.json()),
+        fetch(`${SUPABASE_URL}/rest/v1/concepts?status=eq.published&select=id`, { headers: sbHeaders() }).then(r => r.json())
+      ]);
+      const total = (pubs || []).length;
+      const agg = {};
+      (Array.isArray(rows) ? rows : []).forEach(r => {
+        const nm = (r.students && r.students.name) || '알 수 없음';
+        agg[nm] ||= { read: 0, mastered: 0, last: '' };
+        agg[nm].read++;
+        if (r.mastered) agg[nm].mastered++;
+        if (!agg[nm].last && r.concepts) agg[nm].last = r.concepts.minor_unit;
+      });
+      const names = Object.keys(agg).sort((a, b) => agg[b].mastered - agg[a].mastered);
+      if (!names.length) { box.innerHTML = '<div style="font-size:12px;color:var(--text4);padding:10px;">아직 개념을 공부한 학생이 없어요.</div>'; return; }
+      box.innerHTML = names.map(nm => `
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);">
+          <span style="flex:1;font-size:12.5px;font-weight:700;color:var(--text1);">${esc(nm)}</span>
+          <span style="font-size:11.5px;color:var(--text3);">최근 · ${esc(agg[nm].last || '-')}</span>
+          <span style="font-size:12px;font-weight:800;color:#16A34A;white-space:nowrap;">✅ ${agg[nm].mastered}${total ? ' / ' + total : ''}</span>
+        </div>`).join('');
+    } catch (e) {
+      console.error('ccProgress:', e);
+      box.innerHTML = '<div style="font-size:12px;color:#EF4444;padding:10px;">불러오지 못했어요.</div>';
+    }
+  }
+
+  window.initConcept  = initConcept;
+  window.ccOnSubject  = ccOnSubject;
+  window.ccOnMajor    = ccOnMajor;
+  window.ccLoad       = ccLoad;
+  window.ccOpen       = ccOpen;
+  window.ccBack       = ccBack;
+  window.ccDetail     = ccDetail;
+  window.ccEdit       = ccEdit;
+  window.ccSave       = ccSave;
+  window.ccSetStatus  = ccSetStatus;
+  window.ccRegen      = ccRegen;
+  window.ccDelete     = ccDelete;
+  window.ccGenOne     = ccGenOne;
+  window.ccGenMajor   = ccGenMajor;
+  window.ccProgress   = ccProgress;
+})();
 </script>
 </body>
 </html>
