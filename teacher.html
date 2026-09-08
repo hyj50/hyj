@@ -2422,7 +2422,7 @@
     let bad = [];
     try { bad = geoCheck(geoSolve(f).fig); } catch (e) { return ''; }
     if (!bad.length) return '';
-    const list = bad.slice(0, 3).map(b => `${b.what} 표기 ${b.want}° / 그림 ${b.got}°`).join(' · ');
+    const list = bad.slice(0, 4).map(b => b.msg || `${b.what} 표기 ${b.want}° / 그림 ${b.got}°`).join('<br>');
     return `<div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:9px;padding:8px 10px;margin-bottom:8px;font-size:11.5px;color:#B91C1C;font-weight:700;line-height:1.5;">
       ⚠️ 그림이 문제 조건과 안 맞아요<div style="font-weight:600;opacity:.85;margin-top:2px;">${list}</div>
       <div style="font-weight:600;opacity:.85;">🔄 재생성하거나, 그림 없이 내보내세요</div></div>`;
@@ -3467,137 +3467,46 @@
   }
 
   // 도형 좌표를 문제 조건에 맞게 바로잡는다 (AI 재호출 없음)
-  function geoSolve(fig){
-    const names=[], P=[];
-    (fig.points||[]).forEach(p=>{ if(Array.isArray(p)&&p.length>=3){names.push(String(p[0]));P.push([+p[1],+p[2]]);} });
-    if(names.length<3) return {fig, moved:0};
-    const idx={}; names.forEach((n,i)=>idx[n]=i);
-    const P0=P.map(p=>[p[0],p[1]]);
-    const scale=Math.max(1e-6, Math.max(...P.map(p=>Math.hypot(p[0],p[1]))));
-
-    const cons=[];
-    const angOf=(p,at,a,b)=>{
-      const v=p[at],x=p[a],y=p[b];
-      const u=[x[0]-v[0],x[1]-v[1]], w=[y[0]-v[0],y[1]-v[1]];
-      const n1=Math.hypot(...u), n2=Math.hypot(...w);
-      if(n1<1e-9||n2<1e-9) return null;
-      let c=(u[0]*w[0]+u[1]*w[1])/(n1*n2);
-      return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
-    };
-    (fig.angles||[]).forEach(g=>{
-      const lab=String(g.label==null?'':g.label).replace(/[°$\s]/g,'');
-      const t=parseFloat(lab);
-      if(!isFinite(t)) return;
-      const at=idx[g.at], a=idx[g.from], b=idx[g.to];
-      if(at==null||a==null||b==null) return;
-      cons.push({w:1, f:p=>{const v=angOf(p,at,a,b); return v==null?0:(v-t)/30;}});
+  // 같은 길이 눈금을 묶는다.
+  // ★ 예전에는 "길이가 소수점까지 딱 같을 것"이 기준이었다.
+  //   그래서 6.04 와 6.09 처럼 아주 조금만 달라도 다른 그룹이 돼,
+  //   같다고 표시해야 할 두 변에 빗금 개수가 다르게 그어졌다.
+  //   이제 1.5% 정도의 차이는 같은 것으로 본다.
+  function geoTickGroups(ticks, M) {
+    const list = ticks || [];
+    const keys = new Array(list.length).fill(null);
+    const reps = [];
+    list.forEach((s, i) => {
+      if (!Array.isArray(s) || s.length < 2) return;
+      const a = M[String(s[0])], b = M[String(s[1])];
+      if (!a || !b) return;
+      if (s[2] !== undefined && s[2] !== null) { keys[i] = 'g' + s[2]; return; }   // 그룹을 직접 준 경우
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const hit = reps.find(r => Math.abs(r.L - L) <= Math.max(r.L, L) * 0.015 + 1e-9);
+      if (hit) keys[i] = hit.k;
+      else { const k = 'L' + reps.length; reps.push({ k, L }); keys[i] = k; }
     });
-    (fig.rightAngles||[]).forEach(t=>{
-      const a=idx[t[0]], v=idx[t[1]], b=idx[t[2]];
-      if(a==null||v==null||b==null) return;
-      cons.push({w:1.2, f:p=>{const x=angOf(p,v,a,b); return x==null?0:(x-90)/30;}});
-    });
-    // 같은 눈금 = 같은 길이
-    const grp={};
-    (fig.ticks||[]).forEach(s=>{
-      if(!Array.isArray(s)||s.length<2) return;
-      const a=idx[s[0]], b=idx[s[1]];
-      if(a==null||b==null) return;
-      const key=(s[2]!=null)?'g'+s[2]:'L'+Math.hypot(P0[b][0]-P0[a][0],P0[b][1]-P0[a][1]).toFixed(2);
-      (grp[key]=grp[key]||[]).push([a,b]);
-    });
-    Object.values(grp).forEach(list=>{
-      for(let i=1;i<list.length;i++){
-        const [a1,b1]=list[0], [a2,b2]=list[i];
-        cons.push({w:1, f:p=>{
-          const L1=Math.hypot(p[b1][0]-p[a1][0],p[b1][1]-p[a1][1]);
-          const L2=Math.hypot(p[b2][0]-p[a2][0],p[b2][1]-p[a2][1]);
-          return (L1-L2)/scale;
-        }});
-      }
-    });
-    if(!cons.length) return {fig, moved:0};
-
-    const LAM=0.02;                       // 원래 배치에서 너무 멀어지지 않게
-    const cost=p=>{
-      let s=0;
-      for(const c of cons){const r=c.f(p); s+=c.w*r*r;}
-      for(let i=0;i<p.length;i++){
-        const dx=(p[i][0]-P0[i][0])/scale, dy=(p[i][1]-P0[i][1])/scale;
-        s+=LAM*(dx*dx+dy*dy);
-      }
-      return s;
-    };
-    let cur=P.map(p=>[p[0],p[1]]);
-    let step=scale*0.04;
-    const H=1e-5*scale;
-    for(let it=0; it<400 && step>scale*1e-5; it++){
-      const c0=cost(cur);
-      const g=cur.map(()=>[0,0]);
-      for(let i=0;i<cur.length;i++)for(let d=0;d<2;d++){
-        cur[i][d]+=H; const cp=cost(cur); cur[i][d]-=H;
-        g[i][d]=(cp-c0)/H;
-      }
-      const gn=Math.hypot(...g.flat());
-      if(gn<1e-12) break;
-      const nxt=cur.map((p,i)=>[p[0]-step*g[i][0]/gn, p[1]-step*g[i][1]/gn]);
-      if(cost(nxt)<c0) cur=nxt; else step*=0.6;
-    }
-    let moved=0;
-    cur.forEach((p,i)=>{ moved=Math.max(moved, Math.hypot(p[0]-P0[i][0],p[1]-P0[i][1])/scale); });
-    const out=JSON.parse(JSON.stringify(fig));
-    out.points=(fig.points||[]).map(p=>{
-      const i=idx[String(p[0])];
-      return i==null?p:[p[0], +cur[i][0].toFixed(4), +cur[i][1].toFixed(4)];
-    });
-    return {fig:out, moved};
+    const groups = {};
+    keys.forEach((k, i) => { if (k) (groups[k] = groups[k] || []).push(list[i]); });
+    return { keys, groups };
   }
 
-  // 그림이 문제 조건과 맞는지 검사한다. 어긋난 각을 도 단위로 돌려준다.
-  function geoCheck(fig) {
-    if (!fig || fig.type !== 'geometry') return [];
-    const P = {};
-    (fig.points || []).forEach(p => { if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [+p[1], +p[2]]; });
-    const ang = (at, a, b) => {
-      const v = P[at], x = P[a], y = P[b];
-      if (!v || !x || !y) return null;
-      const u = [x[0]-v[0], x[1]-v[1]], w = [y[0]-v[0], y[1]-v[1]];
-      const n1 = Math.hypot(u[0],u[1]), n2 = Math.hypot(w[0],w[1]);
-      if (n1 < 1e-9 || n2 < 1e-9) return null;
-      return Math.acos(Math.max(-1, Math.min(1, (u[0]*w[0]+u[1]*w[1])/(n1*n2)))) * 180 / Math.PI;
-    };
-    const bad = [];
-    (fig.angles || []).forEach(g => {
-      const t = parseFloat(String(g.label == null ? '' : g.label).replace(/[°$\s]/g, ''));
-      if (!isFinite(t)) return;
-      const v = ang(g.at, g.from, g.to);
-      if (v != null && Math.abs(v - t) > 2) bad.push({ what: '∠' + g.at, want: t, got: +v.toFixed(1) });
-    });
-    (fig.rightAngles || []).forEach(t => {
-      const v = ang(t[1], t[0], t[2]);
-      if (v != null && Math.abs(v - 90) > 2) bad.push({ what: '직각 ' + t[1], want: 90, got: +v.toFixed(1) });
-    });
-    return bad;
-  }
-
-  function geoRender(fig, W, H) {
-    W = W || 320; H = H || 260;
-    // 좌표를 문제 조건(각·직각·같은 길이)에 맞게 먼저 바로잡는다.
-    // AI 가 찍은 좌표는 표기한 각도와 최대 19° 까지 어긋났었다.
-    try { fig = geoSolve(fig).fig; } catch (e) {}
-    const P = {};
-    (fig.points || []).forEach(p => {
-      if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
-    });
-    // ── 작도(build) — 좌표를 AI가 어림잡지 않고 앱이 정확히 계산한다 ──
-    // 킬러 도형 문제는 "AC를 1:2로 내분한 점 E", "AE를 지름으로 하는 원이 AB와 만나는 점"
-    // 처럼 점이 작도로 정의된다. 이걸 AI가 손으로 찍으면 반드시 어긋난다.
+  // ── 작도(build) — 좌표를 AI가 어림잡지 않고 앱이 정확히 계산한다 ──
+  // 킬러 도형 문제는 "AC를 1:2로 내분한 점 E", "P에서 AB에 내린 수선의 발"
+  // 처럼 점이 작도로 정의된다. 이걸 AI가 손으로 찍으면 반드시 어긋난다.
+  // P(이름→좌표)를 그 자리에서 채우고, 못 만든 점 목록을 돌려준다.
+  function geoBuild(fig, P) {
     const _v = (a, b) => [b[0] - a[0], b[1] - a[1]];
     const _dot = (u, w) => u[0] * w[0] + u[1] * w[1];
+    const fail = [];
     (fig.build || []).forEach(b => {
       if (!b || typeof b !== 'object') return;
       const name = String(b.n ?? b.name ?? '').slice(0, 12);
       if (!name) return;
+      // 작도가 참조하는 점 이름 중 아직 없는 것 (AI가 "D_line" 같은 유령 점을 지어내는 일이 있다)
+      const src = [].concat(b.mid || [], b.div || [], b.foot || [], b.inter || [], b.ext || [])
+                    .filter(x => typeof x === 'string');
+      const miss = src.filter(x => !P[x]);
       let pt = null;
       try {
         if (Array.isArray(b.mid) && b.mid.length >= 2) {
@@ -3615,7 +3524,6 @@
 
         } else if (Array.isArray(b.foot) && b.foot.length >= 3) {
           // b.foot = [P, A, B] : 점 P 에서 직선 AB 에 내린 수선의 발
-          // ※ "AE 를 지름으로 하는 원이 AB 와 만나는 점" 이 바로 이것 (∠는 직각)
           const p = P[b.foot[0]], a = P[b.foot[1]], c = P[b.foot[2]];
           if (p && a && c) {
             const d = _v(a, c), L = _dot(d, d);
@@ -3647,7 +3555,164 @@
         }
       } catch (err) { pt = null; }
       if (pt && isFinite(pt[0]) && isFinite(pt[1])) P[name] = pt;
+      else fail.push({ n: name, why: miss.length ? ('없는 점 ' + miss.join('·') + ' 을 참조') : '계산할 수 없는 작도' });
     });
+    return fail;
+  }
+
+  function geoSolve(fig){
+    const names=[], P=[];
+    (fig.points||[]).forEach(p=>{ if(Array.isArray(p)&&p.length>=3){names.push(String(p[0]));P.push([+p[1],+p[2]]);} });
+    if(names.length<3) return {fig, moved:0};
+    const P0=P.map(p=>[p[0],p[1]]);
+    const scale=Math.max(1e-6, Math.max(...P.map(p=>Math.hypot(p[0],p[1]))));
+
+    // 후보 좌표 → 이름표. 작도로 생기는 점까지 매번 같이 계산한다.
+    // ★ 예전에는 작도 전의 기본 점만 가지고 풀어서,
+    //   D·E·P 처럼 작도로 생기는 점이 걸린 조건은 전부 조용히 버려졌다.
+    //   (실제 저장된 그림 17개에서 조건 41개 중 10개가 이렇게 사라지고 있었다)
+    const mapOf = p => {
+      const M = {};
+      names.forEach((n,i)=>{ M[n]=[p[i][0], p[i][1]]; });
+      try { geoBuild(fig, M); } catch(e) {}
+      return M;
+    };
+    const angOf=(M,at,a,b)=>{
+      const v=M[at],x=M[a],y=M[b];
+      if(!v||!x||!y) return null;
+      const u=[x[0]-v[0],x[1]-v[1]], w=[y[0]-v[0],y[1]-v[1]];
+      const n1=Math.hypot(u[0],u[1]), n2=Math.hypot(w[0],w[1]);
+      if(n1<1e-9||n2<1e-9) return null;
+      const c=(u[0]*w[0]+u[1]*w[1])/(n1*n2);
+      return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
+    };
+    const lenOf=(M,a,b)=>{ const x=M[a],y=M[b]; return (x&&y)?Math.hypot(y[0]-x[0],y[1]-x[1]):null; };
+
+    const cons=[];
+    (fig.angles||[]).forEach(g=>{
+      const t=parseFloat(String(g.label==null?'':g.label).replace(/[°$\s]/g,''));
+      if(!isFinite(t)) return;
+      cons.push({w:1, f:M=>{const v=angOf(M,g.at,g.from,g.to); return v==null?0:(v-t)/30;}});
+    });
+    (fig.rightAngles||[]).forEach(t=>{
+      if(!Array.isArray(t)||t.length<3) return;
+      cons.push({w:1.2, f:M=>{const x=angOf(M,t[1],t[0],t[2]); return x==null?0:(x-90)/30;}});
+    });
+    // 같은 눈금 = 같은 길이
+    const grp = geoTickGroups(fig.ticks, mapOf(P0)).groups;
+    Object.values(grp).forEach(list=>{
+      for(let i=1;i<list.length;i++){
+        const s1=list[0], s2=list[i];
+        cons.push({w:1, f:M=>{
+          const L1=lenOf(M,String(s1[0]),String(s1[1])), L2=lenOf(M,String(s2[0]),String(s2[1]));
+          return (L1==null||L2==null)?0:(L1-L2)/scale;
+        }});
+      }
+    });
+    if(!cons.length) return {fig, moved:0};
+
+    const LAM=0.02;                       // 원래 배치에서 너무 멀어지지 않게
+    const cost=p=>{
+      const M=mapOf(p);
+      let s=0;
+      for(const c of cons){const r=c.f(M); s+=c.w*r*r;}
+      for(let i=0;i<p.length;i++){
+        const dx=(p[i][0]-P0[i][0])/scale, dy=(p[i][1]-P0[i][1])/scale;
+        s+=LAM*(dx*dx+dy*dy);
+      }
+      return s;
+    };
+    let cur=P.map(p=>[p[0],p[1]]);
+    let step=scale*0.04;
+    const H=1e-5*scale;
+    for(let it=0; it<400 && step>scale*1e-5; it++){
+      const c0=cost(cur);
+      const g=cur.map(()=>[0,0]);
+      for(let i=0;i<cur.length;i++)for(let d=0;d<2;d++){
+        cur[i][d]+=H; const cp=cost(cur); cur[i][d]-=H;
+        g[i][d]=(cp-c0)/H;
+      }
+      const gn=Math.hypot(...g.flat());
+      if(gn<1e-12) break;
+      const nxt=cur.map((p,i)=>[p[0]-step*g[i][0]/gn, p[1]-step*g[i][1]/gn]);
+      if(cost(nxt)<c0) cur=nxt; else step*=0.6;
+    }
+    let moved=0;
+    cur.forEach((p,i)=>{ moved=Math.max(moved, Math.hypot(p[0]-P0[i][0],p[1]-P0[i][1])/scale); });
+    const out=JSON.parse(JSON.stringify(fig));
+    out.points=(fig.points||[]).map(p=>{
+      const i=idxOf(p);
+      return i==null?p:[p[0], +cur[i][0].toFixed(4), +cur[i][1].toFixed(4)];
+    });
+    function idxOf(p){ const k=names.indexOf(String(p[0])); return k<0?null:k; }
+    return {fig:out, moved};
+  }
+
+  // 그림이 문제 조건과 맞는지 검사한다. 어긋난 각과 못 그린 점을 돌려준다.
+  function geoCheck(fig) {
+    if (!fig || fig.type !== 'geometry') return [];
+    const P = {};
+    (fig.points || []).forEach(p => { if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [+p[1], +p[2]]; });
+    // ★ 작도점까지 만들어 놓고 검사한다.
+    //   예전에는 기본 점만 봐서, 작도로 생기는 점의 각(예: ∠EDF=50°)은 검사조차 안 됐다.
+    const failed = geoBuild(fig, P);
+    const ang = (at, a, b) => {
+      const v = P[at], x = P[a], y = P[b];
+      if (!v || !x || !y) return null;
+      const u = [x[0]-v[0], x[1]-v[1]], w = [y[0]-v[0], y[1]-v[1]];
+      const n1 = Math.hypot(u[0],u[1]), n2 = Math.hypot(w[0],w[1]);
+      if (n1 < 1e-9 || n2 < 1e-9) return null;
+      return Math.acos(Math.max(-1, Math.min(1, (u[0]*w[0]+u[1]*w[1])/(n1*n2)))) * 180 / Math.PI;
+    };
+    const bad = [];
+    failed.forEach(f => bad.push({ what: '점 ' + f.n, msg: '\u2716 \uc810 ' + f.n + ' \uc744 \uadf8\ub9ac\uc9c0 \ubabb\ud568 \u2014 ' + f.why }));
+    // 서로 다른 점이 같은 자리에 겹치면 작도가 잘못된 것이다.
+    // (예: "직선 AD 와 직선 BD 의 교점" — 두 직선이 D 를 함께 지나므로 교점이 D 자신이 된다)
+    try {
+      const _nm = Object.keys(P);
+      let _span = 0, _dup = [];
+      for (let i = 0; i < _nm.length; i++) for (let j = i + 1; j < _nm.length; j++)
+        _span = Math.max(_span, Math.hypot(P[_nm[i]][0] - P[_nm[j]][0], P[_nm[i]][1] - P[_nm[j]][1]));
+      for (let i = 0; i < _nm.length; i++) for (let j = i + 1; j < _nm.length; j++)
+        if (_span > 0 && Math.hypot(P[_nm[i]][0] - P[_nm[j]][0], P[_nm[i]][1] - P[_nm[j]][1]) < _span * 0.015)
+          _dup.push(_nm[i] + '\u00b7' + _nm[j]);
+      if (_dup.length) bad.push({ what: '겹침', msg: '\u2716 \uc11c\ub85c \ub2e4\ub978 \uc810\uc774 \uac19\uc740 \uc790\ub9ac\uc5d0 \uacb9\uce68: ' + _dup.join(', ') });
+    } catch (e) {}
+    // 같은 길이 빗금을 쳐 놓고 짝이 없는 변 — AI가 작도를 잘못 짜서
+    // "CB=CD" 같은 조건이 애초에 성립할 수 없게 만든 경우에 이렇게 나온다
+    try {
+      const _tg = geoTickGroups(fig.ticks, P).groups;
+      const lone = Object.values(_tg).filter(l => l.length === 1).map(l => String(l[0][0]) + String(l[0][1]));
+      if (lone.length && (fig.ticks || []).length >= 2) {
+        bad.push({ what: '눈금', msg: '\u2716 \uac19\uc740 \uae38\uc774 \ud45c\uc2dc\ub97c \ud588\ub294\ub370 \uc9dd\uc774 \uc5c6\ub294 \ubcc0: ' + lone.join(', ') });
+      }
+    } catch (e) {}
+    (fig.angles || []).forEach(g => {
+      const t = parseFloat(String(g.label == null ? '' : g.label).replace(/[°$\s]/g, ''));
+      if (!isFinite(t)) return;
+      const v = ang(g.at, g.from, g.to);
+      if (v != null && Math.abs(v - t) > 2) bad.push({ what: '∠' + g.at, want: t, got: +v.toFixed(1) });
+    });
+    (fig.rightAngles || []).forEach(t => {
+      const v = ang(t[1], t[0], t[2]);
+      if (v != null && Math.abs(v - 90) > 2) bad.push({ what: '직각 ' + t[1], want: 90, got: +v.toFixed(1) });
+    });
+    return bad;
+  }
+
+  function geoRender(fig, W, H) {
+    W = W || 320; H = H || 260;
+    // 좌표를 문제 조건(각·직각·같은 길이)에 맞게 먼저 바로잡는다.
+    // AI 가 찍은 좌표는 표기한 각도와 최대 19° 까지 어긋났었다.
+    try { fig = geoSolve(fig).fig; } catch (e) {}
+    const P = {};
+    (fig.points || []).forEach(p => {
+      if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
+    });
+    // ── 작도(build) — 좌표를 AI가 어림잡지 않고 앱이 정확히 계산한다 ──
+    // 킬러 도형 문제는 "AC를 1:2로 내분한 점 E", "AE를 지름으로 하는 원이 AB와 만나는 점"
+    // 처럼 점이 작도로 정의된다. 이걸 AI가 손으로 찍으면 반드시 어긋난다.
+    geoBuild(fig, P);
 
     // 지름이 주어진 원 — 중심·반지름을 앱이 계산한다
     const _diam = [];
@@ -3747,17 +3812,12 @@
     });
 
     // ── 같은 길이 빗금 ──
+    const _tk = geoTickGroups(fig.ticks, P);
     const _tkGrp = {}; let _tkN = 0;
-    (fig.ticks || []).forEach(s => {
-      const A = at(s[0]), B = at(s[1]); if (!A || !B) return;
-      // 3번째 원소로 그룹을 직접 줄 수도 있고, 없으면 실제 길이로 묶음
-      const key = (s[2] !== undefined && s[2] !== null) ? 'g' + s[2] : Math.hypot(B[0] - A[0], B[1] - A[1]).toFixed(3);
-      if (!_tkGrp[key]) _tkGrp[key] = (_tkN++ % 3) + 1;
-    });
-    (fig.ticks || []).forEach(s => {
+    _tk.keys.forEach(k => { if (k && !_tkGrp[k]) _tkGrp[k] = (_tkN++ % 3) + 1; });
+    (fig.ticks || []).forEach((s, _ti) => {
       const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
-      const A = at(s[0]), B = at(s[1]);
-      const key = (s[2] !== undefined && s[2] !== null) ? 'g' + s[2] : Math.hypot(B[0] - A[0], B[1] - A[1]).toFixed(3);
+      const key = _tk.keys[_ti];
       const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
       const d = _geoNorm([b[0] - a[0], b[1] - a[1]]);
       const n = [-d[1], d[0]];
