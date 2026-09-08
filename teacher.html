@@ -2404,6 +2404,9 @@
     return String(t)
       .replace(HINT_PAREN, '')
       .replace(HINT_BARE, '')
+      // AI가 "(단, ...)" 을 쓰다 마는 경우가 있다. 껍데기만 남은 괄호를 치운다
+      .replace(/[,，]\s*([)）])/g, '$1')
+      .replace(/[(（]\s*단\s*[)）]/g, '')
       .replace(/[(（]\s*[)）]/g, '')
       .replace(/[ \t]+\n/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
@@ -3937,12 +3940,27 @@
   }
 
   // 풀이(해설) 접었다 펴기 — AI가 만든 풀이를 검수할 때 본다
+  // AI가 한 번 풀고 나서 스스로 재검산했는데 답이 갈린 경우가 있다.
+  // 그런 풀이는 [1차 풀이] / [재검산 풀이 — 답 N] 이 같이 들어온다.
+  // 이건 "AI가 이 문제를 확신 못 했다"는 신호라 교사가 반드시 봐야 한다.
+  function solConflict(sol) {
+    const s = String(sol || '');
+    if (!/\[\s*재검산/.test(s)) return null;
+    const a = (s.match(/따라서 답은\s*([^\s\n]+)/) || [])[1] || '';
+    const b = (s.match(/\[\s*재검산[^\]]*?답\s*([^\]\s]+)\s*\]/) || [])[1] || '';
+    return { a, b, differ: !!(a && b && a.replace(/[.\s]/g, '') !== b.replace(/[.\s]/g, '')) };
+  }
+
   function solBox(v) {
     const sol = String(v.solution || '').trim();
     if (!sol) return '';
     const sid = 'sol-' + v.id;
+    const cf = solConflict(sol);
+    const warn = cf
+      ? `<span style="margin-left:6px;padding:3px 7px;border-radius:6px;background:#FEF2F2;border:1px solid #FCA5A5;color:#B91C1C;font-size:10.5px;font-weight:800;">\u26a0\ufe0f AI가 답을 못 정함${cf.differ ? ` (${cf.a} \u2260 ${cf.b})` : ''} \u2014 직접 확인</span>`
+      : '';
     return `<div style="margin-bottom:8px;">
-      <button onclick="toggleSol('${sid}')" style="padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;">\ud83d\udcdd 풀이 보기</button>
+      <button onclick="toggleSol('${sid}')" style="padding:4px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;">\ud83d\udcdd 풀이 보기</button>${warn}
       <div id="${sid}" style="display:none;margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--bg2);border-left:3px solid #7C3AED;font-size:12px;color:var(--text2);line-height:1.65;white-space:pre-wrap;overflow-x:auto;overflow-y:hidden;max-width:100%;">${renderProblemHtml(sol)}</div>
     </div>`;
   }

@@ -183,6 +183,37 @@
   .upload-zone.has-image { padding: 0; border-style: solid; overflow: hidden; }
   .upload-zone img { width: 100%; height: 140px; object-fit: cover; display: block; background: var(--bg4); }
   .upload-text { color: var(--text4); font-size: 12px; }
+
+  /* ===== 사진 영역 지정(콴다식 잘라내기) ===== */
+  .upload-zone { position: relative; }
+  .upload-zone img { object-fit: contain; background: #0f1115; }
+  .crop-redo { position: absolute; right: 6px; bottom: 6px; z-index: 2; padding: 5px 9px;
+    border-radius: 999px; border: none; background: rgba(0,0,0,.62); color: #fff;
+    font-size: 11px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .crop-modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; z-index: 100000;
+    background: #000; flex-direction: column; }
+  .crop-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #000; }
+  .crop-title { color: #fff; font-size: 13px; font-weight: 800; text-align: center; flex: 1; }
+  .crop-hint { color: #9aa3ad; font-size: 11.5px; text-align: center; padding: 0 14px 8px; line-height: 1.5; }
+  .crop-btn { padding: 11px 14px; border-radius: 11px; font-size: 13.5px; font-weight: 800; cursor: pointer;
+    border: 1px solid #3a4048; background: #1a1e24; color: #e7eaee; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .crop-btn.go { border-color: #10B981; background: #10B981; color: #04231a; flex: 1; }
+  .crop-stage { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .crop-wrap { position: relative; touch-action: none; -webkit-user-select: none; user-select: none; }
+  .crop-wrap img { display: block; pointer-events: none; }
+  .crop-dim { position: absolute; background: rgba(0,0,0,.6); pointer-events: none; }
+  .crop-box { position: absolute; border: 2px solid #10B981; box-sizing: border-box; }
+  .crop-box i { position: absolute; width: 34px; height: 34px; }
+  .crop-box i::after { content: ''; position: absolute; width: 15px; height: 15px; border: 3px solid #10B981; }
+  .crop-box i[data-h="nw"] { left: -16px; top: -16px; }
+  .crop-box i[data-h="nw"]::after { left: 9px; top: 9px; border-right: none; border-bottom: none; }
+  .crop-box i[data-h="ne"] { right: -16px; top: -16px; }
+  .crop-box i[data-h="ne"]::after { right: 9px; top: 9px; border-left: none; border-bottom: none; }
+  .crop-box i[data-h="sw"] { left: -16px; bottom: -16px; }
+  .crop-box i[data-h="sw"]::after { left: 9px; bottom: 9px; border-right: none; border-top: none; }
+  .crop-box i[data-h="se"] { right: -16px; bottom: -16px; }
+  .crop-box i[data-h="se"]::after { right: 9px; bottom: 9px; border-left: none; border-top: none; }
   .upload-icon { font-size: 26px; margin-bottom: 4px; }
   .file-input-hidden { display: none; }
 
@@ -911,6 +942,32 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   </div>
 </div>
 
+<!-- 사진에서 올릴 부분만 네모로 지정 -->
+<div id="crop-modal" class="crop-modal">
+  <div class="crop-bar">
+    <button class="crop-btn" onclick="cropCancel()">취소</button>
+    <div class="crop-title">올릴 문제만 네모로 감싸기</div>
+    <button class="crop-btn" onclick="cropRotate()">&#8635; 회전</button>
+  </div>
+  <div class="crop-hint">네모 안을 끌면 이동 · 모서리를 끌면 크기 조절 · 빈 곳을 끌면 새로 그리기</div>
+  <div class="crop-stage" id="crop-stage">
+    <div class="crop-wrap" id="crop-wrap">
+      <img id="crop-img" alt="" draggable="false" />
+      <div class="crop-dim" id="crop-dim-t"></div>
+      <div class="crop-dim" id="crop-dim-b"></div>
+      <div class="crop-dim" id="crop-dim-l"></div>
+      <div class="crop-dim" id="crop-dim-r"></div>
+      <div class="crop-box" id="crop-box">
+        <i data-h="nw"></i><i data-h="ne"></i><i data-h="sw"></i><i data-h="se"></i>
+      </div>
+    </div>
+  </div>
+  <div class="crop-bar">
+    <button class="crop-btn" onclick="cropAll()">전체 사용</button>
+    <button class="crop-btn go" onclick="cropDone()">&#9986; 이 부분만 올리기</button>
+  </div>
+</div>
+
 
 
 <!-- 바텀 네비게이션 -->
@@ -1361,7 +1418,25 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const url = URL.createObjectURL(blob);
     _prevUrl[kind] = url;
     zone.classList.add('has-image');
-    zone.innerHTML = `<img src="${url}" alt="미리보기" />`;
+    zone.innerHTML = `<img src="${url}" alt="미리보기" />`
+      + (_origFile[kind] ? `<button type="button" class="crop-redo" onclick="event.stopPropagation();recrop('${kind}')">\u2702\ufe0f 영역</button>` : '');
+  }
+
+  function _resetZone(kind) {
+    const zone = document.getElementById('upload-zone-' + kind);
+    if (!zone) return;
+    zone.classList.remove('has-image');
+    zone.innerHTML = kind === 'problem'
+      ? '<div class="upload-text"><div class="upload-icon">\ud83d\udcf7</div>탭해서 선택</div>'
+      : '<div class="upload-text"><div class="upload-icon">\u270f\ufe0f</div>탭해서 선택</div>';
+  }
+
+  function _busyZone(kind) {
+    const zone = document.getElementById('upload-zone-' + kind);
+    if (zone) {
+      zone.classList.remove('has-image');
+      zone.innerHTML = '<div class="upload-text"><div class="upload-icon">\u23f3</div>사진 준비 중...</div>';
+    }
   }
 
   // 카메라로 찍은 사진은 4000×3000(12MP)이 넘는다.
@@ -1369,30 +1444,238 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   //   base64 문자열(원본의 1.33배) + 풀해상도 비트맵(48MB 이상)이 사진마다 메모리에 남는다.
   // 사진 두 장이면 100MB를 넘겨 안드로이드가 앱을 강제로 죽인다(= 튕김).
   // → 고르는 즉시 줄여서 작은 JPEG 한 장만 들고 있는다.
+  // 고른 원본 파일을 들고 있는다 — ✂️로 영역을 다시 지정할 때 쓴다 (메모리엔 안 올라감)
+  const _origFile = { problem: null, mine: null };
+
   async function onFileSelect(e, kind) {
     const file = e.target.files[0];
     if (!file) return;
-    const zone = document.getElementById('upload-zone-' + kind);
-    if (zone) {
-      zone.classList.remove('has-image');
-      zone.innerHTML = '<div class="upload-text"><div class="upload-icon">⏳</div>사진 준비 중...</div>';
-    }
     // 파일 입력창은 바로 비운다 — 같은 사진을 다시 찍어도 onchange가 걸리게
     try { e.target.value = ''; } catch (err) {}
+    _busyZone(kind);
+    _origFile[kind] = file;
+    // 문제 사진은 곧바로 "어디를 올릴지" 고르게 한다 (콴다처럼)
+    if (kind === 'problem' && await openCropper(file, kind)) return;
+    await _acceptPhoto(file, kind);
+  }
 
+  // 실제로 올릴 사진으로 확정하는 부분 (원본이든 잘라낸 것이든 여기로 들어온다)
+  async function _acceptPhoto(blob, kind) {
+    const zone = document.getElementById('upload-zone-' + kind);
     try {
-      const small = await compressImage(file, 1400, 0.82);
+      const small = await compressImage(blob, 1400, 0.82);
       pendingFiles[kind] = small;
       _setPreview(kind, small);
       _savePendingSnap(kind, small);            // 앱이 죽어도 사진을 되살릴 수 있게
     } catch (err) {
       console.error('사진 축소 실패, 원본으로 진행:', err);
       // 폰이 처리 못 하는 형식(HEIC 등)이면 원본을 그대로 쓰되 미리보기는 objectURL로
-      pendingFiles[kind] = file;
-      try { _setPreview(kind, file); }
-      catch (e2) { if (zone) zone.innerHTML = '<div class="upload-text"><div class="upload-icon">🖼</div>사진 선택됨</div>'; }
+      pendingFiles[kind] = blob;
+      try { _setPreview(kind, blob); }
+      catch (e2) { if (zone) zone.innerHTML = '<div class="upload-text"><div class="upload-icon">\ud83d\uddbc</div>사진 선택됨</div>'; }
     }
     checkSubmitButton();
+  }
+
+  async function recrop(kind) {
+    const f = _origFile[kind];
+    if (!f) return;
+    _busyZone(kind);
+    if (!(await openCropper(f, kind))) {
+      if (pendingFiles[kind]) _setPreview(kind, pendingFiles[kind]); else _resetZone(kind);
+      alert('이 사진은 영역 지정을 할 수 없어요. 그냥 올려도 괜찮아요.');
+    }
+  }
+
+  // ═══ 사진에서 올릴 부분만 네모로 지정 ═══════════════════════
+  // 세로로 긴 문제집 사진을 통째로 올리면 AI가 어느 문제를 봐야 할지 모른다.
+  // 미리 잘라 보내면 단원 분류·변형문제 정확도가 같이 올라간다.
+  let _crop = null, _cropBound = false;
+
+  async function openCropper(file, kind) {
+    try {
+      // 잘라낼 원본은 2600px까지만 펼친다 (풀해상도로 펼치면 안드로이드가 앱을 죽인다)
+      const bmp = await decodeImage(file, 2600);
+      const W = bmp.width, H = bmp.height;
+      if (!W || !H) throw new Error('DECODE_FAIL');
+      const cv = document.createElement('canvas');
+      cv.width = W; cv.height = H;
+      cv.getContext('2d').drawImage(bmp, 0, 0, W, H);
+      if (bmp.close) { try { bmp.close(); } catch (e) {} }
+      if (bmp._objUrl) { try { URL.revokeObjectURL(bmp._objUrl); } catch (e) {} }
+      _cropClose();
+      _crop = { kind, cv, url: null, box: null, dispW: 0, dispH: 0 };
+      await _cropShow(true);
+      return true;
+    } catch (e) {
+      console.error('영역 지정 화면 실패:', e);
+      _crop = null;
+      return false;
+    }
+  }
+
+  async function _cropShow(reset) {
+    const s = _crop;
+    const blob = await _canvasToBlob(s.cv, 0.9);
+    if (s.url) { try { URL.revokeObjectURL(s.url); } catch (e) {} }
+    s.url = URL.createObjectURL(blob);
+    const modal = document.getElementById('crop-modal');
+    const img = document.getElementById('crop-img');
+    modal.style.display = 'flex';
+    _cropBind();
+    await new Promise(res => { img.onload = res; img.onerror = res; img.src = s.url; });
+    _cropLayout(reset);
+  }
+
+  function _cropLayout(reset) {
+    const s = _crop; if (!s) return;
+    const img = document.getElementById('crop-img');
+    const wrap = document.getElementById('crop-wrap');
+    const stage = document.getElementById('crop-stage');
+    const sw = Math.max(1, stage.clientWidth), sh = Math.max(1, stage.clientHeight);
+    const r = Math.min(sw / s.cv.width, sh / s.cv.height);
+    s.dispW = Math.max(1, Math.round(s.cv.width * r));
+    s.dispH = Math.max(1, Math.round(s.cv.height * r));
+    wrap.style.width = s.dispW + 'px'; wrap.style.height = s.dispH + 'px';
+    img.style.width = s.dispW + 'px';  img.style.height = s.dispH + 'px';
+    if (reset || !s.box) s.box = { x: s.dispW * 0.05, y: s.dispH * 0.22, w: s.dispW * 0.90, h: s.dispH * 0.40 };
+    _cropClamp(); _cropPaint();
+  }
+
+  function _cropClamp() {
+    const s = _crop, b = s.box, MIN = 36;
+    b.w = Math.max(MIN, Math.min(b.w, s.dispW));
+    b.h = Math.max(MIN, Math.min(b.h, s.dispH));
+    b.x = Math.max(0, Math.min(b.x, s.dispW - b.w));
+    b.y = Math.max(0, Math.min(b.y, s.dispH - b.h));
+  }
+
+  function _cropPaint() {
+    const s = _crop, b = s.box;
+    const box = document.getElementById('crop-box');
+    box.style.left = b.x + 'px'; box.style.top = b.y + 'px';
+    box.style.width = b.w + 'px'; box.style.height = b.h + 'px';
+    const put = (id, l, t, w, h) => {
+      const e = document.getElementById(id); if (!e) return;
+      e.style.left = l + 'px'; e.style.top = t + 'px';
+      e.style.width = Math.max(0, w) + 'px'; e.style.height = Math.max(0, h) + 'px';
+    };
+    put('crop-dim-t', 0, 0, s.dispW, b.y);
+    put('crop-dim-b', 0, b.y + b.h, s.dispW, s.dispH - b.y - b.h);
+    put('crop-dim-l', 0, b.y, b.x, b.h);
+    put('crop-dim-r', b.x + b.w, b.y, s.dispW - b.x - b.w, b.h);
+  }
+
+  // 손가락·마우스를 한 벌로 처리한다. touch-action:none을 CSS로 걸어 뒀으므로
+  // document에 passive:false 리스너를 달 필요가 없다 (그건 버튼 탭을 잡아먹는다)
+  function _cropBind() {
+    if (_cropBound) return;
+    const wrap = document.getElementById('crop-wrap');
+    if (!wrap) return;
+    _cropBound = true;
+    let mode = null, hnd = '', sx = 0, sy = 0, st = null;
+    const pt = ev => { const r = wrap.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+    wrap.addEventListener('pointerdown', ev => {
+      if (!_crop || !_crop.box) return;
+      ev.preventDefault();
+      try { wrap.setPointerCapture(ev.pointerId); } catch (e) {}
+      const p = pt(ev), b = _crop.box;
+      hnd = (ev.target && ev.target.dataset && ev.target.dataset.h) || '';
+      if (hnd) mode = 'resize';
+      else if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) mode = 'move';
+      else { mode = 'new'; _crop.box = { x: p.x, y: p.y, w: 1, h: 1 }; }
+      sx = p.x; sy = p.y; st = Object.assign({}, _crop.box);
+    });
+    wrap.addEventListener('pointermove', ev => {
+      if (!mode || !_crop) return;
+      ev.preventDefault();
+      const p = pt(ev), dx = p.x - sx, dy = p.y - sy, b = _crop.box;
+      if (mode === 'move') { b.x = st.x + dx; b.y = st.y + dy; }
+      else if (mode === 'new') {
+        b.x = Math.min(sx, p.x); b.y = Math.min(sy, p.y);
+        b.w = Math.abs(p.x - sx); b.h = Math.abs(p.y - sy);
+      } else {
+        if (hnd.indexOf('n') >= 0) { b.y = st.y + dy; b.h = st.h - dy; }
+        if (hnd.indexOf('s') >= 0) { b.h = st.h + dy; }
+        if (hnd.indexOf('w') >= 0) { b.x = st.x + dx; b.w = st.w - dx; }
+        if (hnd.indexOf('e') >= 0) { b.w = st.w + dx; }
+        if (b.w < 36) { if (hnd.indexOf('w') >= 0) b.x = st.x + st.w - 36; b.w = 36; }
+        if (b.h < 36) { if (hnd.indexOf('n') >= 0) b.y = st.y + st.h - 36; b.h = 36; }
+      }
+      _cropClamp(); _cropPaint();
+    });
+    const end = () => { if (mode) { mode = null; _cropClamp(); _cropPaint(); } };
+    wrap.addEventListener('pointerup', end);
+    wrap.addEventListener('pointercancel', end);
+    window.addEventListener('resize', () => {
+      const m = document.getElementById('crop-modal');
+      if (_crop && m && m.style.display === 'flex') _cropLayout(false);
+    });
+  }
+
+  async function cropDone() {
+    const s = _crop; if (!s) return;
+    const kind = s.kind;
+    const sc = s.cv.width / s.dispW;                 // 화면 좌표 → 원본 좌표
+    let sx = Math.round(s.box.x * sc), sy = Math.round(s.box.y * sc);
+    let sw = Math.round(s.box.w * sc), sh = Math.round(s.box.h * sc);
+    sx = Math.max(0, Math.min(sx, s.cv.width - 1));
+    sy = Math.max(0, Math.min(sy, s.cv.height - 1));
+    sw = Math.max(1, Math.min(sw, s.cv.width - sx));
+    sh = Math.max(1, Math.min(sh, s.cv.height - sy));
+    const out = document.createElement('canvas');
+    out.width = sw; out.height = sh;
+    out.getContext('2d').drawImage(s.cv, sx, sy, sw, sh, 0, 0, sw, sh);
+    const blob = await _canvasToBlob(out, 0.92);
+    out.width = out.height = 0;
+    _cropClose();
+    if (!blob) { alert('사진을 자르지 못했어요. 다시 시도해 주세요.'); _resetZone(kind); return; }
+    _busyZone(kind);
+    await _acceptPhoto(blob, kind);
+  }
+
+  async function cropAll() {
+    const s = _crop; if (!s) return;
+    const kind = s.kind;
+    const blob = await _canvasToBlob(s.cv, 0.92);
+    _cropClose();
+    if (!blob) { _resetZone(kind); return; }
+    _busyZone(kind);
+    await _acceptPhoto(blob, kind);
+  }
+
+  function cropRotate() {
+    const s = _crop; if (!s) return;
+    const out = document.createElement('canvas');
+    out.width = s.cv.height; out.height = s.cv.width;
+    const ctx = out.getContext('2d');
+    ctx.translate(out.width, 0); ctx.rotate(Math.PI / 2);
+    ctx.drawImage(s.cv, 0, 0);
+    s.cv.width = s.cv.height = 0;
+    s.cv = out;
+    _cropShow(true);
+  }
+
+  function cropCancel() {
+    const kind = _crop ? _crop.kind : null;
+    _cropClose();
+    if (kind) {
+      if (pendingFiles[kind]) _setPreview(kind, pendingFiles[kind]);
+      else _resetZone(kind);
+    }
+    checkSubmitButton();
+  }
+
+  function _cropClose() {
+    const modal = document.getElementById('crop-modal');
+    if (modal) modal.style.display = 'none';
+    const img = document.getElementById('crop-img');
+    if (img) img.removeAttribute('src');
+    if (_crop) {
+      if (_crop.url) { try { URL.revokeObjectURL(_crop.url); } catch (e) {} }
+      if (_crop.cv) { _crop.cv.width = _crop.cv.height = 0; }   // 캔버스 메모리 즉시 반납
+      _crop = null;
+    }
   }
 
   // ── 앱이 강제 종료돼도 찍은 사진을 살려두기 ──────────────────────
@@ -1481,22 +1764,51 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     document.getElementById('submit-btn').disabled = !(pendingFiles.problem && pendingFiles.mine && studentId);
   }
 
-  // JPEG 헤더만 읽어서 원본 크기를 알아낸다 (전체를 펼치지 않으므로 메모리를 거의 안 쓴다)
-  async function _jpegSize(file) {
+  // EXIF 안의 회전값(Orientation)만 뽑아낸다. 1=그대로, 6·8=90도 누워 있음
+  function _exifOrient(buf, off) {
+    try {
+      // "Exif" 표식이 있어야 진짜 EXIF 구역
+      if (buf[off] !== 0x45 || buf[off + 1] !== 0x78 || buf[off + 2] !== 0x69 || buf[off + 3] !== 0x66) return 0;
+      const t = off + 6;                                   // TIFF 헤더 시작
+      if (t + 8 > buf.length) return 0;
+      const le = buf[t] === 0x49;                          // 'II'면 리틀엔디안
+      const u16 = q => le ? (buf[q] | (buf[q + 1] << 8)) : ((buf[q] << 8) | buf[q + 1]);
+      const u32 = q => le
+        ? (buf[q] + buf[q + 1] * 256 + buf[q + 2] * 65536 + buf[q + 3] * 16777216)
+        : (buf[q] * 16777216 + buf[q + 1] * 65536 + buf[q + 2] * 256 + buf[q + 3]);
+      if (u16(t + 2) !== 0x002A) return 0;
+      const ifd = t + u32(t + 4);
+      if (ifd + 2 > buf.length) return 0;
+      const cnt = u16(ifd);
+      for (let k = 0; k < cnt; k++) {
+        const e = ifd + 2 + k * 12;
+        if (e + 12 > buf.length) break;
+        if (u16(e) === 0x0112) { const v = u16(e + 8); return (v >= 1 && v <= 8) ? v : 0; }
+      }
+    } catch (e) {}
+    return 0;
+  }
+
+  // JPEG 헤더만 읽어서 원본 크기 + 회전값을 알아낸다 (전체를 펼치지 않으므로 메모리를 거의 안 쓴다)
+  async function _jpegMeta(file) {
     try {
       const buf = new Uint8Array(await file.slice(0, 256 * 1024).arrayBuffer());
       if (buf[0] !== 0xFF || buf[1] !== 0xD8) return null;          // JPEG 아님
-      let i = 2;
+      let i = 2, orient = 1;
       while (i < buf.length - 9) {
         if (buf[i] !== 0xFF) { i++; continue; }
         const marker = buf[i + 1];
         if (marker === 0xD8 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) { i += 2; continue; }
+        if (marker === 0xDA) break;                                 // 그림 데이터 시작 — 더 볼 것 없음
         const len = (buf[i + 2] << 8) | buf[i + 3];
+        if (len < 2) break;
+        // APP1(0xE1) 안에 EXIF가 들어 있고, 항상 SOF보다 앞에 나온다
+        if (marker === 0xE1 && orient === 1) orient = _exifOrient(buf, i + 4) || 1;
         // SOF0~SOF15 (SOF4·SOF8·SOF12 제외) 에 세로·가로가 들어 있다
         if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
           const h = (buf[i + 5] << 8) | buf[i + 6];
           const w = (buf[i + 7] << 8) | buf[i + 8];
-          return (w && h) ? { w, h } : null;
+          return (w && h) ? { w, h, orient } : null;
         }
         i += 2 + len;
       }
@@ -1510,18 +1822,29 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   async function decodeImage(file, maxSize) {
     if (typeof createImageBitmap === 'function') {
       if (maxSize) {
-        const sz = await _jpegSize(file);
-        if (sz && (sz.w > maxSize || sz.h > maxSize)) {
-          const sc = maxSize / Math.max(sz.w, sz.h);
-          try {
-            return await createImageBitmap(file, {
-              resizeWidth: Math.max(1, Math.round(sz.w * sc)),
-              resizeHeight: Math.max(1, Math.round(sz.h * sc)),
-              resizeQuality: 'medium'
-            });
-          } catch (e) { /* 옵션 미지원 웹뷰 → 아래로 */ }
+        const m = await _jpegMeta(file);
+        if (m) {
+          // ★ 세로 사진이 위아래로 눌리던 원인
+          //   폰으로 세로로 찍은 사진은 파일 안에는 가로로 누워서 저장되고(4000x3000),
+          //   "90도 돌려서 봐라"라는 EXIF 표시만 붙는다.
+          //   브라우저는 (1) 먼저 회전을 적용하고 (2) 우리가 준 가로x세로에 맞춘다.
+          //   그래서 누운 크기로 계산한 1400x1050을 그대로 주면
+          //   3000x4000짜리 세로 그림이 1400x1050 틀에 억지로 눌려 납작해졌다.
+          //   → 회전을 반영한 진짜 크기를 구하고, 긴 변 "하나만" 지정한다.
+          //     한 변만 주면 나머지는 브라우저가 비율을 지켜서 알아서 정한다.
+          const swap = m.orient >= 5 && m.orient <= 8;
+          const ow = swap ? m.h : m.w, oh = swap ? m.w : m.h;
+          if (ow > maxSize || oh > maxSize) {
+            const sc = maxSize / Math.max(ow, oh);
+            const opt = { resizeQuality: 'medium' };
+            if (ow >= oh) opt.resizeWidth = Math.max(1, Math.round(ow * sc));
+            else opt.resizeHeight = Math.max(1, Math.round(oh * sc));
+            try { return await createImageBitmap(file, Object.assign({ imageOrientation: 'from-image' }, opt)); } catch (e) {}
+            try { return await createImageBitmap(file, opt); } catch (e) { /* 옵션 미지원 웹뷰 → 아래로 */ }
+          }
         }
       }
+      try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) {}
       try { return await createImageBitmap(file); } catch (e) { /* 폴백으로 진행 */ }
     }
     return await new Promise((resolve, reject) => {
@@ -1590,7 +1913,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   async function uploadOne(file, studentId, tag) {
     let body, ext = 'jpg', mime = 'image/jpeg', compressed = true;
     try {
-      body = await compressImage(file);
+      // 사진을 고를 때 이미 1400px JPEG로 줄여 놨다.
+      // 여기서 또 1200px로 줄이면 화질만 한 번 더 깎이므로, 충분히 작으면 그대로 보낸다
+      body = (file.type === 'image/jpeg' && file.size <= 900000) ? file : await compressImage(file, 1400, 0.85);
     } catch (e) {
       // 압축 실패: 원본이 너무 크면 업로드 자체가 실패하므로 미리 막고 안내
       compressed = false;
@@ -6051,6 +6376,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (t == null) return t;
     return String(t)
       .replace(HINT_PAREN, '').replace(HINT_BARE, '')
+      // AI가 "(단, ...)" 을 쓰다 마는 경우가 있다. 껍데기만 남은 괄호를 치운다
+      .replace(/[,，]\s*([)）])/g, '$1')
+      .replace(/[(（]\s*단\s*[)）]/g, '')
       .replace(/[(（]\s*[)）]/g, '')
       .replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
