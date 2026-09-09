@@ -2780,7 +2780,7 @@
           ${(() => {
             let sp = v.figure;
             if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
-            const svg = sp ? renderFigure(sp) : '';
+            const svg = sp ? renderFigure(sp, v.problem_text) : '';
             return svg ? `<div style="background:#1a1a2a;border-radius:10px;padding:8px;margin-bottom:8px;">
               <div style="font-size:10.5px;color:var(--text4);font-weight:700;margin-bottom:4px;">📈 자동 생성된 그래프 (학생에게 이렇게 보여요)</div>${svg}</div>` : '';
           })()}
@@ -2853,7 +2853,22 @@
   }
 
   // --- 2) SVG 그리기 ---
-  function renderFigure(fig) {
+  // 화면에 보이는 그림은 전부 흰 종이에 검은 선으로 바꿔서 내보낸다.
+  // 문제 본문을 같이 주면 본문의 "$\overline{AB}=\overline{CD}$" 조건을 눈금으로 심는다.
+  // ★ 예전에 만들어 둔 그림은 그 조건이 설계도에 안 적혀 있어서 앱이 고칠 수가 없었다.
+  //   화면에 그릴 때 본문에서 읽어 심으면 옛 그림도 조건에 맞게 좌표가 잡힌다.
+  function renderFigure(fig, problemText) {
+    let f = fig;
+    if (problemText && f && f.type === 'geometry') {
+      try {
+        const copy = JSON.parse(JSON.stringify(f));
+        if (injectTicks(problemText, copy)) f = copy;
+      } catch (e) { /* 실패하면 원본 그대로 */ }
+    }
+    return figPaper(renderFigureRaw(f), false);
+  }
+
+  function renderFigureRaw(fig) {
     if (!fig || typeof fig !== 'object') return '';
     const W = 340, H = 280, PAD = 32;
     const xr = fig.xRange || [-5, 5];
@@ -2924,8 +2939,13 @@
 
     let out = '';
     // 개형만 보여주면 되므로 눈금 숫자는 기본 끔 (필요하면 true 로 바꾸면 됨)
-    const SHOW_NUMBERS = false;
-    const showNum = SHOW_NUMBERS;
+    // ★ 여기가 false 로 박혀 있어서 축의 눈금 숫자가 한 번도 안 나왔다.
+    //   Edge Function 은 showNumbers 를 제대로 계산해서 보내고 있었는데 화면이 무시하고 있었다.
+    //   좌표를 읽어야 풀리는 문제(교점·최댓값·넓이)에서 숫자가 없으면 학생이 풀 수가 없다.
+    //   a·b·c 처럼 문자로만 표시하는 그림(xMarks)이면 숫자를 빼는 게 깔끔하다.
+    const showNum = fig.showNumbers === true ? true
+      : fig.showNumbers === false ? false
+      : !(Array.isArray(fig.xMarks) && fig.xMarks.length);
     const gridC = 'rgba(255,255,255,0.09)', axisC = 'rgba(255,255,255,0.55)';
     const txtC = 'rgba(255,255,255,0.62)', curveC = '#F9A8D4';
 
@@ -3126,7 +3146,11 @@
   ]);
 
   // ===== 도형 SVG를 인쇄용(흑백)으로 변환 =====
-  function figForPrint(svg) {
+  // ── 그림을 "흰 종이에 검은 선" 으로 바꾼다 (평가원 모의고사 스타일) ──
+  //   forPrint=false : 화면용. 선 굵기는 그대로 두고 글자에 흰 후광을 둘러
+  //                    선 위에 글자가 얹혀도 읽히게 한다. 흰 종이 배경도 깐다.
+  //   forPrint=true  : 인쇄용. 종이는 이미 희므로 배경을 빼고 선을 가늘게, 후광은 제거.
+  function figPaper(svg, forPrint) {
     if (!svg) return svg;
     let VW = 0, VH = 0;
     const vb = svg.match(/viewBox\s*=\s*"([^"]*)"/i);
@@ -3163,7 +3187,9 @@
         return '#d8d8d8';                                     // 면 채우기(막대·다각형) → 연회색
       }
       if (a < 0.2) return '#e2e2e2';                       // 격자
-      if (S < 0.18) return (a < 0.7 || L > 0.75) ? '#9a9a9a' : '#111';  // 축
+      // 눈금·각도 호·축은 그림의 일부다. 평가원 그림처럼 검게 그린다.
+      // 아주 옅은 것(보조 안내선)만 회색으로 남긴다.
+      if (S < 0.18) return a < 0.45 ? '#8a8a8a' : '#111';  // 축
       return '#111';                                       // 도형/곡선
     };
 
@@ -3191,29 +3217,41 @@
       return '<' + tag + a2 + '>';
     });
 
-    // 3) 글자에 두른 후광 제거
-    //    화면에서는 선 위에 글자가 얹혀도 읽히라고 테두리를 깔지만,
-    //    인쇄하면 그 테두리가 검게 변해 글씨가 뭉개진다.
+    // 3) 글자 테두리
+    //    화면에서는 선 위에 글자가 얹혀도 읽히라고 흰 테두리를 두른다.
+    //    인쇄할 때는 그 테두리가 오히려 글씨를 뭉개므로 없앤다.
     svg = svg.replace(/<text\b([^>]*)>/gi, (m, at) => {
-      let a = at
-        .replace(/\spaint-order\s*=\s*"[^"]*"/gi, '')
-        .replace(/\sstroke(?:-width|-linejoin|-opacity)?\s*=\s*"[^"]*"/gi, '')
-        .replace(/font-weight\s*=\s*"[^"]*"/gi, 'font-weight="600"');
+      let a = at;
+      if (forPrint) {
+        a = a.replace(/\spaint-order\s*=\s*"[^"]*"/gi, '')
+             .replace(/\sstroke(?:-width|-linejoin|-opacity)?\s*=\s*"[^"]*"/gi, '')
+             .replace(/font-weight\s*=\s*"[^"]*"/gi, 'font-weight="600"');
+      } else {
+        a = a.replace(/\sstroke\s*=\s*"[^"]*"/gi, ' stroke="#ffffff"');
+        if (!/\sstroke\s*=/i.test(a)) a += ' stroke="#ffffff" stroke-width="3.2" stroke-linejoin="round"';
+        if (!/paint-order/i.test(a)) a += ' paint-order="stroke"';
+      }
       return '<text' + a + '>';
     });
 
-    // 4) 선을 인쇄에 맞게 가늘게 (화면 기준 굵기는 종이에서 너무 두껍다)
-    svg = svg.replace(/stroke-width\s*=\s*"([\d.]+)"/gi,
-      (m, w) => `stroke-width="${Math.max(0.7, Number(w) * 0.6).toFixed(2)}"`);
-
-    // 5) 꼭짓점 점도 작게 (도형의 원은 반지름이 커서 건드리지 않는다)
-    svg = svg.replace(/<circle\b([^>]*?)\br\s*=\s*"([\d.]+)"([^>]*)>/gi,
-      (m, a, r, b) => (Number(r) <= 5 ? `<circle${a}r="${(Number(r) * 0.6).toFixed(2)}"${b}>` : m));
+    if (forPrint) {
+      // 4) 선을 인쇄에 맞게 가늘게 (화면 기준 굵기는 종이에서 너무 두껍다)
+      svg = svg.replace(/stroke-width\s*=\s*"([\d.]+)"/gi,
+        (m, w) => `stroke-width="${Math.max(0.7, Number(w) * 0.6).toFixed(2)}"`);
+      // 5) 꼭짓점 점도 작게 (도형의 원은 반지름이 커서 건드리지 않는다)
+      svg = svg.replace(/<circle\b([^>]*?)\br\s*=\s*"([\d.]+)"([^>]*)>/gi,
+        (m, a, r, b) => (Number(r) <= 5 ? `<circle${a}r="${(Number(r) * 0.6).toFixed(2)}"${b}>` : m));
+    } else {
+      // 6) 화면용 — 흰 종이를 깔아 준다. (인쇄는 종이가 이미 희므로 안 깐다)
+      svg = svg.replace(/(<svg[^>]*>)/i,
+        '$1<rect x="0" y="0" width="100%" height="100%" rx="8" fill="#ffffff"/>');
+    }
 
     return svg;
   }
 
-  // ===== AI 가 그린 SVG 를 다크 화면에서 보이게 색 보정 =====
+  function figForPrint(svg) { return figPaper(svg, true); }
+
   function figForScreen(svg) {
     if (!svg) return svg;
     let VW = 0, VH = 0;
@@ -4253,8 +4291,145 @@
     document.head.appendChild(st);
   }
 
+  // ═══ 표기 정리 — 이미 저장된 옛 문제도 화면에서 바로잡는다 ═══
+  // Edge Function 이 만들 때 손보지만, 그 전에 만들어 둔 문제는 DB 에 옛 표기 그대로 남아 있다.
+  // 화면에 그릴 때 한 번 더 통과시켜서 분수·로만체·$$ 를 바로잡는다.
+  // (이미 올바른 글에는 아무 일도 일어나지 않는다 — 멱등)
+  const UNI = [
+    [/×/g, "\\times "], [/÷/g, "\\div "], [/≤/g, "\\leq "], [/≥/g, "\\geq "],
+    [/≠/g, "\\neq "], [/±/g, "\\pm "], [/∓/g, "\\mp "], [/∴/g, "\\therefore "],
+    [/∵/g, "\\because "], [/∠/g, "\\angle "], [/△/g, "\\triangle "],
+    [/π/g, "\\pi "], [/√/g, "\\sqrt"], [/∞/g, "\\infty "],
+    [/²/g, "^2"], [/³/g, "^3"], [/⁴/g, "^4"], [/½/g, "\\frac{1}{2}"],
+    [/·/g, "\\cdot "], [/−/g, "-"], [/–/g, "-"],
+  ];
+  
+  // 수식 한 덩어리($ 와 $ 사이)를 표준 표기로 고친다
+  function tidyMath(m) {
+    let s = m;
+  
+    // (1) 분수는 무조건 \frac
+    s = s.replace(/\\[dt]frac/g, "\\frac");
+    //     q/p, 1/3, 2/5 처럼 슬래시로 쓴 분수를 바꾼다.
+    //     앞뒤가 중괄호·백슬래시·글자면 건드리지 않는다 (\mathrm{km/h}, \frac{1}{2} 보호)
+    const TERM = "(?:[0-9]+|[A-Za-z](?:_\\{?[0-9A-Za-z]+\\}?)?)";
+    s = s.replace(
+      new RegExp(`(?<![\\w}\\\\{])(${TERM})\\s*/\\s*(${TERM})(?![\\w{])`, "g"),
+      (_m, a, b) => `\\frac{${a}}{${b}}`,
+    );
+  
+    // (2) 곱셈 별표 → \times
+    s = s.replace(/(?<=[0-9A-Za-z}\)])\s*\*\s*(?=[0-9A-Za-z\\(])/g, " \\times ");
+  
+    // (3) 함수·연산자 이름은 로만체가 되도록 백슬래시 명령으로
+    s = s.replace(
+      /(?<!\\mathrm\{)(?<!\\text\{)(?<![A-Za-z\\])(sin|cos|tan|csc|sec|cot|log|ln|exp|lim|max|min|gcd|lcm)(?![A-Za-z])/g,
+      "\\$1",
+    );
+  
+    // (4) 단위는 로만체. 헷갈릴 여지가 없는 두 글자 이상만 건드린다
+    //     (m, g, s 는 변수일 수 있으므로 손대지 않는다)
+    s = s.replace(
+      /(?<![\\A-Za-z{])(km\/h|m\/s|cm|mm|km|kg|mg|ml)(\^\{?[23]\}?)?(?![A-Za-z])/g,
+      (_m, u, sup) => `\\mathrm{${u}${sup || ""}}`,
+    );
+    s = s.replace(/(\d)\\mathrm\{/g, "$1\\,\\mathrm{");   // 8cm → 8 cm (숫자와 단위 사이 얇은 간격)
+    s = s.replace(/\\,\s*\\,/g, "\\,");
+  
+    // (5) 도형의 점·선분·각·다각형 이름은 로만체. 변수(소문자·한 글자)는 이탤릭 그대로 둔다
+    s = s.replace(/\\(?:text|rm)\s*\{\s*([A-Z][A-Z0-9]{0,3})\s*\}/g, "\\mathrm{$1}");
+    s = s.replace(
+      /\\(overline|overrightarrow|widehat|overparen|underline)\s*\{\s*([A-Z][A-Z0-9]{0,3})\s*\}/g,
+      (_m, cmd, nm) => `\\${cmd}{\\mathrm{${nm}}}`,
+    );
+    s = s.replace(
+      /\\(angle|triangle|square|measuredangle)\s*(?:\{\s*([A-Z][A-Z0-9]{0,3})\s*\}|([A-Z][A-Z0-9]{0,3}))/g,
+      (_m, cmd, a, b) => `\\${cmd}\\mathrm{${a || b}}`,
+    );
+    //     대문자가 두 글자 이상 붙어 있으면 도형 이름으로 본다 (ABC, PQR …)
+    s = s.replace(/(?<![\\{A-Za-z])([A-Z]{2,4})(?![A-Za-z}])/g, "\\mathrm{$1}");
+    s = s.replace(/\\mathrm\{\s*\\mathrm\{([^}]*)\}\s*\}/g, "\\mathrm{$1}");
+  
+    // (6) 유니코드 기호 → LaTeX
+    for (const [re, to] of UNI) s = s.replace(re, to);
+  
+    // 명령 뒤 공백이 괄호에 붙는 것 정리
+    s = s.replace(
+      /\\(times|div|leq|geq|neq|pm|mp|cdot|pi|angle|triangle|infty|therefore|because)\s+(?=[)}\]])/g,
+      "\\$1",
+    );
+    return s.replace(/\s{2,}/g, " ").trim();
+  }
+  
+  function equalSegsFromText(text) {
+    // \mathrm 을 벗겨 \overline{AB} 꼴로 통일한 뒤, "=" 로 이어진 것끼리 묶는다
+    const t = String(text || "").replace(/\\mathrm\s*\{\s*([A-Za-z0-9]+)\s*\}/g, "$1");
+    const parts = t.split(/\\overline\s*\{\s*([A-Z][A-Z0-9])\s*\}/);
+    const groups = [];
+    let cur = [];
+    for (let i = 1; i < parts.length; i += 2) {
+      const name = parts[i];
+      const gap = parts[i + 1] ?? "";
+      if (cur.length === 0) cur.push(name);
+      else cur.push(name);
+      // 다음 변과 "=" 로만 이어져 있으면 같은 묶음
+      if (!/^[\s$=]*=[\s$=]*$/.test(gap)) {
+        if (cur.length >= 2) groups.push(cur);
+        cur = [];
+      }
+    }
+    if (cur.length >= 2) groups.push(cur);
+    return groups;
+  }
+  
+  function injectTicks(problem, fig) {
+    if (!fig || fig.type !== "geometry") return 0;
+    // 앱에는 geoResolve 대신 geoBuild 가 있다. 작도점까지 만들어 놓고 이름을 확인한다
+    const P = {};
+    (fig.points || []).forEach(p => {
+      if (Array.isArray(p) && p.length >= 3) P[String(p[0])] = [Number(p[1]), Number(p[2])];
+    });
+    try { geoBuild(fig, P); } catch (e) { /* 작도 실패는 무시 */ }
+    const groups = equalSegsFromText(problem);
+    if (!groups.length) return 0;
+    let ticks = Array.isArray(fig.ticks) ? fig.ticks.slice() : [];
+    let added = 0, gid = 1;
+    for (const g of groups) {
+      const pairs = g.map(s => [s[0], s[1]]).filter(s => P[s[0]] && P[s[1]]);
+      if (pairs.length < 2) continue;
+      const key = "t" + (gid++);
+      const same = (x, s) =>
+        (String(x[0]) === s[0] && String(x[1]) === s[1]) || (String(x[0]) === s[1] && String(x[1]) === s[0]);
+      ticks = ticks.filter((x) => !pairs.some((s) => same(x, s)));
+      for (const s of pairs) { ticks.push([s[0], s[1], key]); added++; }
+    }
+    if (!added) return 0;
+    fig.ticks = ticks.slice(0, 20);
+    return added;
+  }
+
+  // 수식 구간($...$)만 골라서 표기를 바로잡는다. 문장 밖 글자는 건드리지 않는다.
+  function tidyForDisplay(raw) {
+    let t = String(raw ?? '');
+    if (!t) return t;
+    t = t.replace(/\\\\(?=[a-zA-Z]{2,})/g, '\\');          // \\frac → \frac
+    // 문장 한가운데 낀 $$ 는 그 자리에서 줄을 끊어 문장을 두 동강 낸다. 줄 전체가 $$ 뿐이면 그대로 둔다
+    if (t.includes('$$')) {
+      t = t.split('\n').map(L => {
+        if (!L.includes('$$')) return L;
+        const alone = /^\s*\$\$[\s\S]*\$\$\s*$/.test(L) && (L.match(/\$\$/g) || []).length === 2;
+        return alone ? L : L.replace(/\$\$\s*([^$]+?)\s*\$\$/g, (_m, inner) => '$' + String(inner).trim() + '$');
+      }).join('\n');
+    }
+    return t.split(/(\$[^$\n]*\$)/g).map(seg =>
+      (seg.startsWith('$') && seg.endsWith('$') && seg.length >= 3)
+        ? '$' + tidyMath(seg.slice(1, -1)) + '$'
+        : seg
+    ).join('');
+  }
+
   function renderProblemHtml(text) {
-    text = stripHint(text);
+    text = tidyForDisplay(stripHint(text));
     const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const isRow = l => /^\s*\|.*\|\s*$/.test(l);
     const isSep = l => /^\s*\|[\s\-:|]+\|\s*$/.test(l);
@@ -6252,7 +6427,7 @@
   function vmCard(v) {
     let sp = v.figure;
     if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
-    const svg = sp ? renderFigure(sp) : '';
+    const svg = sp ? renderFigure(sp, v.problem_text) : '';
     const orig = v.is_original;
     const sel = _vmSel.has(v.id);
     return `
@@ -6679,7 +6854,7 @@
     const qBlock = (v, i, mixed) => {
       let sp = v.figure;
       if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
-      const svg = sp ? figForPrint(renderFigure(sp)) : '';
+      const svg = sp ? figForPrint(renderFigure(sp, v.problem_text)) : '';
       const photo = v.image_url || (v.is_original ? v.wrong_notes?.image_url : '');
       const pts = Math.max(2, Math.round((v.time_limit_sec || 180) / 60) + 1);
       const qt = vmQType(v);
