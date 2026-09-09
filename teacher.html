@@ -3660,225 +3660,177 @@
     return fail;
   }
 
-  function geoSolve(fig){
-    const names=[], P=[];
-    (fig.points||[]).forEach(p=>{ if(Array.isArray(p)&&p.length>=3){names.push(String(p[0]));P.push([+p[1],+p[2]]);} });
+  // ═══ 좌표 맞추기 ═══════════════════════════════════════════
+  //  AI 가 찍어 준 좌표는 문제 조건(각·같은 길이·직각)을 대개 만족하지 않는다.
+  //  여기서 좌표와 내분 비율을 조금씩 움직여 조건에 맞춘다.
+  //
+  //  두 단계로 나눈다:
+  //   1단계 — 원래 자리에서 한 번만 풀어 본다. 대부분 여기서 끝나고 빠르다.
+  //   2단계 — 그래도 안 맞으면 출발점을 여러 군데로 흩어서 다시 푼다.
+  //           예전에는 1단계에서 막히면 그냥 포기하고 원본 좌표를 그대로 썼다.
+  //           그래서 "∠APD 102°" 라고 써 놓고 그림은 138.7° 인 문제가 나갔다.
+  //
+  //  움직인 거리로는 막지 않는다. 뼈대(도는 방향)만 안 뒤집히면 얼마든지 움직여도 된다.
+  //  대신 원래 배치에서 읽어 낸 구조(공선·같은 길이·직각)를 약한 힘으로 붙잡아 둔다.
+  const _geoCache = new Map();
+
+  function geoSolve(fig, opt) {
+    if (opt) return _geoSolveRun(fig, opt);
+    let key = null;
+    try { key = JSON.stringify(fig); } catch (e) { key = null; }
+    if (key && _geoCache.has(key)) return _geoCache.get(key);
+    const r = _geoSolveRun(fig, {});
+    if (key) { if (_geoCache.size > 60) _geoCache.clear(); _geoCache.set(key, r); }
+    return r;
+  }
+
+  function _geoSolveRun(fig, opt){
+    opt = opt || {};
+    const names=[], P0=[];
+    (fig.points||[]).forEach(p=>{ if(Array.isArray(p)&&p.length>=3){names.push(String(p[0]));P0.push([+p[1],+p[2]]);} });
     if(names.length<3) return {fig, moved:0};
-    const P0=P.map(p=>[p[0],p[1]]);
-    const scale=Math.max(1e-6, Math.max(...P.map(p=>Math.hypot(p[0],p[1]))));
+    const scale=Math.max(1e-6, Math.max(...P0.map(p=>Math.hypot(p[0],p[1]))));
 
-    // 후보 좌표 → 이름표. 작도로 생기는 점까지 매번 같이 계산한다.
-    // ★ 예전에는 작도 전의 기본 점만 가지고 풀어서,
-    //   D·E·P 처럼 작도로 생기는 점이 걸린 조건은 전부 조용히 버려졌다.
-    //   (실제 저장된 그림 17개에서 조건 41개 중 10개가 이렇게 사라지고 있었다)
-    // ★ 내분 비율(div)도 미지수로 둔다.
-    //   AI 는 "BF=CD" 같은 조건을 만족하는 비율을 계산하지 않고 1:3, 1:4 처럼 눈대중으로 찍는다.
-    //   그러면 그림이 문제 조건을 어기는데, 비율은 고정이라 좌표를 아무리 옮겨도 못 고쳤다.
-    //   이제 눈금(같은 길이)이 걸려 있으면 앱이 비율 자체를 조정한다.
-    const divIdx = [];
-    (fig.build||[]).forEach((b,i)=>{ if(b && Array.isArray(b.div) && b.div.length>=4) divIdx.push(i); });
-    const t0 = divIdx.map(i=>{
-      const m=Number(fig.build[i].div[2]), q=Number(fig.build[i].div[3]);
-      const s=m+q;
-      return (isFinite(s) && s>1e-9) ? Math.max(0.03, Math.min(0.97, m/s)) : 0.5;
-    });
-    const figWith = tv => {
-      if(!tv || !divIdx.length) return fig;
-      const b2=(fig.build||[]).map((b,i)=>{
-        const k=divIdx.indexOf(i);
-        return k<0 ? b : Object.assign({}, b, { div:[b.div[0], b.div[1], tv[k], 1-tv[k]] });
-      });
-      return Object.assign({}, fig, { build:b2 });
-    };
-    const mapOf = (p, tv) => {
-      const M = {};
-      names.forEach((n,i)=>{ M[n]=[p[i][0], p[i][1]]; });
-      try { geoBuild(figWith(tv), M); } catch(e) {}
-      return M;
-    };
-    const angOf=(M,at,a,b)=>{
-      const v=M[at],x=M[a],y=M[b];
-      if(!v||!x||!y) return null;
-      const u=[x[0]-v[0],x[1]-v[1]], w=[y[0]-v[0],y[1]-v[1]];
-      const n1=Math.hypot(u[0],u[1]), n2=Math.hypot(w[0],w[1]);
-      if(n1<1e-9||n2<1e-9) return null;
-      const c=(u[0]*w[0]+u[1]*w[1])/(n1*n2);
-      return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
-    };
-    const lenOf=(M,a,b)=>{ const x=M[a],y=M[b]; return (x&&y)?Math.hypot(y[0]-x[0],y[1]-x[1]):null; };
+    // 내분 비율(div)도 미지수로 둔다.
+    // AI 는 "BF=CD" 같은 조건을 만족하는 비율을 계산하지 않고 1:3, 1:4 처럼 눈대중으로 찍는다.
+    const divIdx=[]; (fig.build||[]).forEach((b,k)=>{ if(b&&Array.isArray(b.div)&&b.div.length>=4) divIdx.push(k); });
+    const t0=divIdx.map(k=>{const m=Number(fig.build[k].div[2]),q=Number(fig.build[k].div[3]),s=m+q;
+      return (isFinite(s)&&s>1e-9)?Math.max(0.03,Math.min(0.97,m/s)):0.5;});
+    const figWith=tv=>{ if(!tv||!divIdx.length) return fig;
+      return Object.assign({}, fig, {build:(fig.build||[]).map((b,k)=>{const q=divIdx.indexOf(k);
+        return q<0?b:Object.assign({}, b, {div:[b.div[0],b.div[1],tv[q],1-tv[q]]});})});};
+    const mapOf=(p,tv)=>{const M={}; names.forEach((n,k)=>{M[n]=[p[k][0],p[k][1]];});
+      try{ geoBuild(figWith(tv),M);}catch(e){} return M;};
 
-    const cons=[];
-    (fig.angles||[]).forEach(g=>{
-      const t=parseFloat(String(g.label==null?'':g.label).replace(/[°$\s]/g,''));
-      if(!isFinite(t)) return;
-      cons.push({w:1, f:M=>{const v=angOf(M,g.at,g.from,g.to); return v==null?0:(v-t)/30;}});
-    });
-    (fig.rightAngles||[]).forEach(t=>{
-      if(!Array.isArray(t)||t.length<3) return;
-      cons.push({w:1.2, f:M=>{const x=angOf(M,t[1],t[0],t[2]); return x==null?0:(x-90)/30;}});
-    });
-    // 같은 눈금 = 같은 길이
-    const grp = geoTickGroups(fig.ticks, mapOf(P0)).groups;
-    Object.values(grp).forEach(list=>{
-      for(let i=1;i<list.length;i++){
-        const s1=list[0], s2=list[i];
-        cons.push({w:1, f:M=>{
-          const L1=lenOf(M,String(s1[0]),String(s1[1])), L2=lenOf(M,String(s2[0]),String(s2[1]));
-          return (L1==null||L2==null)?0:(L1-L2)/scale;
-        }});
-      }
-    });
-    if(!cons.length) return {fig, moved:0};
+    const ang=(M,at,a,b)=>{const v=M[at],x=M[a],y=M[b]; if(!v||!x||!y)return null;
+      const u=[x[0]-v[0],x[1]-v[1]],w=[y[0]-v[0],y[1]-v[1]];
+      const n1=Math.hypot(u[0],u[1]),n2=Math.hypot(w[0],w[1]); if(n1<1e-9||n2<1e-9)return null;
+      return Math.acos(Math.max(-1,Math.min(1,(u[0]*w[0]+u[1]*w[1])/(n1*n2))))*180/Math.PI;};
+    const len=(M,a,b)=>{const x=M[a],y=M[b]; return (x&&y)?Math.hypot(y[0]-x[0],y[1]-x[1]):null;};
+    const sin3=(M,t)=>{const A=M[t.a],B=M[t.b],C=M[t.c]; if(!A||!B||!C)return null;
+      const ux=B[0]-A[0],uy=B[1]-A[1],wx=C[0]-A[0],wy=C[1]-A[1];
+      const n1=Math.hypot(ux,uy),n2=Math.hypot(wx,wy); if(n1<1e-9||n2<1e-9)return null;
+      return (ux*wy-uy*wx)/(n1*n2);};
 
-    // ── 그림의 뼈대를 붙잡는다 ──────────────────────────────
-    // ★ 각도만 맞추려다 그림 자체가 부서지는 일이 있었다.
-    //   B·C·D 가 한 직선 위에 있어야 하는데 C 가 선 밖으로 튀어나가고,
-    //   이등변삼각형이 눈에 띄게 찌그러졌다. (실제 저장된 그림에서 확인)
-    //   설계도에는 "C 는 선분 BD 위에 있다" 를 적는 칸이 없으므로,
-    //   AI 가 처음 찍은 좌표에서 그 구조를 읽어 내 제약으로 삼는다.
-    const sinAt=(M,t)=>{
-      const A=M[t.a],B=M[t.b],C=M[t.c];
-      if(!A||!B||!C) return null;
-      const ux=B[0]-A[0], uy=B[1]-A[1], wx=C[0]-A[0], wy=C[1]-A[1];
-      const n1=Math.hypot(ux,uy), n2=Math.hypot(wx,wy);
-      if(n1<1e-9||n2<1e-9) return null;
-      return (ux*wy-uy*wx)/(n1*n2);              // 세 점이 이루는 각의 sin (부호 = 도는 방향)
-    };
-    const M00=mapOf(P0,t0), nm0=Object.keys(M00);
-    const S0=[];
-    for(let i=0;i<nm0.length;i++)for(let j=i+1;j<nm0.length;j++)for(let k=j+1;k<nm0.length;k++){
-      const t={a:nm0[i],b:nm0[j],c:nm0[k]};
-      const s=sinAt(M00,t);
-      if(s===null) continue;
-      t.s=s; S0.push(t);
+    const M00=mapOf(P0,t0);
+
+    // ── 문제가 명시한 조건 ── (잔차 1 ≈ 각 3° 또는 길이 3% — 단위를 맞춰 둔다)
+    const hard=[];
+    (fig.angles||[]).forEach(g=>{const t=parseFloat(String(g.label==null?'':g.label).replace(/[°$\s]/g,''));
+      if(!isFinite(t))return; hard.push({w:3,f:M=>{const v=ang(M,g.at,g.from,g.to); return v==null?0:(v-t)/3;}});});
+    (fig.rightAngles||[]).forEach(t=>{ if(!Array.isArray(t)||t.length<3)return;
+      hard.push({w:3,f:M=>{const x=ang(M,t[1],t[0],t[2]); return x==null?0:(x-90)/3;}});});
+    const tg=geoTickGroups(fig.ticks,M00).groups;
+    Object.values(tg).forEach(list=>{ for(let k=1;k<list.length;k++){const s1=list[0],s2=list[k];
+      hard.push({w:3,f:M=>{const a=len(M,String(s1[0]),String(s1[1])),b=len(M,String(s2[0]),String(s2[1]));
+        if(a==null||b==null)return 0; const m=(a+b)/2; return m<1e-9?0:((a-b)/m)/0.03;}});}});
+    if(!hard.length) return {fig, moved:0};
+
+    // ── 원래 배치에서 읽어 낸 뼈대 (조건보다 약한 힘으로 붙잡는다) ──
+    //   설계도에는 "C 는 선분 BD 위에 있다", "AB=AC" 같은 게 안 적혀 있는 경우가 많다.
+    //   AI 가 처음 찍은 좌표에서 그 구조를 읽어 낸다.
+    const soft=[]; const S0=[]; const nm0=Object.keys(M00);
+    for(let a=0;a<nm0.length;a++)for(let b=a+1;b<nm0.length;b++)for(let c=b+1;c<nm0.length;c++){
+      const t={a:nm0[a],b:nm0[b],c:nm0[c]}; const s=sin3(M00,t); if(s===null)continue; t.s=s; S0.push(t);
+      if(Math.abs(s)<0.03) soft.push({w:4,f:M=>{const q=sin3(M,t); return q==null?0:q*3;}});      // 계속 한 직선 위에
+      else { const sg=s<0?-1:1, lim=Math.min(Math.abs(s),0.18);
+        soft.push({w:2,f:M=>{const q=sin3(M,t); return q==null?0:Math.min(0,sg*q-lim)*3;}}); }     // 납작해지지 않게
     }
-    S0.forEach(t=>{
-      if(Math.abs(t.s)<0.03){
-        // 원래 한 직선 위에 있던 세 점 — 계속 한 직선 위에 있어야 한다
-        cons.push({w:4, f:M=>{ const s=sinAt(M,t); return s==null?0:s*3; }});
-      }else{
-        // 삼각형이던 것이 뒤집히거나 납작해지지 않게
-        const sg=t.s<0?-1:1, lim=Math.min(Math.abs(t.s), 0.25);
-        cons.push({w:2.5, f:M=>{ const s=sinAt(M,t); return s==null?0:Math.min(0, sg*s-lim)*3; }});
-      }
-    });
-    // ── 원래 그림에 있던 "같은 길이" 와 "직각" 도 지킨다 ──
-    // ★ AI 는 A(0,6) B(-3,0) C(3,0) 처럼 대칭을 정확히 찍어 놓는데,
-    //   ticks 로 선언을 안 해 놓으면 솔버가 각도를 맞추느라 그 대칭을 깨뜨렸다.
-    //   (이등변삼각형이 11% 찌그러진 채로 학생에게 나갔다)
-    const segList=[];
-    const pushSeg=s=>{ if(Array.isArray(s)&&s.length>=2) segList.push([String(s[0]),String(s[1])]); };
-    (fig.segments||[]).forEach(pushSeg); (fig.dashed||[]).forEach(pushSeg); (fig.ticks||[]).forEach(pushSeg);
-    const segs=segList.filter(s=>M00[s[0]]&&M00[s[1]]).slice(0,40);
-    const len00=s=>Math.hypot(M00[s[1]][0]-M00[s[0]][0], M00[s[1]][1]-M00[s[0]][1]);
-    const eqPairs=[], rtAngles=[];
-    for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
-      const A=segs[i], B=segs[j];
-      const L1=len00(A), L2=len00(B);
-      if(L1>1e-6 && L2>1e-6 && Math.abs(L1-L2)<=Math.max(L1,L2)*0.01) eqPairs.push([A,B]);
-      // 두 변이 한 점을 공유하고 원래 직각이면 계속 직각으로
-      let v=null,a=null,b=null;
-      if(A[0]===B[0]){v=A[0];a=A[1];b=B[1];}
-      else if(A[0]===B[1]){v=A[0];a=A[1];b=B[0];}
-      else if(A[1]===B[0]){v=A[1];a=A[0];b=B[1];}
-      else if(A[1]===B[1]){v=A[1];a=A[0];b=B[0];}
-      if(v && a!==b){
-        const g=angOf(M00,v,a,b);
-        if(g!==null && Math.abs(g-90)<1.0) rtAngles.push([v,a,b]);
-      }
+    const segs=[]; const pushSeg=s=>{if(Array.isArray(s)&&s.length>=2)segs.push([String(s[0]),String(s[1])]);};
+    (fig.segments||[]).forEach(pushSeg);(fig.dashed||[]).forEach(pushSeg);(fig.ticks||[]).forEach(pushSeg);
+    const sg2=segs.filter(s=>M00[s[0]]&&M00[s[1]]).slice(0,40);
+    const l00=s=>Math.hypot(M00[s[1]][0]-M00[s[0]][0],M00[s[1]][1]-M00[s[0]][1]);
+    for(let a=0;a<sg2.length;a++)for(let b=a+1;b<sg2.length;b++){
+      const A=sg2[a],B=sg2[b],L1=l00(A),L2=l00(B);
+      if(L1>1e-6&&L2>1e-6&&Math.abs(L1-L2)<=Math.max(L1,L2)*0.01)
+        soft.push({w:1.2,f:M=>{const x=len(M,A[0],A[1]),y=len(M,B[0],B[1]); return (x==null||y==null)?0:(x-y)/scale;}});
+      let v=null,p=null,q=null;
+      if(A[0]===B[0]){v=A[0];p=A[1];q=B[1];} else if(A[0]===B[1]){v=A[0];p=A[1];q=B[0];}
+      else if(A[1]===B[0]){v=A[1];p=A[0];q=B[1];} else if(A[1]===B[1]){v=A[1];p=A[0];q=B[0];}
+      if(v&&p!==q){const g=ang(M00,v,p,q); if(g!==null&&Math.abs(g-90)<1.0)
+        soft.push({w:1.2,f:M=>{const x=ang(M,v,p,q); return x==null?0:(x-90)/30;}});}
     }
-    eqPairs.slice(0,30).forEach(([s1,s2])=>{
-      cons.push({w:1.5, f:M=>{
-        const a=lenOf(M,s1[0],s1[1]), b=lenOf(M,s2[0],s2[1]);
-        return (a==null||b==null)?0:(a-b)/scale;
-      }});
-    });
-    rtAngles.slice(0,20).forEach(([v,a,b])=>{
-      cons.push({w:1.5, f:M=>{const x=angOf(M,v,a,b); return x==null?0:(x-90)/30;}});
-    });
 
-    const okStruct=M=>{
-      // 같은 길이였던 변이 3% 넘게 벌어졌으면 실패
-      for(const [s1,s2] of eqPairs){
-        const a=lenOf(M,s1[0],s1[1]), b=lenOf(M,s2[0],s2[1]);
-        if(a!=null&&b!=null&&Math.abs(a-b)>Math.max(a,b)*0.03) return false;
-      }
-      // 직각이던 곳이 4° 넘게 틀어졌으면 실패
-      for(const [v,a,b] of rtAngles){
-        const x=angOf(M,v,a,b);
-        if(x!=null&&Math.abs(x-90)>4) return false;
-      }
-      return S0.every(t=>{
-      const s=sinAt(M,t);
-      if(s===null) return true;
-      if(Math.abs(t.s)<0.03) return Math.abs(s)<0.06;                      // 공선 유지
-      return (s<0?-1:1)===(t.s<0?-1:1) && Math.abs(s)>Math.abs(t.s)*0.45;  // 방향·두께 유지
-      });
-    };
+    // ── 읽을 수 있는 그림이어야 한다 ──
+    // ★ 조건만 정확히 맞추다 보면 점 두 개가 거의 겹치거나 삼각형이 종잇장처럼 얇아진다.
+    //   수치로는 맞는데 눈으로는 못 알아보는 그림이 나온다.
+    //   평가원 그림도 정확히 축척대로가 아니라 "읽을 수 있게" 그린다. 그 균형을 잡는다.
+    const drawn = nm0.filter(n=>!/^_/.test(n));
+    for(let a=0;a<drawn.length;a++)for(let b=a+1;b<drawn.length;b++){
+      const A=drawn[a], B=drawn[b];
+      soft.push({w:2.5,f:(M,S)=>{const d=len(M,A,B); if(d==null||!S||S.d<1e-9)return 0;
+        return Math.min(0, d/S.d - 0.09)*12;}});              // 서로 최소 9% 는 떨어져 있게
+    }
+    soft.push({w:2,f:(M,S)=>{ if(!S)return 0; const mn=Math.min(S.w,S.h), mx=Math.max(S.w,S.h);
+      if(mx<1e-9)return 0; return Math.min(0, mn/mx - 0.34)*8;}});   // 가로:세로가 1:3 을 넘지 않게
 
-    const run=LAM=>{
-      const cost=(p,tv)=>{
-        const M=mapOf(p,tv);
-        let s=0;
-        for(const c of cons){const r=c.f(M); s+=c.w*r*r;}
-        for(let i=0;i<p.length;i++){
-          const dx=(p[i][0]-P0[i][0])/scale, dy=(p[i][1]-P0[i][1])/scale;
-          s+=LAM*(dx*dx+dy*dy);
-        }
-        for(let i=0;i<tv.length;i++){ const d=tv[i]-t0[i]; s+=LAM*3*d*d; }
-        return s;
-      };
-      let cur=P0.map(p=>[p[0],p[1]]), tv=t0.slice();
-      let step=scale*0.04, tstep=0.03;
-      const H=1e-5*scale, TH=1e-4;
-      for(let it=0; it<400 && step>scale*1e-5; it++){
+    const spanOf=M=>{let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+      for(const k of drawn){const p=M[k]; if(!p)continue;
+        if(p[0]<x0)x0=p[0]; if(p[0]>x1)x1=p[0]; if(p[1]<y0)y0=p[1]; if(p[1]>y1)y1=p[1];}
+      const w=x1-x0, h=y1-y0; return {w:w,h:h,d:Math.hypot(w,h)};};
+
+    // 도는 방향만 지키면 통과. "얼마나 움직였나" 로는 막지 않는다
+    const topoOK=M=>S0.every(t=>{ if(Math.abs(t.s)<0.08) return true;
+      const s=sin3(M,t); return s===null || (s<0?-1:1)===(t.s<0?-1:1); });
+    const hardCost=M=>{let s=0; for(const c of hard){const r=c.f(M); s+=c.w*r*r;} return s;};
+
+    const run=(start,tstart,LAM,iters)=>{
+      const cost=(p,tv)=>{ const M=mapOf(p,tv); const S=spanOf(M); let s=0;
+        for(const c of hard){const r=c.f(M,S); s+=c.w*r*r;}
+        for(const c of soft){const r=c.f(M,S); s+=c.w*r*r;}
+        for(let k=0;k<p.length;k++){const dx=(p[k][0]-P0[k][0])/scale,dy=(p[k][1]-P0[k][1])/scale; s+=LAM*(dx*dx+dy*dy);}
+        for(let k=0;k<tv.length;k++){const d=tv[k]-t0[k]; s+=LAM*3*d*d;}
+        return s;};
+      let cur=start.map(p=>[p[0],p[1]]), tv=tstart.slice();
+      let step=scale*0.05, tstep=0.04; const H=1e-5*scale, TH=1e-4;
+      for(let it=0; it<iters && step>scale*1e-6; it++){
         const c0=cost(cur,tv);
         const g=cur.map(()=>[0,0]), gt=tv.map(()=>0);
-        for(let i=0;i<cur.length;i++)for(let d=0;d<2;d++){
-          cur[i][d]+=H; const cp=cost(cur,tv); cur[i][d]-=H;
-          g[i][d]=(cp-c0)/H;
+        for(let k=0;k<cur.length;k++)for(let d=0;d<2;d++){cur[k][d]+=H;const cp=cost(cur,tv);cur[k][d]-=H;g[k][d]=(cp-c0)/H;}
+        for(let k=0;k<tv.length;k++){tv[k]+=TH;const cp=cost(cur,tv);tv[k]-=TH;gt[k]=(cp-c0)/TH;}
+        const gn=Math.hypot(...g.flat(),...gt); if(gn<1e-13) break;
+        let ok=false;
+        for(let n=0;n<3;n++){
+          const nx=cur.map((p,k)=>[p[0]-step*g[k][0]/gn,p[1]-step*g[k][1]/gn]);
+          const nt=tv.map((t,k)=>Math.max(0.08,Math.min(0.92,t-tstep*gt[k]/gn)));
+          if(cost(nx,nt)<c0){cur=nx;tv=nt;step*=1.15;tstep*=1.15;ok=true;break;}
+          step*=0.5; tstep*=0.5;
         }
-        for(let i=0;i<tv.length;i++){
-          tv[i]+=TH; const cp=cost(cur,tv); tv[i]-=TH;
-          gt[i]=(cp-c0)/TH;
-        }
-        const gn=Math.hypot(...g.flat(), ...gt);
-        if(gn<1e-12) break;
-        const nxt=cur.map((p,i)=>[p[0]-step*g[i][0]/gn, p[1]-step*g[i][1]/gn]);
-        const nt=tv.map((t,i)=>Math.max(0.03, Math.min(0.97, t-tstep*gt[i]/gn)));
-        if(cost(nxt,nt)<c0){ cur=nxt; tv=nt; } else { step*=0.6; tstep*=0.6; }
+        if(!ok && step<scale*1e-6) break;
       }
-      let moved=0;
-      cur.forEach((p,i)=>{ moved=Math.max(moved, Math.hypot(p[0]-P0[i][0],p[1]-P0[i][1])/scale); });
-      tv.forEach((t,i)=>{ moved=Math.max(moved, Math.abs(t-t0[i])); });
-      return {cur, tv, moved};
+      return {cur,tv};
     };
 
-    // 뼈대가 부서지면 "원래 자리에서 덜 움직이게" 를 점점 세게 걸어 다시 푼다.
-    // 그래도 안 되면 각이 조금 어긋난 채로 두는 쪽을 택한다.
-    // 각이 몇 도 틀린 그림보다, 삼각형이 무너진 그림이 훨씬 나쁘다.
+    const TOL = opt.tol == null ? 0.4 : opt.tol;     // 대략 각 1° · 길이 1% 안쪽
     let best=null;
-    for(const LAM of [0.02, 0.12, 0.6]){
-      const r=run(LAM);
-      if(r.moved<=0.35 && okStruct(mapOf(r.cur, r.tv))){ best=r; break; }
+    const tryStart=(sp,st,iters)=>{
+      for(const LAM of [0.004, 0.05]){
+        const r=run(sp,st,LAM,iters);
+        const M=mapOf(r.cur,r.tv);
+        if(!topoOK(M)) continue;
+        const c=hardCost(M);
+        if(!best || c<best.c) best={cur:r.cur, tv:r.tv, c:c};
+        if(best.c<TOL) return true;
+      }
+      return !!best && best.c<TOL;
+    };
+    if(!tryStart(P0,t0,opt.iters||400)){
+      let seed=12345; const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff-0.5;};
+      for(let k=0;k<(opt.restarts==null?5:opt.restarts);k++){
+        const sp=P0.map(p=>[p[0]+rnd()*scale*0.35,p[1]+rnd()*scale*0.35]);
+        const st=t0.map(t=>Math.max(0.12,Math.min(0.88,t+rnd()*0.5)));
+        if(tryStart(sp,st,opt.iters2||700)) break;
+      }
     }
-    if(!best) return {fig, moved:0};        // 원본 좌표 그대로 사용
+    if(!best) return {fig, moved:0};                 // 뼈대를 지키면서는 못 풀었다 → 원본 그대로
 
-    const cur=best.cur;
+    let moved=0; best.cur.forEach((p,k)=>{moved=Math.max(moved,Math.hypot(p[0]-P0[k][0],p[1]-P0[k][1])/scale);});
     const out=JSON.parse(JSON.stringify(fig));
-    out.points=(fig.points||[]).map(p=>{
-      const i=idxOf(p);
-      return i==null?p:[p[0], +cur[i][0].toFixed(4), +cur[i][1].toFixed(4)];
-    });
-    // 조정된 내분 비율을 되돌려 쓴다 (렌더러가 이 값으로 다시 작도한다)
-    if(out.build && divIdx.length){
-      divIdx.forEach((bi,k)=>{
-        const t=best.tv[k];
-        out.build[bi].div=[out.build[bi].div[0], out.build[bi].div[1], +t.toFixed(4), +(1-t).toFixed(4)];
-      });
-    }
-    function idxOf(p){ const k=names.indexOf(String(p[0])); return k<0?null:k; }
-    return {fig:out, moved:best.moved};
+    out.points=(fig.points||[]).map(p=>{const k=names.indexOf(String(p[0]));
+      return k<0?p:[p[0],+best.cur[k][0].toFixed(4),+best.cur[k][1].toFixed(4)];});
+    if(out.build&&divIdx.length) divIdx.forEach((bi,k)=>{const t=best.tv[k];
+      out.build[bi].div=[out.build[bi].div[0],out.build[bi].div[1],+t.toFixed(4),+(1-t).toFixed(4)];});
+    return {fig:out, moved:moved};
   }
 
   // 그림이 문제 조건과 맞는지 검사한다. 어긋난 각과 못 그린 점을 돌려준다.
