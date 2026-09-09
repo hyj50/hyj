@@ -3504,7 +3504,8 @@
       const name = String(b.n ?? b.name ?? '').slice(0, 12);
       if (!name) return;
       // 작도가 참조하는 점 이름 중 아직 없는 것 (AI가 "D_line" 같은 유령 점을 지어내는 일이 있다)
-      const src = [].concat(b.mid || [], b.div || [], b.foot || [], b.inter || [], b.ext || [])
+      const src = [].concat(b.mid || [], b.div || [], b.foot || [], b.inter || [], b.ext || [],
+                            b.bisect || [], b.ebisect || [], b.pbis || [], b.para || [], b.perp || [])
                     .filter(x => typeof x === 'string');
       const miss = src.filter(x => !P[x]);
       let pt = null;
@@ -3551,6 +3552,67 @@
           const m = Number(b.ext[2]), n = Number(b.ext[3]);
           if (a && c && isFinite(m) && isFinite(n) && m - n !== 0) {
             pt = [(m * c[0] - n * a[0]) / (m - n), (m * c[1] - n * a[1]) / (m - n)];
+          }
+
+        // ── 여기부터는 "직선을 하나 새로 긋기 위한" 방향점 ──
+        //   각의 이등분선처럼 새 직선을 먼저 그어야 생기는 점은 예전엔 표현할 방법이 없었다.
+        //   그래서 AI 가 "D_line", "D_dir" 같은 없는 점 이름을 지어내고 그림이 통째로 비었다.
+        //   이제 방향점을 만들어 두고 inter 로 교점을 잡으면 된다.
+        //   이름을 _ 로 시작하면 화면에 점과 이름표를 그리지 않는다.
+        } else if (Array.isArray(b.bisect) && b.bisect.length >= 3) {
+          // [at, from, to] : 각 (from-at-to) 의 이등분선 위의 점
+          const v = P[b.bisect[0]], a = P[b.bisect[1]], c = P[b.bisect[2]];
+          if (v && a && c) {
+            const u = _v(v, a), w = _v(v, c);
+            const n1 = Math.hypot(u[0], u[1]), n2 = Math.hypot(w[0], w[1]);
+            if (n1 > 1e-9 && n2 > 1e-9) {
+              const d = [u[0] / n1 + w[0] / n2, u[1] / n1 + w[1] / n2];
+              const dn = Math.hypot(d[0], d[1]);
+              if (dn > 1e-9) {
+                const L = Math.max(n1, n2);
+                pt = [v[0] + d[0] / dn * L, v[1] + d[1] / dn * L];
+              }
+            }
+          }
+
+        } else if (Array.isArray(b.ebisect) && b.ebisect.length >= 3) {
+          // [at, from, to] : 각 (from-at-to) 의 "외각" 이등분선 위의 점
+          const v = P[b.ebisect[0]], a = P[b.ebisect[1]], c = P[b.ebisect[2]];
+          if (v && a && c) {
+            const u = _v(v, a), w = _v(v, c);
+            const n1 = Math.hypot(u[0], u[1]), n2 = Math.hypot(w[0], w[1]);
+            if (n1 > 1e-9 && n2 > 1e-9) {
+              const d = [u[0] / n1 - w[0] / n2, u[1] / n1 - w[1] / n2];   // 내각 이등분선과 수직
+              const dn = Math.hypot(d[0], d[1]);
+              if (dn > 1e-9) {
+                const L = Math.max(n1, n2);
+                pt = [v[0] + d[0] / dn * L, v[1] + d[1] / dn * L];
+              }
+            }
+          }
+
+        } else if (Array.isArray(b.pbis) && b.pbis.length >= 2) {
+          // [A, B] : 선분 AB 의 수직이등분선 위의 점 (중점에서 수직으로 뻗은 점)
+          const a = P[b.pbis[0]], c = P[b.pbis[1]];
+          if (a && c) {
+            const d = _v(a, c), L = Math.hypot(d[0], d[1]);
+            if (L > 1e-9) pt = [(a[0] + c[0]) / 2 - d[1] / 2, (a[1] + c[1]) / 2 + d[0] / 2];
+          }
+
+        } else if (Array.isArray(b.para) && b.para.length >= 3) {
+          // [P, A, B] : 점 P 를 지나 직선 AB 와 평행한 직선 위의 점
+          const p0 = P[b.para[0]], a = P[b.para[1]], c = P[b.para[2]];
+          if (p0 && a && c) {
+            const d = _v(a, c);
+            if (Math.hypot(d[0], d[1]) > 1e-9) pt = [p0[0] + d[0], p0[1] + d[1]];
+          }
+
+        } else if (Array.isArray(b.perp) && b.perp.length >= 3) {
+          // [P, A, B] : 점 P 를 지나 직선 AB 와 수직인 직선 위의 점
+          const p0 = P[b.perp[0]], a = P[b.perp[1]], c = P[b.perp[2]];
+          if (p0 && a && c) {
+            const d = _v(a, c);
+            if (Math.hypot(d[0], d[1]) > 1e-9) pt = [p0[0] - d[1], p0[1] + d[0]];
           }
         }
       } catch (err) { pt = null; }
@@ -3802,7 +3864,7 @@
     // 서로 다른 점이 같은 자리에 겹치면 작도가 잘못된 것이다.
     // (예: "직선 AD 와 직선 BD 의 교점" — 두 직선이 D 를 함께 지나므로 교점이 D 자신이 된다)
     try {
-      const _nm = Object.keys(P);
+      const _nm = Object.keys(P).filter(k => !/^_/.test(k));   // 보조점은 제외
       let _span = 0, _dup = [];
       for (let i = 0; i < _nm.length; i++) for (let j = i + 1; j < _nm.length; j++)
         _span = Math.max(_span, Math.hypot(P[_nm[i]][0] - P[_nm[j]][0], P[_nm[i]][1] - P[_nm[j]][1]));
@@ -3861,7 +3923,9 @@
 
     // ── 범위 계산 ──
     const xs = [], ys = [];
-    Object.values(P).forEach(([x, y]) => { xs.push(x); ys.push(y); });
+    // 보조점(_ 로 시작)은 직선을 긋기 위한 것일 뿐이라 화면 범위 계산에서 뺀다.
+    // 넣으면 그림이 쓸데없이 작아진다
+    Object.keys(P).forEach(k => { if (/^_/.test(k)) return; xs.push(P[k][0]); ys.push(P[k][1]); });
     (fig.circles || []).forEach(c => {
       const p = at(c.center); if (!p) return;
       xs.push(p[0] - c.r, p[0] + c.r); ys.push(p[1] - c.r, p[1] + c.r);
@@ -4030,7 +4094,8 @@
       const a = String(s[0]), b = String(s[1]);
       if (P[a] && P[b]) { (nbr[a] = nbr[a] || []).push(P[b]); (nbr[b] = nbr[b] || []).push(P[a]); }
     });
-    const names = Object.keys(P);
+    // 이름이 _ 로 시작하는 것은 직선을 긋기 위한 보조점이다. 점도 이름표도 그리지 않는다
+    const names = Object.keys(P).filter(n => !/^_/.test(n));
     names.forEach(name => {
       const p = S(name);
       const [gx, gy] = P[name];
