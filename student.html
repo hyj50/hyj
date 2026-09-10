@@ -6266,7 +6266,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       if(!isFinite(t))return; hard.push({w:3,f:M=>{const v=ang(M,g.at,g.from,g.to); return v==null?0:(v-t)/3;}});});
     (fig.rightAngles||[]).forEach(t=>{ if(!Array.isArray(t)||t.length<3)return;
       hard.push({w:3,f:M=>{const x=ang(M,t[1],t[0],t[2]); return x==null?0:(x-90)/3;}});});
-    const tg=geoTickGroups(fig.ticks,M00).groups;
+    // ticks 는 "그림에 빗금을 그어라", equal 은 "길이만 같게 맞춰라(표시는 안 함)".
+    // ★ 실제 문제집은 같은 길이를 문제 문장으로 설명하고 그림에는 굳이 표시하지 않는다.
+    //   특히 겹치는 선분에 빗금을 그으면 어느 변을 말하는지 알 수 없어진다.
+    const tg=geoTickGroups([].concat(fig.ticks||[], fig.equal||[]), M00).groups;
     Object.values(tg).forEach(list=>{ for(let k=1;k<list.length;k++){const s1=list[0],s2=list[k];
       hard.push({w:3,f:M=>{const a=len(M,String(s1[0]),String(s1[1])),b=len(M,String(s2[0]),String(s2[1]));
         if(a==null||b==null)return 0; const m=(a+b)/2; return m<1e-9?0:((a-b)/m)/0.03;}});}});
@@ -6682,7 +6685,30 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const _tk = geoTickGroups(fig.ticks, P);
     const _tkGrp = {}; let _tkN = 0;
     _tk.keys.forEach(k => { if (k && !_tkGrp[k]) _tkGrp[k] = (_tkN++ % 3) + 1; });
+    // 한 직선 위에서 겹치는 두 선분에 서로 다른 빗금을 그으면 어느 변을 말하는지 알 수 없다.
+    // (AB 에 빗금 하나, 그 안에 든 BF 에 빗금 둘 — 학생 눈에는 같은 선에 빗금 세 개로 보인다)
+    // 실제 문제집도 이럴 때는 그림에 표시하지 않고 문제 문장으로 설명한다. 그래서 둘 다 뺀다.
+    const _tkSkip = new Set();
+    const _tkSeg = (fig.ticks || []).map(s => {
+      const a = at(s[0]), b = at(s[1]);
+      return (a && b) ? { a: a, b: b } : null;
+    });
+    for (let i1 = 0; i1 < _tkSeg.length; i1++) {
+      for (let i2 = i1 + 1; i2 < _tkSeg.length; i2++) {
+        const s1 = _tkSeg[i1], s2 = _tkSeg[i2];
+        if (!s1 || !s2) continue;
+        if (_tk.keys[i1] && _tk.keys[i1] === _tk.keys[i2]) continue;   // 같은 그룹은 상관없음
+        const dx = s1.b[0] - s1.a[0], dy = s1.b[1] - s1.a[1];
+        const L = Math.hypot(dx, dy); if (L < 1e-9) continue;
+        const off = q => Math.abs(dx * (q[1] - s1.a[1]) - dy * (q[0] - s1.a[0])) / L;
+        if (off(s2.a) > L * 0.03 || off(s2.b) > L * 0.03) continue;    // 한 직선 위가 아니면 통과
+        const t = q => ((q[0] - s1.a[0]) * dx + (q[1] - s1.a[1]) * dy) / (L * L);
+        const u0 = Math.min(t(s2.a), t(s2.b)), u1 = Math.max(t(s2.a), t(s2.b));
+        if (Math.min(1, u1) - Math.max(0, u0) > 0.05) { _tkSkip.add(i1); _tkSkip.add(i2); }
+      }
+    }
     (fig.ticks || []).forEach((s, _ti) => {
+      if (_tkSkip.has(_ti)) return;
       const a = S(s[0]), b = S(s[1]); if (!a || !b) return;
       const key = _tk.keys[_ti];
       const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -6971,7 +6997,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     try { geoBuild(fig, P); } catch (e) { /* 작도 실패는 무시 */ }
     const groups = equalSegsFromText(problem);
     if (!groups.length) return 0;
-    let ticks = Array.isArray(fig.ticks) ? fig.ticks.slice() : [];
+    let ticks = Array.isArray(fig.equal) ? fig.equal.slice() : [];
     let added = 0, gid = 1;
     for (const g of groups) {
       const pairs = g.map(s => [s[0], s[1]]).filter(s => P[s[0]] && P[s[1]]);
@@ -6983,7 +7009,9 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       for (const s of pairs) { ticks.push([s[0], s[1], key]); added++; }
     }
     if (!added) return 0;
-    fig.ticks = ticks.slice(0, 20);
+    // ★ 여기서 만든 건 "equal" 로 넣는다. 문제 본문에 이미 적혀 있는 조건이므로
+    //   그림에 빗금까지 또 그릴 필요가 없다. 앱은 좌표를 맞추는 데만 쓴다.
+    fig.equal = ticks.slice(0, 20);
     return added;
   }
 
