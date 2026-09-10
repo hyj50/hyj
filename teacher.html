@@ -2434,7 +2434,7 @@
   // 이제 queue-variation 이 접수만 받고 서버가 혼자 끝낸다.
   // 브라우저는 variation_jobs 를 가끔 들여다보기만 하면 된다.
   const BG_KEY = 'bg_variation_jobs';
-  const BG_TIMEOUT = 5 * 60 * 1000;      // 5분 넘게 소식 없으면 포기
+  const BG_TIMEOUT = 8 * 60 * 1000;      // 8분 넘게 소식 없으면 포기 (서버가 429 를 만나면 최대 4분까지 재시도)
   let _bgTimer = null;
 
   function bgLoad() {
@@ -2443,9 +2443,9 @@
   function bgSave(jobs) {
     try { localStorage.setItem(BG_KEY, JSON.stringify(jobs)); } catch (e) {}
   }
-  function bgAdd(noteId, who) {
+  function bgAdd(noteId, who, kind) {
     const jobs = bgLoad().filter(j => j.id !== noteId);
-    jobs.push({ id: noteId, who: who || '', at: Date.now() });
+    jobs.push({ id: noteId, who: who || '', kind: kind || '변형문제', at: Date.now() });
     bgSave(jobs);
     bgPaint();
     bgStartPolling();
@@ -2505,17 +2505,23 @@
       for (const j of jobs) {
         const r = byId[j.id];
         if (r && r.status === 'done') {
-          bgDone(j.id, true, `✅ 변형문제 완성${j.who ? ` · ${j.who}` : ''}${r.detail ? ` (⚠️ ${r.detail})` : ''} — 미션탭에서 검수해 주세요`);
+          bgDone(j.id, true, `✅ ${j.kind || '변형문제'} 완성${j.who ? ` · ${j.who}` : ''}${r.detail ? ` (⚠️ ${r.detail})` : ''} — 미션탭에서 검수해 주세요`);
           changed = true;
         } else if (r && r.status === 'failed') {
-          bgDone(j.id, false, `❌ 변형문제 실패${j.who ? ` · ${j.who}` : ''} — ${r.detail || '미션탭 누락 목록에서 다시 만들 수 있어요'}`);
+          bgDone(j.id, false, `❌ ${j.kind || '변형문제'} 실패${j.who ? ` · ${j.who}` : ''} — ${r.detail || '미션탭 누락 목록에서 다시 만들 수 있어요'}`);
           changed = true;
         } else if (Date.now() - j.at > BG_TIMEOUT) {
           bgDone(j.id, false, `⏱️ 응답이 없어요${j.who ? ` · ${j.who}` : ''} — 미션탭 누락 목록에서 확인해 주세요`);
           changed = true;
         }
       }
-      if (changed) { bgPaint(); if (typeof loadVariationReviews === 'function') loadVariationReviews(); }
+      if (changed) {
+        bgPaint();
+        if (typeof loadVariationReviews === 'function') loadVariationReviews();
+        // 재생성·추가 생성 결과는 「변형문제 관리」 탭에 나타난다
+        if (typeof loadVManage === 'function'
+            && document.getElementById('main-tab-vmanage')?.classList.contains('active')) loadVManage();
+      }
     } catch (e) { console.error('bgPoll:', e); }
   }
 
@@ -2527,6 +2533,40 @@
 
   // 앱을 다시 열었을 때 진행 중이던 작업 이어보기
   document.addEventListener('DOMContentLoaded', () => { bgPaint(); if (bgLoad().length) bgStartPolling(); });
+
+  // ★ 모든 생성 경로의 공통 접수 창구.
+  //   접수만 하고 바로 돌아온다 — 실제 생성은 queue-variation 이 서버에서 끝낸다.
+  //   그래서 폰 화면을 꺼도, 앱을 내려도, 브라우저를 닫아도 계속 만들어진다.
+  //   queue-variation 이 아직 배포 안 됐으면 false 를 돌려준다 → 부른 쪽이 예전 방식으로 처리.
+  async function queueGen(opts) {
+    const o = opts || {};
+    if (!o.noteId || !o.imageUrl) return false;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/queue-variation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({
+          note_id: o.noteId,
+          image_url: o.imageUrl,
+          mode: o.mode || 'create',
+          variation_id: o.variationId || '',
+          difficulty: o.difficulty,
+          force_figure: !!o.forceFigure,
+          avoid: o.avoid || [],
+          paper_only: !!o.paperOnly
+        })
+      });
+      if (res.status === 404) return false;                 // 아직 배포 안 됨
+      if (res.status === 202 || res.ok) { bgAdd(o.noteId, o.who || '', o.kind); return true; }
+      let reason = '';
+      try { reason = (await res.json()).error || ''; } catch (e) {}
+      showToast(`\u274c 접수 실패 (${res.status})\n${String(reason).slice(0, 80)}`, 'error');
+      return true;   // 서버가 거절한 것. 예전 방식으로 또 불러도 같은 이유로 실패한다
+    } catch (e) {
+      console.error('queueGen:', e);
+      return false;
+    }
+  }
 
   async function generateVariation(entry) {
     if (!entry.image_url) { showToast('문제 사진이 없어서 변형문제를 만들 수 없어요.', 'warn'); return; }
@@ -2682,6 +2722,14 @@
     const el = document.getElementById('mv-' + noteId);
     const btn = el && el.querySelector('button');
     if (btn) { btn.disabled = true; btn.textContent = '만드는 중...'; }
+    if (await queueGen({
+      noteId: n.id, imageUrl: n.image_url,
+      who: (n.students && n.students.name) || '', kind: '변형문제'
+    })) {
+      if (btn) btn.textContent = '서버에서 생성 중...';
+      showToast('\ud83e\udd16 서버에서 만들고 있어요.\n화면을 나가거나 폰을 꺼도 괜찮아요!', 'ok');
+      return;
+    }
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-variation`, {
         method: 'POST',
@@ -2714,7 +2762,24 @@
     if (!_missingNotes.length) return;
     const btn = document.getElementById('btn-fill-missing');
     const total = _missingNotes.length;
-    if (!confirm(`${total}건을 만들까요?\n\n약 ${Math.ceil(total * 20 / 60)}분 걸려요.\n끝날 때까지 이 화면을 켜두세요.`)) return;
+    // 서버에 전부 접수시키고 바로 빠진다. 화면을 꺼도 계속 만들어진다.
+    if (confirm(`${total}건을 서버에서 만들까요?\n\n접수만 하면 끝이에요.\n화면을 나가거나 폰을 꺼도 계속 만들어집니다.`)) {
+      let sent = 0;
+      for (const n of _missingNotes) {
+        const okq = await queueGen({
+          noteId: n.id, imageUrl: n.image_url,
+          who: (n.students && n.students.name) || '', kind: '변형문제'
+        });
+        if (!okq) break;              // queue-variation 이 없다 → 아래 예전 방식으로
+        sent++;
+      }
+      if (sent === total) {
+        showToast(`\ud83d\udce5 ${total}건 접수 완료!\n화면을 나가도 계속 만들어져요.`, 'ok');
+        return;
+      }
+      if (sent > 0) showToast(`\ud83d\udce5 ${sent}건은 서버로 보냈어요. 나머지는 화면에서 만들게요.`, 'warn');
+    } else return;
+    if (!confirm(`남은 ${total}건을 이 화면에서 만들까요?\n\n약 ${Math.ceil(total * 20 / 60)}분 걸려요.\n끝날 때까지 이 화면을 켜두세요.`)) return;
     let ok = 0; const fails = [];
     for (let i = 0; i < total; i++) {
       const n = _missingNotes[i];
@@ -4721,6 +4786,21 @@
       const v = rows[0];
       if (!v?.wrong_notes?.image_url) { alert('원본 이미지를 찾을 수 없어요'); return; }
 
+      // 서버에 맡긴다. 되돌리기용 prev 백업도 서버가 만든다.
+      if (await queueGen({
+        noteId: v.note_id,
+        imageUrl: v.wrong_notes.image_url,
+        mode: 'regen',
+        variationId: id,
+        difficulty: (typeof pickedDifficulty === 'function' ? pickedDifficulty(v.note_id) : undefined),
+        forceFigure: !!forceFigure,
+        avoid: v.problem_text ? [v.problem_text] : [],
+        kind: forceFigure ? '그림 추가' : '재생성'
+      })) {
+        showToast('\ud83d\udd04 서버에서 다시 만들고 있어요.\n화면을 나가거나 폰을 꺼도 괜찮아요!', 'ok');
+        return;
+      }
+
       // 되돌리기용으로 지금 상태를 통째로 보관해둔다
       const prev = {
         problem_text: v.problem_text == null ? null : stripHint(v.problem_text),
@@ -6681,6 +6761,16 @@
     const avoid = list.map(x => String(x.problem_text || '').trim()).filter(Boolean).slice(0, 5);
     const diff = document.getElementById('vmdiff-' + noteId)?.value || 'same';
     const diffName = { same: '', easier: ' (쉽게)', harder: ' (어렵게)' }[diff] || '';
+
+    // 서버에 맡긴다. 형제 문제와 겹치지 않게 avoid 도 서버가 다시 모은다.
+    if (await queueGen({
+      noteId, imageUrl: img, mode: 'add',
+      difficulty: diff, forceFigure: !!forceFigure, avoid,
+      kind: forceFigure ? '그림 문제 추가' : '추가 생성'
+    })) {
+      showToast('\u2795 서버에서 만들고 있어요.\n화면을 나가거나 폰을 꺼도 괜찮아요!', 'ok');
+      return;
+    }
 
     genStart('변형문제 만드는 중' + diffName);
     try {
