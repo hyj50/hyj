@@ -7000,12 +7000,28 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         return alone ? L : L.replace(/\$\$\s*([^$]+?)\s*\$\$/g, (_m, inner) => '$' + String(inner).trim() + '$');
       }).join('\n');
     }
-    return t.split(/(\$[^$\n]*\$)/g).map(seg =>
-      (seg.startsWith('$') && seg.endsWith('$') && seg.length >= 3)
-        ? '$' + tidyMath(seg.slice(1, -1)) + '$'
-        : seg
-    ).join('');
+    // $$...$$ 블록은 통째로 건드리지 않는다 (표·긴 식). 그 밖은 손본다
+    return t.split(/(\$\$[\s\S]*?\$\$|\$[^$\n]*\$)/g).map(seg => {
+      if (seg.startsWith('$$')) return seg;
+      if (seg.startsWith('$') && seg.endsWith('$') && seg.length >= 3)
+        return '$' + tidyMath(seg.slice(1, -1)) + '$';
+      return wrapStrayMath(seg);
+    }).join('');
   }
+
+  // $ 밖으로 새어 나온 LaTeX 를 찾아 $...$ 로 감싼다.
+  // ★ AI 가 선지에 "24\,\mathrm{cm}" 처럼 $ 없이 써 보내는 일이 잦다.
+  //   그러면 MathJax 가 건드리지 않아 화면에 백슬래시가 그대로 찍힌다.
+  //   ("답에 수식이 깨져 나온다" 의 정체가 이거였다)
+  function wrapStrayMath(seg) {
+    if (!seg || seg.indexOf('\\') < 0) return seg;
+    const CMD = '\\\\(?:[a-zA-Z]+|[,;:!])(?:\\s*\\{[^{}]*\\})*';
+    const RE = new RegExp(
+      '(?:[A-Za-z0-9)\\]]+)?(?:' + CMD + ')' +
+      '(?:\\s*(?:\\{[^{}]*\\}|' + CMD + '|[A-Za-z0-9^_+\\-=.()/]))*', 'g');
+    return seg.replace(RE, m => (m.indexOf('\\') < 0 ? m : '$' + m.trim() + '$'));
+  }
+
 
   function renderProblemHtml(text) {
     text = tidyForDisplay(stripHint(text));
