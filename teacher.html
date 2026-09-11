@@ -220,6 +220,10 @@
 
   /* 약점 TOP3 */
   .weakness-card { background: linear-gradient(135deg, #FFF3F0, #FFE8E0); border: 1px solid #FFD4C2; border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1rem; }
+  /* 카드 배경이 파스텔 고정이라, 카드 안에서 쓰는 글자 변수는 카드 색에 맞춰 다시 정의한다
+     (인라인 style="color:var(--text4)" 로 찍히는 소제목까지 한 번에 잡힌다) */
+  .unsorted-alert, .weakness-card { --text2:#6B3A28; --text3:#8A5642; --text4:#8F5540; }
+  .review-alert { --text2:#5C4212; --text3:#79591C; --text4:#7A5A18; }
   .weakness-title { font-size: 13px; font-weight: 700; color: #B5421F; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
   .weakness-list { display: flex; flex-direction: column; gap: 6px; }
   .wait-photo {
@@ -231,18 +235,18 @@
     border: none; text-decoration: underline; cursor: pointer; padding: 6px 4px;
   }
   .rsn-tag-t { display:inline-block; padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700;
+               background:#FDE8F1; color:#A8336B; margin:2px 3px 0 0; }
   .aig-badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:800; }
   .aig-correct { background:#DCF5E7; color:#0F6E56; }
   .aig-wrong   { background:#FFE0DC; color:#B5421F; }
   .aig-unclear { background:#FFF3D6; color:#8A5A15; }
-  .aig-note { font-size:11.5px; color:var(--text3); background:var(--bg3); border-radius:8px; padding:6px 9px; margin-top:5px; line-height:1.5; }
+  .aig-note { font-size:11.5px; color:var(--text2); background:var(--bg3); border-radius:8px; padding:6px 9px; margin-top:5px; line-height:1.5; }
   .btn-aigrade { padding:6px 10px; border-radius:8px; border:1px solid #D9CBFF; background:#F3EEFF; color:#4C3A7A; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap; }
   .btn-ok.aig-hint { box-shadow:0 0 0 2.5px rgba(15,110,86,.35); }
-               background:#FDE8F1; color:#A8336B; margin:2px 3px 0 0; }
   .rsn-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-size:12px; }
   .rsn-bar-name { flex:0 0 auto; min-width:96px; color:var(--text2); font-weight:600; }
   .rsn-bar-wrap { flex:1; height:9px; border-radius:999px; background:var(--bg3); overflow:hidden; }
-  .rsn-bar-fill { height:100%; border-radius:999px; }
+  .rsn-bar-fill { display:block; height:100%; border-radius:999px; }  /* span은 inline이라 display 없으면 폭·높이가 무시돼 막대가 아예 안 보였음 */
   .rsn-bar-num { flex:0 0 auto; font-size:11px; color:var(--text4); font-weight:700; min-width:26px; text-align:right; }
   .weakness-item { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #6B2E16; background: var(--bg2); padding: 7px 12px; border-radius: 8px; }
   .weakness-rank { font-weight: 700; margin-right: 6px; }
@@ -446,6 +450,44 @@
   .review-modal-btn.solved { border-color: var(--green); color: var(--green); }
   .review-modal-btn.skip { color: #999; }
   .review-modal-empty { text-align: center; padding: 2rem 1rem; color: #999; font-size: 14px; }
+
+  /* ===== 다크모드 보정 =====
+     .weakness-card / .unsorted-alert / .review-alert 는 배경이 라이트로 고정돼 있는데
+     안쪽 요소는 var(--bg2)/var(--text2~4)를 쓴다. 다크모드에서 이 둘이 반대로 놀아서
+     "검은 박스 위 검은 글씨"가 됐다. 카드 자체를 다크로 바꾸고,
+     카드 범위 안에서만 변수를 다시 정의해 인라인 style="color:var(--text4)" 까지 함께 살린다. */
+  @media (prefers-color-scheme: dark) {
+    .unsorted-alert, .weakness-card {
+      background: linear-gradient(135deg, #2E1F1A, #261813);
+      border-color: #5A3627;
+      --bg2: #17100E; --bg3: #4A322A;
+      --text2: #F0DED6; --text3: #E2CDC3; --text4: #C4A99D;
+    }
+    .unsorted-title, .weakness-title { color: #FFB394; }
+    .unsorted-sub { color: #EBC0AE; }
+    .weakness-item { color: #F5E4DC; }
+    .weakness-count { color: #FF9E76; }
+    .weakness-empty { color: #C4A99D; }
+    .rsn-tag-t { background:#4A2333; color:#FFB6D3; }
+
+    .review-alert {
+      background: linear-gradient(135deg, #2C2417, #231C10);
+      border-color: #5E4620;
+      --bg2: #16110A; --bg3: #4A3A20;
+      --text2: #F1E5D2; --text3: #E3D5BE; --text4: #C7B18C;
+    }
+    .review-alert-title { color: #FFD48A; }
+    .review-alert-item { color: #F3E6D3; }
+    .review-tag.d1 { background:#5A241D; color:#FFB59F; }
+    .review-tag.d3 { background:#4E3A12; color:#FFD98E; }
+    .review-tag.d7 { background:#123A30; color:#8FE3C8; }
+
+    .aig-correct { background:#123A2C; color:#7FE3C0; }
+    .aig-wrong   { background:#4A1F1A; color:#FFB09B; }
+    .aig-unclear { background:#463514; color:#FFD489; }
+    .btn-aigrade { background:#2C2440; border-color:#4C4070; color:#CDBEFF; }
+    .wait-photo  { background:#3A2E13; border-color:#5C4A20; color:#FFD489; }
+  }
 </style>
 <script>MathJax = { tex: { inlineMath: [["$","$"]] }, options: { enableMenu: false } };</script>
 <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
