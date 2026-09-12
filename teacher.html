@@ -2681,6 +2681,7 @@
           solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300,
           figure: v.figure || null,
+          check_code: v.check_code || null,
           is_original: v.is_variation === false,
           image_url: v.is_variation === false ? entry.image_url : null,
           approved: false
@@ -2786,6 +2787,7 @@
           note_id: n.id, problem_text: stripHint(v.problem_text || v.problem), answer: v.answer,
           qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
           time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
+          check_code: v.check_code || null,
           is_original: v.is_variation === false,
           image_url: v.is_variation === false ? n.image_url : null, approved: false
         })
@@ -2841,6 +2843,7 @@
             note_id: n.id, problem_text: stripHint(v.problem_text || v.problem), answer: v.answer,
             qtype: v.qtype || 'short', choices: v.choices || null, solution: v.solution || null,
             time_limit_sec: v.time_limit_sec || 300, figure: v.figure || null,
+            check_code: v.check_code || null,
             is_original: v.is_variation === false,
             image_url: v.is_variation === false ? n.image_url : null, approved: false
           })
@@ -2884,6 +2887,7 @@
           ${figWarnBox(v)}
           ${choiceBox(v)}
           ${solBox(v)}
+          ${chkSlot(v)}
           ${(() => {
             let sp = v.figure;
             if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
@@ -2914,6 +2918,7 @@
         </div>`;
       }).join('');
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]).catch(()=>{});
+      runAllChecks(rows);
     } catch(e) {
       console.error(e);
       box.innerHTML = '<div style="font-size:13px;color:var(--text4);text-align:center;padding:16px;">불러오기 실패</div>';
@@ -4547,6 +4552,100 @@
     return s;
   }
 
+
+  // ═══════════════════════════════════════════════════════════
+  //  코드 검산 — AI 가 같이 보낸 solve() 를 Worker 에서 돌려 답을 대조한다
+  //
+  //  왜 필요한가 (2026-09-12 실측)
+  //   · 확률 문제: 생성 31 / LLM 재검산 13 / 실제 정답 119  — 셋 다 달랐다
+  //   · 극한 문제: 계수를 2t→4t 로 바꾸는 순간 극한이 발산해 문제 자체가 성립 안 함
+  //   · 함수 개수: +3→+2 로 바꾸니 정답이 3 이 되어 선지 5개 어디에도 없음
+  //  LLM 에게 "다시 풀어봐" 하는 재검산은 LLM 이 똑같이 틀린다.
+  //  그래서 실제로 계산하는 코드를 돌린다. 완전탐색·수치계산이면 거의 다 잡힌다.
+  //  Worker 라서 무한루프가 나도 terminate 로 확실히 죽일 수 있다.
+  // ═══════════════════════════════════════════════════════════
+  const _vChk = new Map();        // variation id → {state, msg}
+  const _UNSAFE = /\b(fetch|import|require|eval|XMLHttpRequest|localStorage|indexedDB|Function|globalThis)\b/;
+
+  function runSolver(code, ms) {
+    ms = ms || 3000;
+    return new Promise(res => {
+      if (!code || typeof code !== 'string') return res({ ok: false, e: 'no-code' });
+      if (_UNSAFE.test(code)) return res({ ok: false, e: 'unsafe' });
+      let w = null, url = '';
+      try {
+        const src = 'onmessage=function(){try{' + code +
+          ';var v=solve();postMessage({ok:true,v:(v===null||v===undefined||(typeof v==="number"&&!isFinite(v)))?null:String(v)});' +
+          '}catch(e){postMessage({ok:false,e:String((e&&e.message)||e)});}}';
+        url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        w = new Worker(url);
+        const kill = () => { try { w.terminate(); } catch (_) {} try { URL.revokeObjectURL(url); } catch (_) {} };
+        const t = setTimeout(() => { kill(); res({ ok: false, e: 'timeout' }); }, ms);
+        w.onmessage = ev => { clearTimeout(t); kill(); res(ev.data); };
+        w.onerror = () => { clearTimeout(t); kill(); res({ ok: false, e: 'worker-error' }); };
+        w.postMessage(1);
+      } catch (e) { res({ ok: false, e: String(e) }); }
+    });
+  }
+
+  // "31/2", "15.5", "$\frac{31}{2}$" 를 수로
+  function _vNum(x) {
+    if (x === null || x === undefined) return null;
+    let t = String(x).trim().replace(/\s/g, '');
+    t = t.replace(/\\[dt]?frac\{(-?[\d.]+)\}\{(-?[\d.]+)\}/, '$1/$2');
+    t = t.replace(/[$\\]/g, '').replace(/mathrm\{|\}/g, '');
+    const m = t.match(/^(-?[\d.]+)\/(-?[\d.]+)$/);
+    if (m) { const d = Number(m[2]); return d ? Number(m[1]) / d : null; }
+    const n = Number(t.replace(/[^\d.\-eE+]/g, ''));
+    return isFinite(n) ? n : null;
+  }
+
+  async function verifyVariation(v) {
+    const r = await runSolver(v.check_code);
+    if (!r.ok) return { state: 'skip', msg: '' };
+    if (r.v === null) return { state: 'broken', msg: '\u26d4 문제가 성립 안 함 (발산\u00b7해 없음)' };
+    const got = _vNum(r.v);
+    if (got === null) return { state: 'skip', msg: '' };
+    const near = (a, b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 1e-6);
+
+    const ch = solChoices(v);
+    if (v.qtype === 'mc' && ch) {
+      let hit = -1;
+      ch.forEach((c, i) => { const cv = _vNum(c); if (cv !== null && near(cv, got)) hit = i; });
+      if (hit < 0) return { state: 'broken', msg: '\u26d4 계산값 ' + r.v + ' 이 선지에 없음' };
+      return String(hit + 1) === String(v.answer)
+        ? { state: 'ok', msg: '\u2705 코드검산 일치 (' + r.v + ')' }
+        : { state: 'bad', msg: '\u274c 코드검산은 ' + (hit + 1) + '번(' + r.v + '), 정답칸은 ' + v.answer + '번' };
+    }
+    const ans = _vNum(v.answer);
+    return (ans !== null && near(got, ans))
+      ? { state: 'ok', msg: '\u2705 코드검산 일치 (' + r.v + ')' }
+      : { state: 'bad', msg: '\u274c 코드검산 ' + r.v + ' \u2260 정답칸 ' + (v.answer ?? '-') };
+  }
+
+  function chkSlot(v) {
+    return (v && v.check_code) ? '<div id="chk-' + v.id + '" style="margin-bottom:7px;"></div>' : '';
+  }
+  function _chkPaint(id, r) {
+    const el = document.getElementById('chk-' + id);
+    if (!el) return;
+    if (!r || r.state === 'skip' || !r.msg) { el.innerHTML = ''; return; }
+    const c = r.state === 'ok' ? ['#ECFDF5', '#6EE7B7', '#047857'] : ['#FEF2F2', '#FCA5A5', '#B91C1C'];
+    el.innerHTML = '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:' + c[0]
+      + ';border:1px solid ' + c[1] + ';color:' + c[2] + ';font-size:10.5px;font-weight:800;">' + r.msg + '</span>';
+  }
+  async function runAllChecks(rows) {
+    const list = (rows || []).filter(v => v && v.check_code && document.getElementById('chk-' + v.id));
+    for (const v of list) {
+      const el = document.getElementById('chk-' + v.id);
+      if (el) el.innerHTML = '<span style="font-size:10.5px;color:var(--text4);font-weight:700;">\ud83d\udd0d 코드로 검산 중...</span>';
+      let r;
+      try { r = await verifyVariation(v); } catch (e) { r = { state: 'skip', msg: '' }; }
+      _vChk.set(v.id, r);
+      _chkPaint(v.id, r);
+    }
+  }
+
   function solBox(v) {
     const sol = String(v.solution || '').trim();
     if (!sol) return '';
@@ -4713,10 +4812,44 @@
   }
 
   // 수식 구간($...$)만 골라서 표기를 바로잡는다. 문장 밖 글자는 건드리지 않는다.
+  // ═══ $ 짝 맞추기 ═══
+  // $ 개수가 홀수면 여는 $ 하나가 남아, 그 뒤 한글 문장이 통째로 수식 모드로 빨려 들어간다.
+  // 그러면 글자가 이탤릭으로 바뀌고 공백이 사라져 "의값을기준으로케이스를나누어" 처럼 붙어 버린다.
+  // (2026-09-12 실측: 함수 개수 문제에서 정확히 이 증상)
+  function _balanceDollars(x) {
+    let parts = String(x).split(/(?<!\\)\$/);
+    const prose = t => /[가-힣]{3,}/.test(t) || t.length > 200;
+    if (parts.length % 2 === 0) {            // $ 홀수개 — 짝 없는 놈 하나를 없앤다
+      let cut = -1;
+      for (let i = 1; i < parts.length; i += 2) if (prose(parts[i])) { cut = i; break; }
+      if (cut < 0) { const li = x.lastIndexOf('$'); return li < 0 ? x : x.slice(0, li) + x.slice(li + 1); }
+      parts = parts.slice(0, cut - 1).concat([parts[cut - 1] + parts[cut]]).concat(parts.slice(cut + 1));
+    }
+    // $ 짝은 맞는데 그 안이 한국어 문장인 구간 — MathJax 가 이탤릭으로 만들고 공백을 지운다.
+    // 해설이 문제로 새어 들어올 때 딱 이 모양이 된다. 통째로 벗겨서 보통 글로 되돌린다.
+    for (let i = 1; i < parts.length; i += 2) {
+      if (prose(parts[i])) {
+        parts = parts.slice(0, i - 1)
+          .concat([parts[i - 1] + parts[i] + parts[i + 1]])
+          .concat(parts.slice(i + 2));
+        i -= 2;
+      }
+    }
+    return parts.join('$');
+  }
+  // ∑ ∫ lim 은 인라인이면 위아래 첨자가 옆에 작게 붙는다. \displaystyle 을 붙여 크게 띄운다
+  const _BIGOP = /\\(?:sum|prod|int|oint|lim|bigcup|bigcap|iint)(?![a-zA-Z])/;
+  function _bigOps(x) {
+    if (!x.includes('$')) return x;
+    return x.replace(/(?<!\\)\$([^$\n]+?)(?<!\\)\$/g, (m, inner) =>
+      (_BIGOP.test(inner) && !/\\displaystyle/.test(inner)) ? '$\\displaystyle ' + inner + '$' : m);
+  }
+
   function tidyForDisplay(raw) {
     let t = String(raw ?? '');
     if (!t) return t;
     t = t.replace(/\\\\(?=[a-zA-Z]{2,})/g, '\\');          // \\frac → \frac
+    t = _bigOps(_balanceDollars(t));
     // 문장 한가운데 낀 $$ 는 그 자리에서 줄을 끊어 문장을 두 동강 낸다. 줄 전체가 $$ 뿐이면 그대로 둔다
     if (t.includes('$$')) {
       t = t.split('\n').map(L => {
@@ -4812,6 +4945,11 @@
   async function approveVariation(id) {
     const answer = document.getElementById(`var-answer-${id}`).value.trim();
     if (!answer) { alert('정답을 입력해주세요'); return; }
+    // 코드 검산이 어긋났으면 한 번 더 묻는다 (정답칸을 직접 고쳤으면 그대로 승인해도 된다)
+    const _ck = _vChk.get(id);
+    if (_ck && (_ck.state === 'bad' || _ck.state === 'broken')) {
+      if (!confirm(_ck.msg + '\n\n코드로 다시 계산한 답이 맞지 않아요.\n그래도 승인할까요?')) return;
+    }
     const mins = parseInt(document.getElementById(`var-time-${id}`)?.value) || 5;
     await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
       method: 'PATCH',
@@ -4886,6 +5024,7 @@
           solution: nv.solution || null,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
+          check_code: nv.check_code || null,
           is_original: nv.is_variation === false,
           image_url: nv.is_variation === false ? v.wrong_notes.image_url : null,
           prev
@@ -6733,6 +6872,7 @@
 
       vmUpdateSelCount();
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]).catch(() => {});
+      runAllChecks(_vmData);
     } catch (e) {
       console.error(e);
       box.innerHTML = '<div style="text-align:center;color:#e11d48;font-size:12.5px;padding:20px;">불러오기 실패</div>';
@@ -6780,6 +6920,7 @@
         <div style="font-size:12.5px;color:var(--text1);line-height:1.55;white-space:pre-wrap;margin-bottom:6px;">${renderProblemHtml(v.problem_text || '')}</div>
         ${choiceBox(v)}
         ${solBox(v)}
+        ${chkSlot(v)}
         ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
         ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:150px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;display:block;" />` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
@@ -6842,6 +6983,7 @@
           solution: nv.solution || null,
           time_limit_sec: nv.time_limit_sec || 300,
           figure: nv.figure || null,
+          check_code: nv.check_code || null,
           is_original: nv.is_variation === false,
           image_url: nv.is_variation === false ? img : null,
           approved: false
@@ -7769,6 +7911,7 @@
               solution: nv.solution || null,
               time_limit_sec: nv.time_limit_sec || 300,
               figure: nv.figure || null,
+              check_code: nv.check_code || null,
               is_original: nv.is_variation === false,
               image_url: nv.is_variation === false ? v.wrong_notes.image_url : null,
               approved: false,
