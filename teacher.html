@@ -2480,6 +2480,7 @@
   // 이제 queue-variation 이 접수만 받고 서버가 혼자 끝낸다.
   // 브라우저는 variation_jobs 를 가끔 들여다보기만 하면 된다.
   const BG_KEY = 'bg_variation_jobs';
+  const BG_STALL = 100 * 1000;   // 서버 심장박동(20초)이 이 시간 넘게 멈추면 죽은 것으로 본다
   const BG_TIMEOUT = 8 * 60 * 1000;      // 8분 넘게 소식 없으면 포기 (서버가 429 를 만나면 최대 4분까지 재시도)
   let _bgTimer = null;
 
@@ -2542,12 +2543,13 @@
     const ids = jobs.map(j => j.id);
     try {
       const rows = await fetch(
-        `${SUPABASE_URL}/rest/v1/variation_jobs?note_id=in.(${ids.join(',')})&select=note_id,status,detail`,
+        `${SUPABASE_URL}/rest/v1/variation_jobs?note_id=in.(${ids.join(',')})&select=note_id,status,detail,updated_at`,
         { headers: sbHeaders() }).then(r => r.json());
       const byId = {};
       (Array.isArray(rows) ? rows : []).forEach(r => { byId[r.note_id] = r; });
 
       let changed = false;
+      let touched = false;
       for (const j of jobs) {
         const r = byId[j.id];
         if (r && r.status === 'done') {
@@ -2556,11 +2558,26 @@
         } else if (r && r.status === 'failed') {
           bgDone(j.id, false, `❌ ${j.kind || '변형문제'} 실패${j.who ? ` · ${j.who}` : ''} — ${r.detail || '미션탭 누락 목록에서 다시 만들 수 있어요'}`);
           changed = true;
+        } else if (r && r.status === 'running' && j.seen && r.updated_at === j.seen
+                   && Date.now() - j.seenAt > BG_STALL) {
+          // ★ 서버가 20초마다 updated_at 을 갱신한다(심장박동).
+          //   그게 STALL 시간 넘게 멈춰 있으면 작업이 죽은 것이다.
+          //   예전에는 이걸 구분 못 해서 8분을 기다린 뒤에야 "응답이 없어요" 가 떴다.
+          //   (2026-09-12: 배포 중에 끊긴 작업이 'running' 으로 영원히 남아 있었다)
+          bgDone(j.id, false, `⛔ ${j.kind || '변형문제'} 중간에 멈췄어요${j.who ? ` · ${j.who}` : ''} — 다시 눌러주세요`);
+          changed = true;
         } else if (Date.now() - j.at > BG_TIMEOUT) {
           bgDone(j.id, false, `⏱️ 응답이 없어요${j.who ? ` · ${j.who}` : ''} — 미션탭 누락 목록에서 확인해 주세요`);
           changed = true;
+        } else if (r && r.updated_at && r.updated_at !== j.seen) {
+          // 살아 있다. 마지막으로 움직인 시각을 내 시계 기준으로 기억해 둔다
+          // (서버 시계와 폰 시계가 어긋나도 상관없게, 시각을 비교하지 않고 "변했는가" 만 본다)
+          j.seen = r.updated_at;
+          j.seenAt = Date.now();
+          touched = true;
         }
       }
+      if (touched) bgSave(jobs);
       if (changed) {
         bgPaint();
         if (typeof loadVariationReviews === 'function') loadVariationReviews();
