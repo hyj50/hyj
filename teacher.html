@@ -4621,27 +4621,98 @@
     return isFinite(n) ? n : null;
   }
 
-  async function verifyVariation(v) {
-    const r = await runSolver(v.check_code);
-    if (!r.ok) return { state: 'skip', msg: '' };
-    if (r.v === null) return { state: 'broken', msg: '\u26d4 문제가 성립 안 함 (발산\u00b7해 없음)' };
-    const got = _vNum(r.v);
-    if (got === null) return { state: 'skip', msg: '' };
-    const near = (a, b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 1e-6);
+  const _near = (a, b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 1e-6);
 
+  // 계산값을 「정답칸에 넣을 값」으로 바꾼다. 객관식이면 선지 번호로.
+  function _toAnswerField(v, got) {
     const ch = solChoices(v);
     if (v.qtype === 'mc' && ch) {
       let hit = -1;
-      ch.forEach((c, i) => { const cv = _vNum(c); if (cv !== null && near(cv, got)) hit = i; });
-      if (hit < 0) return { state: 'broken', msg: '\u26d4 계산값 ' + r.v + ' 이 선지에 없음' };
-      return String(hit + 1) === String(v.answer)
-        ? { state: 'ok', msg: '\u2705 코드검산 일치 (' + r.v + ')' }
-        : { state: 'bad', msg: '\u274c 코드검산은 ' + (hit + 1) + '번(' + r.v + '), 정답칸은 ' + v.answer + '번' };
+      ch.forEach((c, i) => { const cv = _vNum(c); if (cv !== null && _near(cv, got)) hit = i; });
+      return hit < 0 ? null : String(hit + 1);
     }
-    const ans = _vNum(v.answer);
-    return (ans !== null && near(got, ans))
-      ? { state: 'ok', msg: '\u2705 코드검산 일치 (' + r.v + ')' }
-      : { state: 'bad', msg: '\u274c 코드검산 ' + r.v + ' \u2260 정답칸 ' + (v.answer ?? '-') };
+    return String(got);
+  }
+
+  // ═══ 검산은 세 번, 따로 ═══
+  // 선생님한테 코드를 읽혀서 판정시키면 안 된다.
+  // 서로 모르는 세 번의 풀이 중 둘 이상이 같은 답을 내면 그게 답이다. 앱이 결론까지 낸다.
+  // 셋 다 갈리면 그건 "골라주세요" 가 아니라 "이 문제는 버려라" 다.
+  async function verifyVariation(v) {
+    const codes = [v.check_code, v.check_code2, v.check_code3].filter(Boolean);
+    if (!codes.length) return { state: 'skip', msg: '' };
+
+    const vals = [];
+    let sawNull = false;
+    for (const c of codes) {
+      const r = await runSolver(c);
+      if (!r.ok) continue;
+      if (r.v === null) { sawNull = true; continue; }
+      const n = _vNum(r.v);
+      if (n !== null) vals.push(n);
+    }
+    if (!vals.length) {
+      return sawNull
+        ? { state: 'broken', msg: '\u26d4 문제가 성립 안 함 (발산\u00b7해 없음) — 재생성하세요' }
+        : { state: 'skip', msg: '' };
+    }
+
+    // 같은 값끼리 묶어 표를 센다
+    const groups = [];
+    for (const n of vals) {
+      const g = groups.find(x => _near(x.v, n));
+      if (g) g.n++; else groups.push({ v: n, n: 1 });
+    }
+    groups.sort((a, b) => b.n - a.n);
+    const top = groups[0];
+
+    const unit = v.qtype === 'mc' ? '번' : '';
+    const cur = String(v.answer ?? '').trim();
+    const fieldOf = (x) => _toAnswerField(v, x);
+    const ansG = groups.find(g => String(fieldOf(g.v)) === cur);   // 정답칸과 같은 표 묶음
+
+    // ① 검산이 한 번뿐이면 다수결을 할 수 없다.
+    //    맞으면 통과, 다르면 "골라주세요" 가 아니라 재생성이 답이다.
+    if (vals.length === 1) {
+      return ansG
+        ? { state: 'ok', msg: '\u2705 검산이 정답칸과 일치' }
+        : { state: 'broken', msg: '\u26d4 검산은 ' + (fieldOf(top.v) ?? top.v) + unit
+              + ' 인데 정답칸은 ' + cur + unit + ' 이에요. 확인할 방법이 없으니 재생성하세요' };
+    }
+
+    // ② 표가 하나도 안 겹쳤다 → 문제가 애매한 것이다. 버리고 다시 만든다.
+    if (top.n < 2) {
+      return {
+        state: 'broken',
+        msg: '\u26d4 검산할 때마다 답이 달라요 (' + vals.map(x => (fieldOf(x) ?? x) + unit).join(', ')
+           + ') — 문제가 애매한 거예요. 재생성하세요'
+      };
+    }
+
+    // ③ 최다 득표에 정답칸이 들어 있으면 통과
+    if (ansG && ansG.n === top.n) {
+      return { state: 'ok', msg: '\u2705 따로 ' + vals.length + '번 계산해서 ' + ansG.n + '번이 정답칸과 일치' };
+    }
+
+    // ④ 최다 득표가 정답칸과 다르다 → 정답칸이 틀린 것으로 본다
+    const f = fieldOf(top.v);
+    if (f === null) return { state: 'broken', msg: '\u26d4 계산값 ' + top.v + ' 이 선지에 없음 — 재생성하세요' };
+    return {
+      state: 'fix', fix: f, desc: v.check_desc || '',
+      msg: '\u26a0\ufe0f 답은 ' + f + unit + ' 이에요 (따로 ' + vals.length + '번 계산해서 '
+         + top.n + '번이 ' + f + unit + ', 정답칸은 ' + cur + unit + ')'
+    };
+  }
+
+  // 「정답칸을 ○○로 고치기」 — 입력칸만 바꾼다. 승인 눌러야 저장된다.
+  function chkApplyFix(id, val) {
+    const el = document.getElementById('var-answer-' + id);
+    if (!el) return;
+    el.value = val;
+    el.style.background = '#ECFDF5';
+    const r = _vChk.get(id);
+    if (r) { _vChk.set(id, { ...r, state: 'ok', msg: '\u2705 정답칸을 ' + val + ' 로 고쳤어요 — 승인을 눌러주세요' }); _chkPaint(id, _vChk.get(id)); }
+    showToast('정답칸을 ' + val + ' 로 바꿨어요. 승인을 눌러야 저장돼요', 'success');
   }
 
   function chkSlot(v) {
@@ -4651,9 +4722,26 @@
     const el = document.getElementById('chk-' + id);
     if (!el) return;
     if (!r || r.state === 'skip' || !r.msg) { el.innerHTML = ''; return; }
-    const c = r.state === 'ok' ? ['#ECFDF5', '#6EE7B7', '#047857'] : ['#FEF2F2', '#FCA5A5', '#B91C1C'];
-    el.innerHTML = '<span style="display:inline-block;padding:3px 8px;border-radius:6px;background:' + c[0]
-      + ';border:1px solid ' + c[1] + ';color:' + c[2] + ';font-size:10.5px;font-weight:800;">' + r.msg + '</span>';
+    const C = {
+      ok:     ['#ECFDF5', '#6EE7B7', '#047857'],
+      fix:    ['#FFFBEB', '#FCD34D', '#B45309'],
+      bad:    ['#FEF2F2', '#FCA5A5', '#B91C1C'],
+      broken: ['#FEF2F2', '#FCA5A5', '#B91C1C'],
+    }[r.state] || ['#F3F4F6', '#D1D5DB', '#374151'];
+    let h = '<div style="padding:7px 9px;border-radius:8px;background:' + C[0]
+      + ';border:1px solid ' + C[1] + ';color:' + C[2] + ';font-size:11px;font-weight:800;line-height:1.5;">' + r.msg;
+    // ★ 코드가 아니라 "무엇을 계산했는지" 를 한국어로 보여준다. 이건 선생님이 3초면 판단한다.
+    if (r.desc) {
+      h += '<div style="margin-top:5px;font-weight:600;color:#374151;font-size:11px;">'
+        + '\ud83e\uddee 계산한 내용: ' + escapeHtml(r.desc) + '</div>';
+    }
+    if (r.fix) {
+      h += '<button onclick="chkApplyFix(\'' + id + '\',\'' + String(r.fix).replace(/'/g, "") + '\')" '
+        + 'style="margin-top:7px;padding:6px 12px;border-radius:7px;border:none;background:' + C[2]
+        + ';color:#fff;font-size:11.5px;font-weight:800;">정답칸을 ' + r.fix + ' 로 고치기</button>';
+    }
+    el.innerHTML = h + '</div>';
+    if (r.desc && window.MathJax?.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
   }
   async function runAllChecks(rows) {
     const list = (rows || []).filter(v => v && v.check_code && document.getElementById('chk-' + v.id));
@@ -4968,7 +5056,7 @@
     if (!answer) { alert('정답을 입력해주세요'); return; }
     // 코드 검산이 어긋났으면 한 번 더 묻는다 (정답칸을 직접 고쳤으면 그대로 승인해도 된다)
     const _ck = _vChk.get(id);
-    if (_ck && (_ck.state === 'bad' || _ck.state === 'broken')) {
+    if (_ck && (_ck.state === 'bad' || _ck.state === 'broken' || _ck.state === 'fix')) {
       if (!confirm(_ck.msg + '\n\n코드로 다시 계산한 답이 맞지 않아요.\n그래도 승인할까요?')) return;
     }
     const mins = parseInt(document.getElementById(`var-time-${id}`)?.value) || 5;
