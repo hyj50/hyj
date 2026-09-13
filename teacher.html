@@ -5698,9 +5698,9 @@
           : (_qeEdits[it.qid] ? '<span style="background:rgba(16,185,129,.2);color:#34D399;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;margin-left:6px;">수정됨</span>' : '');
         return `<div style="border:1px solid var(--border2);border-radius:11px;padding:11px;margin-bottom:8px;background:var(--bg3);${e.hidden ? 'opacity:.55;' : ''}">
           <div style="font-size:10.5px;color:var(--text4);margin-bottom:5px;">${QE_LABEL[it.band] || it.band} · ${q.t === 'ox' ? 'OX' : '객관식'}${badge}</div>
-          <div style="font-size:13px;color:var(--text1);line-height:1.55;font-weight:600;margin-bottom:6px;">${q.q}</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">정답: <b style="color:#34D399;">${opts[q.a] != null ? opts[q.a] : '?'}</b></div>
-          <div style="font-size:11.5px;color:var(--text3);line-height:1.55;margin-bottom:9px;">💡 ${q.why || ''}</div>
+          <div style="font-size:13px;color:var(--text1);line-height:1.55;font-weight:600;margin-bottom:6px;">${_figEsc(q.q)}</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">정답: <b style="color:#34D399;">${_figEsc(opts[q.a] != null ? opts[q.a] : '?')}</b></div>
+          <div style="font-size:11.5px;color:var(--text3);line-height:1.55;margin-bottom:9px;">💡 ${_figEsc(q.why || '')}</div>
           <div style="display:flex;gap:6px;">
             <button onclick="qeEdit('${it.qid}')" style="padding:6px 11px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">✏️ 수정</button>
             <button onclick="qeToggleHide('${it.qid}')" style="padding:6px 11px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">${e.hidden ? '✅ 다시 쓰기' : '🙈 안 나오게'}</button>
