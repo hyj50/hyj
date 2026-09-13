@@ -4068,7 +4068,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
 
     // OX만 나오지 않게 객관식 한 문제는 보장
     if (!out.some(q => q.t === 'mc')) {
-      const mc = _qpick((QUIZ_BANK.common || []).concat(all).filter(q => q.t === 'mc'), 1, rnd)[0];
+      const mc = _qpick((QUIZ_BANK.common || []).filter(q => !qHidden(q)).concat(all).filter(q => q.t === 'mc'), 1, rnd)[0];
       if (mc) out[out.length - 1] = mc;
     }
     const ord = _qrand(_qhash(day + '|' + band + '|order'));

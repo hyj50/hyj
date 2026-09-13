@@ -5765,7 +5765,24 @@
 
   async function qeToggleHide(qid) {
     const cur = !!(_qeEdits[qid] && _qeEdits[qid].hidden);
-    if (await qeSave(qid, { hidden: !cur })) showToast(cur ? '✅ 다시 출제돼요' : '🙈 이제 안 나와요', 'ok');
+    if (!(await qeSave(qid, { hidden: !cur }))) return;
+    // 저장했다고 믿지 말고 서버에서 다시 읽어 확인한다.
+    // (화면에는 숨김으로 보이는데 서버엔 안 들어가 있어 학생앱에 그대로 나오던 사고가 있었음)
+    try {
+      const chk = await fetch(`${SUPABASE_URL}/rest/v1/quiz_edits?qid=eq.${encodeURIComponent(qid)}&select=qid,hidden`, { headers: sbHeaders() }).then(r => r.json());
+      const row = Array.isArray(chk) ? chk[0] : null;
+      if (!row || !!row.hidden !== !cur) {
+        showToast('❌ 서버에 반영이 안 됐어요.\n다시 한 번 눌러주세요.', 'error');
+        return;
+      }
+      _qeEdits[qid] = Object.assign({}, _qeEdits[qid] || {}, row);
+    } catch (e) {
+      console.error('qeToggleHide 확인:', e);
+      showToast('⚠️ 저장은 됐는데 확인을 못 했어요.\n새로고침해서 상태를 봐주세요.', 'error');
+      return;
+    }
+    renderQuizEditor();
+    showToast(cur ? '✅ 다시 출제돼요 (서버 확인됨)' : '🙈 이제 안 나와요 (서버 확인됨)', 'ok');
   }
 
   async function qeReset(qid) {
