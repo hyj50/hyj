@@ -854,7 +854,15 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       <div style="font-size:11.5px;color:rgba(255,255,255,0.6);line-height:1.45;">이 문제의 <b style="color:rgba(255,255,255,0.85);">원본 오답</b>이에요<br>눌러서 크게 보기</div>
     </div>
     <div id="mission-choices" style="display:none;margin-bottom:10px;"></div>
-    <input type="text" id="mission-answer-input" placeholder="숫자만 입력 (단위 없이, 분수는 3/4)" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);font-size:15px;font-weight:700;background:rgba(255,255,255,0.1);color:white;box-sizing:border-box;margin-bottom:10px;text-align:center;" autocomplete="off" />
+    <input type="text" id="mission-answer-input" placeholder="답 입력 (예: 12, 3/4, 2√3, 3π)" style="width:100%;padding:13px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.25);font-size:15px;font-weight:700;background:rgba(255,255,255,0.1);color:white;box-sizing:border-box;margin-bottom:6px;text-align:center;" autocomplete="off" />
+    <div id="mission-keys" style="display:flex;gap:5px;justify-content:center;margin-bottom:10px;">
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey('√')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">√</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey('π')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">π</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey('/')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">/</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey('-')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">−</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey('(')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">(</button>
+      <button type="button" onmousedown="event.preventDefault()" onclick="missionKey(')')" style="flex:1;max-width:54px;padding:8px 0;border-radius:9px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:800;">)</button>
+    </div>
     <div style="display:flex;gap:8px;">
       <button onclick="cancelMission()" style="flex:1;padding:12px;border-radius:11px;border:1.5px solid rgba(255,255,255,0.25);background:none;color:rgba(255,255,255,0.6);font-size:14px;font-weight:600;cursor:pointer;">포기</button>
       <button onclick="submitMissionAnswer()" style="flex:2;padding:12px;border-radius:11px;border:none;background:linear-gradient(135deg,#7C3AED,#4C1D95);color:white;font-size:14px;font-weight:800;cursor:pointer;">제출!</button>
@@ -3848,7 +3856,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
         const q = pQType(v);
         if (q.mc) return mine === String(v.answer ?? '').trim();
         // 앞의 0 은 무시 (024 = 24)
-        return normalizeAnswer(mine.replace(/^0+(?=\d)/, '')) === normalizeAnswer(String(v.answer ?? ''));
+        return answersMatch(mine.replace(/^0+(?=\d)/, ''), String(v.answer ?? ''));
       });
       const score = marks.filter(Boolean).length;
 
@@ -7140,13 +7148,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     if (typeof ch === 'string') { try { ch = JSON.parse(ch); } catch (e) { ch = null; } }
     const isMC = v.qtype === 'mc' && Array.isArray(ch) && ch.length >= 2;
 
+    const keys = document.getElementById('mission-keys');
     if (!isMC) {
       box.style.display = 'none';
       box.innerHTML = '';
       input.style.display = '';
-      input.placeholder = '숫자만 입력 (단위 없이, 분수는 3/4)';
+      input.placeholder = '답 입력 (예: 12, 3/4, 2√3, 3π)';
+      if (keys) keys.style.display = 'flex';
       return;
     }
+    if (keys) keys.style.display = 'none';
 
     const NUM = ['①', '②', '③', '④', '⑤'];
     box.innerHTML = ch.slice(0, 5).map((c, i) => `
@@ -7199,6 +7210,153 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     return v;
   }
 
+  // ═══ 수식 계산기 — "$\frac{-2+3\sqrt{2}}{2}$", "12√2", "3π/4" 를 수로 바꾼다 ═══
+  // 선지·정답·해설 속 수식을 실제 값으로 비교하려고 만든 것. 문자(변수)가 섞이면 null.
+  function mxEval(src) {
+    if (src === null || src === undefined) return null;
+    let s = String(src).trim();
+    if (!s) return null;
+    s = s.replace(/\$/g, '')
+      .replace(/\\(?:mathrm|text|textrm|rm|operatorname)\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\(?:left|right|displaystyle|quad|qquad)/g, ' ')
+      .replace(/\\[,;:! ]/g, ' ')
+      .replace(/\^\s*\{\s*\\circ\s*\}|\^\s*\\circ|\\circ|°|˚/g, '')
+      .replace(/[−–]/g, '-').replace(/[×·⋅]/g, '*').replace(/÷/g, '/')
+      .replace(/\\(?:times|cdot)(?![a-zA-Z])/g, '*').replace(/\\div(?![a-zA-Z])/g, '/')
+      .replace(/\\[dt]frac(?![a-zA-Z])/g, '\\frac')
+      .replace(/π/g, '\\pi ').replace(/√/g, '\\usqrt ');
+    // ── 토큰으로 자르기
+    const T = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      const num = s.slice(i).match(/^(\d+(?:\.\d+)?|\.\d+)/);
+      if (num) { T.push({ t: 'n', v: num[1] }); i += num[1].length; continue; }
+      if (c === '\\') {
+        const m = s.slice(i + 1).match(/^[a-zA-Z]+/);
+        if (!m) return null;
+        if (!/^(frac|sqrt|usqrt|pi)$/.test(m[0])) return null;
+        T.push({ t: 'c', v: m[0] }); i += 1 + m[0].length; continue;
+      }
+      if ('+-*/^(){}[]'.indexOf(c) >= 0) { T.push({ t: c }); i++; continue; }
+      return null;   // 문자·쉼표·등호 등이 섞이면 수가 아니다
+    }
+    let p = 0;
+    const peek = () => T[p];
+    const eat = (t) => { if (T[p] && T[p].t === t) { p++; return true; } return false; };
+    // 숫자 토큰에서 한 글자만 떼어 쓰기 (\frac12, x^23 같은 LaTeX 규칙)
+    const oneDigit = () => {
+      const k = T[p];
+      if (!k || k.t !== 'n') return null;
+      if (k.v.length > 1 && /^\d/.test(k.v)) { const d = k.v[0]; k.v = k.v.slice(1); return Number(d); }
+      p++; return Number(k.v);
+    };
+    function group() {           // {…} 이거나 글자 하나
+      const k = peek();
+      if (!k) throw 0;
+      if (k.t === '{') { p++; const v = expr(); if (!eat('}')) throw 0; return v; }
+      if (k.t === 'n') return oneDigit();
+      return atom();
+    }
+    function atom() {
+      const k = peek();
+      if (!k) throw 0;
+      if (k.t === 'n') { p++; return Number(k.v); }
+      if (k.t === '(' || k.t === '{' || k.t === '[') {
+        const close = { '(': ')', '{': '}', '[': ']' }[k.t];
+        p++; const v = expr(); if (!eat(close)) throw 0; return v;
+      }
+      if (k.t === 'c') {
+        p++;
+        if (k.v === 'pi') return Math.PI;
+        if (k.v === 'frac') { const a = group(); const b = group(); return a / b; }
+        if (k.v === 'sqrt') {
+          let n = 2;
+          if (peek() && peek().t === '[') { p++; n = expr(); if (!eat(']')) throw 0; }
+          const a = group();
+          if (n === 2) return Math.sqrt(a);
+          return a < 0 && Math.round(n) % 2 === 1 ? -Math.pow(-a, 1 / n) : Math.pow(a, 1 / n);
+        }
+        if (k.v === 'usqrt') {      // √18 은 √(18) — 숫자를 통째로 먹는다
+          const q = peek();
+          if (q && q.t === 'n') { p++; return Math.sqrt(Number(q.v)); }
+          return Math.sqrt(atom());
+        }
+      }
+      throw 0;
+    }
+    function power() {
+      let b = atom();
+      if (eat('^')) {
+        let e;
+        if (peek() && peek().t === '-') { p++; e = -group(); } else e = group();
+        b = Math.pow(b, e);
+      }
+      return b;
+    }
+    function unary() {
+      if (eat('-')) return -unary();
+      if (eat('+')) return unary();
+      return power();
+    }
+    const startsAtom = k => k && (k.t === 'n' || k.t === '(' || k.t === '{' || k.t === 'c');
+    function term() {
+      let v = unary();
+      for (;;) {
+        if (eat('*')) v *= unary();
+        else if (eat('/')) v /= unary();
+        else if (startsAtom(peek())) v *= power();     // 3\sqrt{2}, 2\pi, (1+3)(2)
+        else return v;
+      }
+    }
+    function expr() {
+      let v = term();
+      for (;;) {
+        if (eat('+')) v += term();
+        else if (eat('-')) v -= term();
+        else return v;
+      }
+    }
+    try {
+      if (!T.length) return null;
+      const v = expr();
+      if (p !== T.length) return null;
+      return (typeof v === 'number' && isFinite(v)) ? v : null;
+    } catch (e) { return null; }
+  }
+
+  // ═══ 주관식 채점 — 글자가 달라도 값이 같으면 정답 ═══
+  // 정답칸 "$1+\sqrt{2}$" 에 학생이 "√2+1" 을 쓰면 예전에는 오답이었다.
+  // 문자·쉼표가 섞인 답(ㄱ,ㄷ / x=2, 3)은 수가 아니므로 예전 글자 비교 그대로.
+  function _ansNum(raw) {
+    let v = String(raw ?? '').trim();
+    if (!v) return null;
+    v = v.replace(/^(?:답|정답)\s*[:：]?\s*/, '').replace(/\$/g, '').trim();
+    v = v.replace(/^[a-zA-Z]\s*=\s*/, '');
+    v = v.replace(/(?:\\[,;! ]|\s)*\\(?:mathrm|text|rm)\s*\{\s*[a-zA-Z가-힣]+\s*(?:\^\s*\{?\s*[23]\s*\}?)?\s*\}\s*(?:\^\s*\{?\s*[23]\s*\}?)?\s*$/, '');
+    v = v.replace(/\s*(?:°|도|%|퍼센트|원|명|개|권|장|쪽|번|회|초|분|시간|일|주|년|점|칸|줄|마리|배|가지|cm|mm|km|m|kg|g|mL|ml|L)\s*(?:\^\s*\{?[23]\}?|²|³)?\s*$/, '');
+    v = v.replace(/루트\s*/g, '√').replace(/파이/g, 'π').replace(/²/g, '^2').replace(/³/g, '^3');
+    return mxEval(v);
+  }
+  function answersMatch(mine, correct) {
+    if (normalizeAnswer(mine) === normalizeAnswer(correct)) return true;
+    const a = _ansNum(mine), b = _ansNum(correct);
+    if (a === null || b === null) return false;
+    return Math.abs(a - b) <= Math.max(1e-9, Math.abs(b) * 1e-9);
+  }
+
+  // 주관식 입력칸 아래 수식 기호 버튼 (폰 키보드에서 √ π 찾기 어려움)
+  function missionKey(t) {
+    const el = document.getElementById('mission-answer-input');
+    if (!el) return;
+    const s0 = el.selectionStart ?? el.value.length, e0 = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, s0) + t + el.value.slice(e0);
+    const p = s0 + t.length;
+    el.focus();
+    try { el.setSelectionRange(p, p); } catch (e) {}
+  }
+
   async function submitMissionAnswer() {
     // 객관식은 선지를 골라야 제출할 수 있다
     if (document.getElementById('mission-choices')?.style.display === 'block'
@@ -7207,9 +7365,10 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       return;
     }
     if (!_missionCurrent) return;
-    const input = normalizeAnswer(document.getElementById('mission-answer-input').value);
+    const rawInput = document.getElementById('mission-answer-input').value;
+    const input = normalizeAnswer(rawInput);
     if (!input) { alert('답을 입력해주세요'); return; }
-    const correct = input === normalizeAnswer(_missionCurrent.answer);
+    const correct = answersMatch(rawInput, _missionCurrent.answer);
 
     clearInterval(_missionTimerInt);
     document.getElementById('mission-solve-overlay').style.display = 'none';

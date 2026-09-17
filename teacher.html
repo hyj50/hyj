@@ -2909,6 +2909,7 @@
           ${choiceBox(v)}
           ${solBox(v)}
           ${chkSlot(v)}
+          ${varEditBar(v)}
           ${(() => {
             let sp = v.figure;
             if (typeof sp === 'string') { try { sp = JSON.parse(sp); } catch (e) { sp = null; } }
@@ -2918,7 +2919,7 @@
           })()}
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
             <span style="font-size:12px;color:var(--text3);">정답:</span>
-            <input type="text" id="var-answer-${v.id}" value="${v.answer}" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:13px;font-weight:700;background:var(--bg2);color:var(--text1);" />
+            <input type="text" id="var-answer-${v.id}" value="${escapeHtml(v.answer ?? '')}" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border2);font-size:13px;font-weight:700;background:var(--bg2);color:var(--text1);" />
           </div>
           <div id="var-fig-box-${v.id}" style="margin-bottom:10px;">
             ${v.image_url
@@ -2939,7 +2940,7 @@
         </div>`;
       }).join('');
       if (window.MathJax?.typesetPromise) MathJax.typesetPromise([box]).catch(()=>{});
-      runAllChecks(rows);
+      runAllChecks(rows, true);
     } catch(e) {
       console.error(e);
       box.innerHTML = '<div style="font-size:13px;color:var(--text4);text-align:center;padding:16px;">불러오기 실패</div>';
@@ -4531,7 +4532,8 @@
     if (!s.trim()) return null;
     const flags = [];
 
-    if (SCRATCH.test(s)) flags.push({ lv: 2, t: '\u270f\ufe0f AI 초고 그대로 \u2014 풀이 손봐야 함' });
+    if (RAMBLE.test(s)) flags.push({ lv: 3, t: '\ud83c\udf00 해설이 중간에 말을 바꿈 (답 끼워맞추기)' });
+    else if (SCRATCH.test(s)) flags.push({ lv: 2, t: '\u270f\ufe0f AI 초고 그대로 \u2014 풀이 손봐야 함' });
 
     if (/\[\s*재검산/.test(s)) {
       const a = (s.match(/따라서 답은\s*([^\s\n]+)/) || [])[1] || '';
@@ -4612,6 +4614,7 @@
   // "31/2", "15.5", "$\frac{31}{2}$" 를 수로
   function _vNum(x) {
     if (x === null || x === undefined) return null;
+    { const m = mxVal(x); if (m !== null) return m; }
     let t = String(x).trim().replace(/\s/g, '');
     t = t.replace(/\\[dt]?frac\{(-?[\d.]+)\}\{(-?[\d.]+)\}/, '$1/$2');
     t = t.replace(/[$\\]/g, '').replace(/mathrm\{|\}/g, '');
@@ -4621,7 +4624,9 @@
     return isFinite(n) ? n : null;
   }
 
-  const _near = (a, b) => Math.abs(a - b) <= Math.max(1e-6, Math.abs(b) * 1e-6);
+  // 수치탐색 코드는 소수 5~6째 자리가 흔들린다 (16.97056 / 16.970586). 1e-6 이면 같은 답을 다른 답으로 본다.
+  const _near = (a, b) => Math.abs(a - b) <= Math.max(1e-9, Math.max(Math.abs(a), Math.abs(b)) * 1e-5);
+  function escapeHtml(t) { return _figEsc(t == null ? '' : t).replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
   // 계산값을 「정답칸에 넣을 값」으로 바꾼다. 객관식이면 선지 번호로.
   function _toAnswerField(v, got) {
@@ -4634,10 +4639,342 @@
     return String(got);
   }
 
+  // ═══ 수식 계산기 — "$\frac{-2+3\sqrt{2}}{2}$", "12√2", "3π/4" 를 수로 바꾼다 ═══
+  // 선지·정답·해설 속 수식을 실제 값으로 비교하려고 만든 것. 문자(변수)가 섞이면 null.
+  function mxEval(src) {
+    if (src === null || src === undefined) return null;
+    let s = String(src).trim();
+    if (!s) return null;
+    s = s.replace(/\$/g, '')
+      .replace(/\\(?:mathrm|text|textrm|rm|operatorname)\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\(?:left|right|displaystyle|quad|qquad)/g, ' ')
+      .replace(/\\[,;:! ]/g, ' ')
+      .replace(/\^\s*\{\s*\\circ\s*\}|\^\s*\\circ|\\circ|°|˚/g, '')
+      .replace(/[−–]/g, '-').replace(/[×·⋅]/g, '*').replace(/÷/g, '/')
+      .replace(/\\(?:times|cdot)(?![a-zA-Z])/g, '*').replace(/\\div(?![a-zA-Z])/g, '/')
+      .replace(/\\[dt]frac(?![a-zA-Z])/g, '\\frac')
+      .replace(/π/g, '\\pi ').replace(/√/g, '\\usqrt ');
+    // ── 토큰으로 자르기
+    const T = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      const num = s.slice(i).match(/^(\d+(?:\.\d+)?|\.\d+)/);
+      if (num) { T.push({ t: 'n', v: num[1] }); i += num[1].length; continue; }
+      if (c === '\\') {
+        const m = s.slice(i + 1).match(/^[a-zA-Z]+/);
+        if (!m) return null;
+        if (!/^(frac|sqrt|usqrt|pi)$/.test(m[0])) return null;
+        T.push({ t: 'c', v: m[0] }); i += 1 + m[0].length; continue;
+      }
+      if ('+-*/^(){}[]'.indexOf(c) >= 0) { T.push({ t: c }); i++; continue; }
+      return null;   // 문자·쉼표·등호 등이 섞이면 수가 아니다
+    }
+    let p = 0;
+    const peek = () => T[p];
+    const eat = (t) => { if (T[p] && T[p].t === t) { p++; return true; } return false; };
+    // 숫자 토큰에서 한 글자만 떼어 쓰기 (\frac12, x^23 같은 LaTeX 규칙)
+    const oneDigit = () => {
+      const k = T[p];
+      if (!k || k.t !== 'n') return null;
+      if (k.v.length > 1 && /^\d/.test(k.v)) { const d = k.v[0]; k.v = k.v.slice(1); return Number(d); }
+      p++; return Number(k.v);
+    };
+    function group() {           // {…} 이거나 글자 하나
+      const k = peek();
+      if (!k) throw 0;
+      if (k.t === '{') { p++; const v = expr(); if (!eat('}')) throw 0; return v; }
+      if (k.t === 'n') return oneDigit();
+      return atom();
+    }
+    function atom() {
+      const k = peek();
+      if (!k) throw 0;
+      if (k.t === 'n') { p++; return Number(k.v); }
+      if (k.t === '(' || k.t === '{' || k.t === '[') {
+        const close = { '(': ')', '{': '}', '[': ']' }[k.t];
+        p++; const v = expr(); if (!eat(close)) throw 0; return v;
+      }
+      if (k.t === 'c') {
+        p++;
+        if (k.v === 'pi') return Math.PI;
+        if (k.v === 'frac') { const a = group(); const b = group(); return a / b; }
+        if (k.v === 'sqrt') {
+          let n = 2;
+          if (peek() && peek().t === '[') { p++; n = expr(); if (!eat(']')) throw 0; }
+          const a = group();
+          if (n === 2) return Math.sqrt(a);
+          return a < 0 && Math.round(n) % 2 === 1 ? -Math.pow(-a, 1 / n) : Math.pow(a, 1 / n);
+        }
+        if (k.v === 'usqrt') {      // √18 은 √(18) — 숫자를 통째로 먹는다
+          const q = peek();
+          if (q && q.t === 'n') { p++; return Math.sqrt(Number(q.v)); }
+          return Math.sqrt(atom());
+        }
+      }
+      throw 0;
+    }
+    function power() {
+      let b = atom();
+      if (eat('^')) {
+        let e;
+        if (peek() && peek().t === '-') { p++; e = -group(); } else e = group();
+        b = Math.pow(b, e);
+      }
+      return b;
+    }
+    function unary() {
+      if (eat('-')) return -unary();
+      if (eat('+')) return unary();
+      return power();
+    }
+    const startsAtom = k => k && (k.t === 'n' || k.t === '(' || k.t === '{' || k.t === 'c');
+    function term() {
+      let v = unary();
+      for (;;) {
+        if (eat('*')) v *= unary();
+        else if (eat('/')) v /= unary();
+        else if (startsAtom(peek())) v *= power();     // 3\sqrt{2}, 2\pi, (1+3)(2)
+        else return v;
+      }
+    }
+    function expr() {
+      let v = term();
+      for (;;) {
+        if (eat('+')) v += term();
+        else if (eat('-')) v -= term();
+        else return v;
+      }
+    }
+    try {
+      if (!T.length) return null;
+      const v = expr();
+      if (p !== T.length) return null;
+      return (typeof v === 'number' && isFinite(v)) ? v : null;
+    } catch (e) { return null; }
+  }
+
+  // 단위가 붙은 선지·정답도 수로 ("$19\,\mathrm{cm}$", "27°", "12개")
+  function mxVal(src) {
+    if (src === null || src === undefined) return null;
+    let v = mxEval(src);
+    if (v !== null) return v;
+    let s = String(src).replace(/\$/g, '').trim()
+      .replace(/^(?:답|정답)\s*[:：]?\s*/, '')
+      .replace(/(?:\\[,;! ]|\s)*\\(?:mathrm|text|rm)\s*\{\s*[a-zA-Z가-힣]+\s*(?:\^\s*\{?\s*[23]\s*\}?)?\s*\}\s*(?:\^\s*\{?\s*[23]\s*\}?)?\s*$/, '')
+      .replace(/\s*(?:°|도|%|퍼센트|원|명|개|권|장|쪽|번|회|초|분|시간|일|주|년|점|칸|줄|마리|배|가지|cm|mm|km|m|kg|g|mL|ml|L)\s*(?:\^\s*\{?[23]\}?|²|³)?\s*$/, '');
+    return mxEval(s);
+  }
+  const mxClose = (a, b, rel) => Math.abs(a - b) <= Math.max(1e-9, Math.max(Math.abs(a), Math.abs(b)) * (rel || 1e-9));
+
+  // ═══ 값 → 정확한 꼴 찾기 (정수 · 분수 · (a+b√c)/d · 분수×π) ═══
+  // 허용오차를 아주 좁게(1e-9) 잡는다. 넓히면 엉뚱한 꼴이 우연히 맞아버린다.
+  const MX_SF = [2, 3, 5, 6, 7, 10, 11, 13, 14, 15, 17, 19, 21, 22, 23, 26, 29, 30, 31, 33, 34, 35, 37, 38, 39, 41, 42, 43, 46, 47];
+  const mxGcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a; };
+  function mxForm(V, rel) {
+    if (V === null || !isFinite(V)) return null;
+    rel = rel || 1e-9;
+    const ok = x => mxClose(x, V, rel);
+    const n = Math.round(V);
+    if (ok(n)) return { k: 'q', p: n, q: 1 };
+    for (let q = 2; q <= 200; q++) { const p = Math.round(V * q); if (ok(p / q)) return { k: 'q', p, q }; }
+    for (let d = 1; d <= 12; d++) {
+      for (let bb = 1; bb <= 24; bb++) {
+        for (const b of [bb, -bb]) {
+          for (const c of MX_SF) {
+            const a = Math.round(d * V - b * Math.sqrt(c));
+            if (Math.abs(a) > 400) continue;
+            if (ok((a + b * Math.sqrt(c)) / d)) {
+              const g = mxGcd(mxGcd(a, b), d);
+              return { k: 'r', a: a / g, b: b / g, c, d: d / g };
+            }
+          }
+        }
+      }
+    }
+    for (let q = 1; q <= 12; q++) {
+      const p = Math.round(V * q / Math.PI);
+      if (p && ok(p * Math.PI / q)) { const g = mxGcd(p, q); return { k: 'pi', p: p / g, q: q / g }; }
+    }
+    return null;
+  }
+  function mxFormVal(f) {
+    if (f.k === 'q') return f.p / f.q;
+    if (f.k === 'r') return (f.a + f.b * Math.sqrt(f.c)) / f.d;
+    return f.p * Math.PI / f.q;
+  }
+  function mxFormTex(f) {
+    if (f.k === 'q') {
+      if (f.q === 1) return String(f.p);
+      return (f.p < 0 ? '-' : '') + '\\frac{' + Math.abs(f.p) + '}{' + f.q + '}';
+    }
+    if (f.k === 'pi') {
+      const ap = Math.abs(f.p), sg = f.p < 0 ? '-' : '';
+      if (f.q === 1) return sg + (ap === 1 ? '' : ap) + '\\pi';
+      return sg + '\\frac{' + (ap === 1 ? '' : ap) + '\\pi}{' + f.q + '}';
+    }
+    const ab = Math.abs(f.b);
+    const rt = (ab === 1 ? '' : ab) + '\\sqrt{' + f.c + '}';
+    if (f.a === 0) {
+      if (f.d === 1) return (f.b < 0 ? '-' : '') + rt;
+      return (f.b < 0 ? '-' : '') + '\\frac{' + rt + '}{' + f.d + '}';
+    }
+    const num = f.a + (f.b < 0 ? '-' : '+') + rt;
+    return f.d === 1 ? num : '\\frac{' + num + '}{' + f.d + '}';
+  }
+  function mxNorm(f) {       // 약분 + 분모 양수
+    if (f.k === 'r') {
+      if (!f.b) return { k: 'q', p: f.a, q: f.d };
+      const g = mxGcd(mxGcd(f.a, f.b), f.d) || 1;
+      return { k: 'r', a: f.a / g, b: f.b / g, c: f.c, d: f.d / g };
+    }
+    const g = mxGcd(f.p, f.q) || 1;
+    return { k: f.k, p: f.p / g, q: f.q / g };
+  }
+
+  // 간단한 결정적 난수 (같은 문제면 같은 선지가 나오게)
+  function mxSeed(str) { let h = 2166136261; for (const ch of String(str)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  // 정답 꼴을 흔들어 오답 선지 4개를 만들고, 수능처럼 작은 수부터 늘어놓는다.
+  function mxChoices(f, seedStr) {
+    const V = mxFormVal(f);
+    const pool = [];
+    const add = g => { if (g) pool.push(mxNorm(g)); };
+    if (f.k === 'q' && f.q === 1) {
+      for (const s of [1, -1, 2, -2, 3, -3, 4, -4, 5, 6]) add({ k: 'q', p: f.p + s, q: 1 });
+    } else if (f.k === 'q') {
+      for (const s of [1, -1, 2, -2, 3, -3]) add({ k: 'q', p: f.p + s, q: f.q });
+      add({ k: 'q', p: f.p, q: f.q + 1 }); add({ k: 'q', p: -f.p, q: f.q });
+      if (f.q > 2) add({ k: 'q', p: f.p, q: f.q - 1 });
+    } else if (f.k === 'pi') {
+      for (const s of [1, -1, 2, -2, 3, -3]) add({ k: 'pi', p: f.p + s * (f.q > 1 ? 1 : 1), q: f.q });
+      add({ k: 'pi', p: f.p * 2, q: f.q });
+    } else {
+      const { a, b, c, d } = f;
+      if (a === 0) {          // 12√2 → 10√2, 11√2, 13√2, 14√2 … (1+12√2 같은 어색한 꼴은 안 만든다)
+        for (const s of [1, -1, 2, -2, 3, -3, 4]) if (b + s * d !== 0 && Math.sign(b + s * d) === Math.sign(b)) add({ k: 'r', a, b: b + s * d, c, d });
+      }
+      else for (const s of [1, -1, 2, -2]) add({ k: 'r', a: a + s * d, b, c, d });
+      if (a !== 0) {
+      for (const s of [1, -1, 2]) if (b + s * d !== 0) add({ k: 'r', a, b: b + s * d, c, d });
+      add({ k: 'r', a: -a, b, c, d });
+      add({ k: 'r', a, b: -b, c, d });
+      add({ k: 'r', a: a + d, b: b + d, c, d });
+      add({ k: 'r', a: a - d, b: b - d || b + 2 * d, c, d });
+      }
+    }
+    // 중복·정답과 같은 값 제거
+    const seen = [V];
+    const uniq = [];
+    for (const g of pool) {
+      const x = mxFormVal(g);
+      if (!isFinite(x) || seen.some(y => mxClose(x, y, 1e-9))) continue;
+      // 개수 세는 문제(0 이상 정수)면 음수 선지는 안 만든다
+      if (f.k === 'q' && f.q === 1 && f.p >= 0 && x < 0) continue;
+      seen.push(x); uniq.push(g);
+    }
+    if (uniq.length < 4) return null;
+    const lo = uniq.filter(g => mxFormVal(g) < V).sort((x, y) => mxFormVal(y) - mxFormVal(x));
+    const hi = uniq.filter(g => mxFormVal(g) > V).sort((x, y) => mxFormVal(x) - mxFormVal(y));
+    let want = mxSeed(seedStr) % 5;       // 정답 자리 (0~4)
+    want = Math.min(want, lo.length);
+    if (4 - want > hi.length) want = 4 - hi.length;
+    if (want < 0 || want > lo.length) return null;
+    const picked = lo.slice(0, want).concat(hi.slice(0, 4 - want), [f]);
+    picked.sort((x, y) => mxFormVal(x) - mxFormVal(y));
+    const idx = picked.indexOf(f);
+    return { choices: picked.map(g => '$' + mxFormTex(g) + '$'), answer: String(idx + 1) };
+  }
+
+  // ═══ AI 해설의 「헛소리 구간」 ═══
+  // 제대로 풀어서 답이 나왔는데 선지에 없으면, AI 는 멈추지 않고
+  // "그러나 원래 수식을 적용하면…", "선지 구성을 다시 맞추어…" 하며 답을 억지로 끼워 맞춘다.
+  // 이런 줄이 나오면 거기서부터는 믿을 수 없다.
+  const RAMBLE = new RegExp([
+    '(?:^|[.!?]\\s+)(?:아니다|앗|아차)\\s*[,.!]', '될\\s*수도\\s*있', '될\\s*수\\s*있으나', '수정해야', '다시\\s*(?:점검|확인|계산|풀|맞추|구성|조정|정리하면)', '재구성', '재검토', '재확인', '정정',
+    '오류\\s*수정', '잘못\\s*(?:계산|봤|썼|구했)', '조정하(?:면|여|자)', '맞추(?:면|어|기\\s*위해)', '설정할\\s*수도',
+    '정확히\\s*(?:진행|계산)하면', '깔끔하게', '선택지(?:를|에|와|가)', '선지\\s*(?:구성|를|에\\s*맞)', '원본\\s*(?:문제|의\\s*정답)',
+    '원래(?:의)?\\s*(?:문제|식|수식|조건)', '변형을\\s*위해', '또\\s*다른\\s*조합', '조건에\\s*따라\\s*구해', '그러나\\s*원래',
+    '착오', '계산\\s*실수', '\\$\\s*(?:이|가)\\s*아닌\\s*\\$', '가\\s*아니라\\s*다시', '^\\s*\\*[^*\\n]{3,}\\*'
+  ].join('|'), 'm');
+  // "아니다, 풀이를 다시 점검한다" 처럼 처음부터 새로 푸는 선언 — 그 뒤 구간은 독립된 풀이로 본다
+  const RESTART = /((?:^|[.!?]\s+)(?:아니다|앗|아차)\s*[,.!]|다시\s*(?:점검|풀))/m;
+  const CONCLUDE = /(따라서|그러므로|즉|구하는|답은|값은|최종|최댓값은|최솟값은)/;
+
+  // 한 줄 안에서 "= 결과" 로 끝나는 값들
+  function mxLineVals(line) {
+    const out = [];
+    const chunks = String(line).match(/\$[^$]+\$/g) || [];
+    for (const ch of chunks) {
+      const body = ch.slice(1, -1).split(/=|\\Rightarrow|\\implies|\\therefore|\\approx/);
+      const last = body[body.length - 1];
+      const x = mxVal(last);
+      if (x !== null) out.push({ x, tex: last.trim() });
+    }
+    const plain = String(line).replace(/\$[^$]+\$/g, ' ');
+    const re = /(?:답은|값은|는|은)\s*(-?\d+(?:\.\d+)?(?:\s*\/\s*\d+)?)\s*(?:이다|입니다|이므로|이고|\.|$)/g;
+    let m;
+    while ((m = re.exec(plain))) { const x = mxEval(m[1]); if (x !== null) out.push({ x, tex: m[1] }); }
+    return out;
+  }
+  // 해설에 적힌 정확한 꼴 중에서 V 와 같은 값을 찾는다 (코드 검산값은 근삿값일 수 있음)
+  function mxHarvest(sol, V, rel) {
+    const hits = [];
+    for (const ch of String(sol || '').match(/\$[^$]+\$/g) || []) {
+      for (const piece of ch.slice(1, -1).split(/=|\\Rightarrow|\\implies|\\approx/)) {
+        const x = mxVal(piece);
+        if (x !== null && mxClose(x, V, rel || 2e-5) && !/^\s*-?\d+(\.\d+)?\s*$/.test(piece) || (x !== null && mxClose(x, V, 1e-12))) hits.push({ x, tex: piece.trim() });
+      }
+    }
+    return hits;
+  }
+
+  // 해설을 「답이 처음 제대로 나온 줄」 까지만 남긴다. 못 하면 null.
+  function mxCutSolution(sol, V, rel) {
+    const lines = String(sol || '').split('\n');
+    const segs = [];
+    let cur = [], fresh = true;
+    for (const ln of lines) {
+      if (RAMBLE.test(ln)) {
+        if (cur.length) segs.push({ lines: cur, ok: fresh });
+        cur = []; fresh = RESTART.test(ln);
+        continue;
+      }
+      cur.push(ln);
+    }
+    if (cur.length) segs.push({ lines: cur, ok: fresh });
+    for (const sg of segs) {
+      if (!sg.ok) continue;
+      const L = sg.lines;
+      let lastText = -1;
+      for (let i = L.length - 1; i >= 0; i--) if (L[i].trim()) { lastText = i; break; }
+      for (let i = 0; i < L.length; i++) {
+        if (!L[i].trim()) continue;
+        if (!(CONCLUDE.test(L[i]) || i === lastText)) continue;
+        if (!mxLineVals(L[i]).some(o => mxClose(o.x, V, rel || 2e-5))) continue;
+        const kept = L.slice(0, i + 1).filter((l, j, a) => l.trim() || (j > 0 && a[j - 1].trim()));
+        const body = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+        if (kept.filter(l => l.trim()).length < 2 || body.length < 40) return null;
+        return body;
+      }
+    }
+    return null;
+  }
+
   // ═══ 검산은 세 번, 따로 ═══
   // 선생님한테 코드를 읽혀서 판정시키면 안 된다.
   // 서로 모르는 세 번의 풀이 중 둘 이상이 같은 답을 내면 그게 답이다. 앱이 결론까지 낸다.
   // 셋 다 갈리면 그건 "골라주세요" 가 아니라 "이 문제는 버려라" 다.
+  //
+  // 2026-09-17 고친 것
+  //  · 선지의 √ 를 못 읽었다 ("$1+\sqrt{2}$" → null) → 근호 선지 문제는 전부 "선지에 없음" 으로 떨어졌음
+  //  · 수치탐색 코드끼리 소수 6째 자리가 달라 (16.97056 / 16.970586) 같은 답인데 "매번 다르다" 고 판정
+  //  · 주관식은 글자 비교라 "1+\sqrt{2}" 정답칸이 2.414… 와 늘 불일치
+  function _pretty(x) {
+    const f = mxForm(x);
+    return f ? mxFormTex(f) : String(Math.round(x * 1e6) / 1e6);
+  }
   async function verifyVariation(v) {
     const codes = [v.check_code, v.check_code2, v.check_code3].filter(Boolean);
     if (!codes.length) return { state: 'skip', msg: '' };
@@ -4653,7 +4990,7 @@
     }
     if (!vals.length) {
       return sawNull
-        ? { state: 'broken', msg: '\u26d4 문제가 성립 안 함 (발산\u00b7해 없음) — 재생성하세요' }
+        ? { state: 'broken', why: 'nosol', msg: '\u26d4 문제가 성립 안 함 (발산\u00b7해 없음) — 재생성하세요' }
         : { state: 'skip', msg: '' };
     }
 
@@ -4661,53 +4998,519 @@
     const groups = [];
     for (const n of vals) {
       const g = groups.find(x => _near(x.v, n));
-      if (g) g.n++; else groups.push({ v: n, n: 1 });
+      if (g) { g.n++; g.all.push(n); } else groups.push({ v: n, n: 1, all: [n] });
     }
     groups.sort((a, b) => b.n - a.n);
     const top = groups[0];
 
-    const unit = v.qtype === 'mc' ? '번' : '';
+    // 근삿값 → 정확한 값: 코드 값 중 정확한 꼴로 딱 떨어지는 게 있으면 그걸, 없으면 해설에 적힌 같은 값의 수식을 쓴다
+    let exactTex = null, V = top.v;
+    for (const x of top.all) { const f = mxForm(x); if (f) { exactTex = mxFormTex(f); V = mxFormVal(f); break; } }
+    if (!exactTex) {
+      const h = mxHarvest(v.solution, top.v, 2e-5)[0];
+      if (h) { V = h.x; const f = mxForm(h.x); exactTex = f ? mxFormTex(f) : h.tex; }
+    }
+    const show = x => exactTex && _near(x, V) ? exactTex : _pretty(x);
+
+    const isMc = v.qtype === 'mc' && !!solChoices(v);
+    const unit = isMc ? '번' : '';
     const cur = String(v.answer ?? '').trim();
     const fieldOf = (x) => _toAnswerField(v, x);
-    const ansG = groups.find(g => String(fieldOf(g.v)) === cur);   // 정답칸과 같은 표 묶음
+    const curVal = isMc ? null : _vNum(cur);
+    const matchesCur = g => isMc ? String(fieldOf(g.v)) === cur : (curVal !== null && _near(curVal, g.v));
+    const ansG = groups.find(matchesCur);
+    const base = { V, votes: top.n, total: vals.length, exact: exactTex };
+    const label = x => isMc ? ((fieldOf(x) ? fieldOf(x) + '번' : '선지 없음') + ' = $' + show(x) + '$') : '$' + show(x) + '$';
 
     // ① 검산이 한 번뿐이면 다수결을 할 수 없다.
-    //    맞으면 통과, 다르면 "골라주세요" 가 아니라 재생성이 답이다.
     if (vals.length === 1) {
-      return ansG
-        ? { state: 'ok', msg: '\u2705 검산이 정답칸과 일치' }
-        : { state: 'broken', msg: '\u26d4 검산은 ' + (fieldOf(top.v) ?? top.v) + unit
-              + ' 인데 정답칸은 ' + cur + unit + ' 이에요. 확인할 방법이 없으니 재생성하세요' };
+      if (ansG) return { ...base, state: 'ok', msg: '\u2705 검산이 정답칸과 일치' };
+      const f = fieldOf(top.v);
+      return { ...base, state: 'broken', why: f === null ? 'notin' : 'mismatch',
+        msg: '\u26d4 검산 답은 ' + label(top.v) + ' 인데 정답칸은 ' + (cur || '-') + unit + ' 이에요' };
     }
 
     // ② 표가 하나도 안 겹쳤다 → 문제가 애매한 것이다. 버리고 다시 만든다.
     if (top.n < 2) {
-      return {
-        state: 'broken',
-        msg: '\u26d4 검산할 때마다 답이 달라요 (' + vals.map(x => (fieldOf(x) ?? x) + unit).join(', ')
-           + ') — 문제가 애매한 거예요. 재생성하세요'
-      };
+      return { ...base, state: 'broken', why: 'split',
+        msg: '\u26d4 검산할 때마다 답이 달라요 (' + vals.map(x => '$' + _pretty(x) + '$').join(', ') + ') — 문제가 애매한 거예요' };
     }
 
     // ③ 최다 득표에 정답칸이 들어 있으면 통과
     if (ansG && ansG.n === top.n) {
-      return { state: 'ok', msg: '\u2705 따로 ' + vals.length + '번 계산해서 ' + ansG.n + '번이 정답칸과 일치' };
+      return { ...base, state: 'ok', msg: '\u2705 따로 ' + vals.length + '번 계산해서 ' + ansG.n + '번이 정답칸과 일치' };
     }
 
     // ④ 최다 득표가 정답칸과 다르다 → 정답칸이 틀린 것으로 본다
-    const f = fieldOf(top.v);
-    if (f === null) return { state: 'broken', msg: '\u26d4 계산값 ' + top.v + ' 이 선지에 없음 — 재생성하세요' };
+    const f = isMc ? fieldOf(top.v) : (exactTex || _pretty(top.v));
+    if (f === null) return { ...base, state: 'broken', why: 'notin',
+      msg: '\u26d4 계산한 답 $' + show(top.v) + '$ 이 선지에 없어요 (' + top.n + '/' + vals.length + '번 일치)' };
     return {
-      state: 'fix', fix: f, desc: v.check_desc || '',
-      msg: '\u26a0\ufe0f 답은 ' + f + unit + ' 이에요 (따로 ' + vals.length + '번 계산해서 '
-         + top.n + '번이 ' + f + unit + ', 정답칸은 ' + cur + unit + ')'
+      ...base,
+      state: 'fix', fix: isMc ? f : (/\\/.test(f) ? '$' + f + '$' : f), desc: v.check_desc || '',
+      msg: '\u26a0\ufe0f 답은 ' + label(top.v) + ' 이에요 (따로 ' + vals.length + '번 계산해서 '
+         + top.n + '번이 같은 값, 정답칸은 ' + (cur || '-') + unit + ')'
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  자동 수리 — 검산이 끝난 뒤 앱이 스스로 고치거나 다시 만든다
+  //
+  //  실측 (2026-09-17, 검수대기 문제 + 되돌리기 백업)
+  //   AI 가 숫자를 바꾸고도 원본 문제의 선지를 그대로 들고 온다.
+  //   풀이는 제대로 해서 -1+3√2/2 를 구해놓고, 선지에 없으니
+  //   "*오류 수정에 따른 문제 재구성*" "선지 구성을 다시 맞추어" 하며 원본 답(1+√2)으로 끼워 맞춘다.
+  //  그래서
+  //   1) 코드 검산 2표 이상(또는 1표 + 해설이 같은 값에 도달)이면 그 값을 정답으로 확정
+  //   2) 해설은 「그 값이 처음 제대로 나온 줄」 까지만 남기고 뒤의 헛소리는 자른다
+  //   3) 선지에 그 값이 없으면 선지를 앱이 새로 만든다 (정답 꼴을 흔들어 오답 4개, 작은 수부터)
+  //   4) 위가 안 되면 (해설이 끝까지 엉망, 정확한 꼴을 못 찾음, 답이 갈림) → 자동 재생성 (문제당 2번까지)
+  //  고친 건 전부 되돌리기(↩)로 원래대로 돌릴 수 있다.
+  // ═══════════════════════════════════════════════════════════
+  const HEAL_MAX_REGEN = 2;
+  const _healBusy = new Set();
+  function _healCount(id) { try { return parseInt(localStorage.getItem('autoregen_' + id) || '0', 10) || 0; } catch (e) { return 0; } }
+  function _healBump(id) { try { localStorage.setItem('autoregen_' + id, String(_healCount(id) + 1)); } catch (e) {} }
+
+  function snapOf(v, why) {
+    return {
+      problem_text: v.problem_text ?? null, answer: v.answer ?? null, qtype: v.qtype ?? 'short',
+      choices: v.choices ?? null, solution: v.solution ?? null, time_limit_sec: v.time_limit_sec ?? 300,
+      figure: v.figure ?? null, is_original: !!v.is_original, image_url: v.image_url ?? null,
+      check_code: v.check_code ?? null, check_code2: v.check_code2 ?? null, check_code3: v.check_code3 ?? null,
+      check_desc: v.check_desc ?? null, saved_at: new Date().toISOString(), why: why || 'edit'
+    };
+  }
+  function _prevOf(v) {
+    let p = v && v.prev;
+    if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { p = null; } }
+    return p || null;
+  }
+
+  // 무엇을 할지 정한다 (저장은 안 함) — 테스트하기 쉽게 따로 뺐다
+  function planHeal(v, r) {
+    if (!v || !r || r.state === 'skip') return null;
+    const sol = String(v.solution || '');
+    const ramble = RAMBLE.test(sol);
+    if (r.state === 'ok' && !ramble) return null;
+    if (r.why === 'nosol' || r.why === 'split') return { act: 'regen', why: r.why === 'nosol' ? '문제가 성립 안 함' : '검산 답이 갈림' };
+
+    const V = r.V;
+    const cut = mxCutSolution(sol, V, 2e-5);
+    // 확신: 코드 2표 이상, 또는 1표라도 해설이 같은 값에 스스로 도달
+    if (!(r.votes >= 2 || cut)) return { act: 'regen', why: '검산 1번뿐이고 해설과도 안 맞음' };
+    if (!cut) return { act: 'regen', why: ramble ? '해설이 중간에 말을 바꿈' : '해설이 계산한 답까지 가지 못함' };
+
+    const patch = {};
+    const did = [];
+    if (cut !== sol.trim()) { patch.solution = cut; did.push(ramble ? '해설 뒷부분 헛소리 삭제' : '해설 정리'); }
+
+    const ch = solChoices(v);
+    if (v.qtype === 'mc' && ch) {
+      const idx = ch.findIndex(c => { const x = mxVal(c); return x !== null && _near(x, V); });
+      if (idx >= 0) {
+        if (String(idx + 1) !== String(v.answer).trim()) { patch.answer = String(idx + 1); did.push('정답칸 ' + v.answer + '→' + (idx + 1) + '번'); }
+      } else {
+        const f = mxForm(V);
+        const nc = f && mxChoices(f, v.id + '|' + (v.problem_text || ''));
+        if (nc) {
+          patch.choices = nc.choices; patch.answer = nc.answer;
+          did.push('선지에 정답이 없어 선지 새로 만듦 (정답 ' + nc.answer + '번)');
+        } else if (r.exact) {
+          patch.qtype = 'short'; patch.choices = null; patch.answer = '$' + r.exact + '$';
+          did.push('선지를 만들 수 없어 주관식으로 바꿈');
+        } else return { act: 'regen', why: '정답이 선지에 없고 정확한 값도 못 찾음' };
+      }
+    } else {
+      const cv = _vNum(v.answer);
+      if (cv === null || !_near(cv, V)) {
+        const f = mxForm(V);
+        const t = f ? mxFormTex(f) : r.exact;
+        if (!t) return { act: 'regen', why: '정답칸이 틀렸는데 정확한 값을 못 찾음' };
+        patch.answer = /\\/.test(t) ? '$' + t + '$' : t;
+        did.push('정답칸 ' + (v.answer ?? '-') + '→' + t);
+      }
+    }
+    if (!did.length) return null;
+    return { act: 'fix', patch, did };
+  }
+
+  const _healDone = new Set();     // 이번에 열어서 이미 한 번 고친 문제 (고쳤는데도 또 걸리면 무한 반복 방지)
+  async function autoHeal(v, r) {
+    if (!v || v.approved || _healBusy.has(v.id)) return;
+    // 선생님이 자동 수리를 되돌린 문제는 다시 손대지 않는다
+    try { if (localStorage.getItem('healundo_' + v.id)) return; } catch (e) {}
+    let plan = planHeal(v, r);
+    if (plan && plan.act === 'fix' && _healDone.has(v.id)) plan = { act: 'regen', why: '자동 수리 후에도 검산 불합격' };
+    if (!plan) return;
+    const say = (html, tone) => {
+      document.querySelectorAll('[id="heal-' + v.id + '"]').forEach(box => {
+      const C = tone === 'ok' ? ['#ECFDF5', '#6EE7B7', '#047857'] : tone === 'run' ? ['#EEF2FF', '#A5B4FC', '#3730A3'] : ['#FEF2F2', '#FCA5A5', '#B91C1C'];
+      box.innerHTML = '<div style="margin-bottom:7px;padding:7px 9px;border-radius:8px;background:' + C[0] + ';border:1px solid ' + C[1]
+        + ';color:' + C[2] + ';font-size:11px;font-weight:800;line-height:1.5;">' + html + '</div>';
+      });
+    };
+
+    if (plan.act === 'fix') {
+      _healDone.add(v.id);
+      _healBusy.add(v.id);
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${v.id}`, {
+          method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ ...plan.patch, prev: snapOf(v, 'autofix') })
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        showToast('\ud83d\udee0 자동 수리: ' + plan.did.join(' · '), 'ok');
+        setTimeout(() => loadVariationReviews(), 300);
+      } catch (e) {
+        console.error('autoHeal:', e);
+        say('\ud83d\udee0 자동 수리 저장 실패 — ' + escapeHtml(String(e.message || e)));
+      } finally { _healBusy.delete(v.id); }
+      return;
+    }
+
+    // 재생성
+    const n = _healCount(v.id);
+    if (n >= HEAL_MAX_REGEN) {
+      say('\u26d4 자동으로 ' + n + '번 다시 만들었는데도 검산을 통과 못 했어요 (' + escapeHtml(plan.why) + ')<br>'
+        + '<span style="font-weight:600;">✏️ 수정으로 직접 고치거나, 🔄 재생성을 한 번 더 눌러주세요</span>');
+      return;
+    }
+    if (bgLoad().some(j => j.id === v.note_id)) { say('\ud83d\udd04 다시 만드는 중… (' + escapeHtml(plan.why) + ')', 'run'); return; }
+    const img = v.wrong_notes && v.wrong_notes.image_url;
+    if (!img) return;
+    _healBusy.add(v.id);
+    try {
+      _healBump(v.id);
+      const ok = await queueGen({
+        noteId: v.note_id, imageUrl: img, mode: 'regen', variationId: v.id,
+        difficulty: (typeof pickedDifficulty === 'function' ? pickedDifficulty(v.note_id) : undefined),
+        avoid: v.problem_text ? [v.problem_text] : [], kind: '자동 재생성'
+      });
+      if (ok) say('\ud83d\udd04 검산 불합격이라 자동으로 다시 만드는 중 (' + (n + 1) + '/' + HEAL_MAX_REGEN + ') — ' + escapeHtml(plan.why), 'run');
+      else say('\u26d4 ' + escapeHtml(plan.why) + ' — 🔄 재생성을 눌러주세요');
+    } finally { _healBusy.delete(v.id); }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  변형문제 편집기 — 문제·선지·정답·해설을 수식으로 고친다
+  //  · 검수대기(자동 생성 첫 문제)와 변형문제 관리 탭 양쪽에서 연다
+  //  · 수식 버튼을 누르면 $ $ 안에 LaTeX 가 들어가고, 바로 아래 미리보기가 학생 화면과 똑같이 그려진다
+  //  · 저장 직전 상태는 prev 에 보관 → ↩ 되돌리기
+  // ═══════════════════════════════════════════════════════════
+  const VE_KEYS = [
+    ['$\u25a1$', '$□$', '수식칸'], ['a/b', '\\frac{□}{□}', '분수'], ['√', '\\sqrt{□}', '루트'], ['∛', '\\sqrt[3]{□}', '세제곱근'],
+    ['x²', '^{□}', '거듭제곱'], ['x₁', '_{□}', '아래첨자'], ['×', '\\times ', ''], ['÷', '\\div ', ''], ['±', '\\pm ', ''],
+    ['≤', '\\le ', ''], ['≥', '\\ge ', ''], ['≠', '\\ne ', ''], ['π', '\\pi ', ''], ['°', '^{\\circ}', '도'],
+    ['∠', '\\angle ', '각'], ['△', '\\triangle ', '삼각형'], ['AB', '\\overline{\\mathrm{□}}', '선분'], ['P', '\\mathrm{□}', '점 이름'],
+    ['⊥', '\\perp ', ''], ['∥', '/\\!/ ', '평행'], ['|x|', '\\left|□\\right|', '절댓값'], ['log', '\\log_{□}{□}', ''],
+    ['sin', '\\sin ', ''], ['cos', '\\cos ', ''], ['tan', '\\tan ', ''], ['lim', '\\lim_{x \\to □}', ''],
+    ['Σ', '\\sum_{k=1}^{□}', ''], ['∫', '\\int_{□}^{□}', ''], ['∞', '\\infty ', ''], ['→', '\\to ', ''],
+    ['nCr', '{}_{□}\\mathrm{C}_{□}', '조합'], ['nPr', '{}_{□}\\mathrm{P}_{□}', '순열'], ['f′', "f'(□)", '미분'], ['{', '\\begin{cases} □ \\\\ □ \\end{cases}', '연립']
+  ];
+  let _ve = null;          // 열린 편집기의 상태
+  let _veFocus = null;     // 마지막으로 만진 입력칸
+
+  function veInsideMath(el) {
+    const before = el.value.slice(0, el.selectionStart).replace(/\\\$/g, '');
+    return ((before.match(/\$/g) || []).length % 2) === 1;
+  }
+  function veKey(i) {
+    const el = _veFocus && document.body.contains(_veFocus) ? _veFocus : document.getElementById('ve-prob');
+    if (!el) return;
+    let [, tex] = VE_KEYS[i];
+    const s = el.selectionStart, e = el.selectionEnd;
+    const selected = el.value.slice(s, e);
+    if (tex === '$□$') { tex = veInsideMath(el) ? '□' : '$□$'; }
+    else if (!veInsideMath(el)) tex = '$' + tex + '$';
+    // 글자를 골라놓고 누르면 그 글자가 첫 빈칸에 들어간다 (예: 2 선택 → √ → \sqrt{2})
+    if (selected && tex.indexOf('□') >= 0) tex = tex.replace('□', selected);
+    el.value = el.value.slice(0, s) + tex + el.value.slice(e);
+    const hole = el.value.indexOf('□', s);
+    el.focus();
+    if (hole >= 0 && hole < s + tex.length) el.setSelectionRange(hole, hole + 1);
+    else { const p = s + tex.length; el.setSelectionRange(p, p); }
+    vePreview();
+  }
+
+  function veBar() {
+    return '<div style="display:flex;flex-wrap:wrap;gap:4px;padding:6px;background:var(--bg2);border-radius:9px;margin-bottom:8px;">'
+      + VE_KEYS.map((k, i) => '<button type="button" onmousedown="event.preventDefault()" onclick="veKey(' + i + ')" title="' + (k[2] || k[1]) + '" '
+        + 'style="min-width:34px;padding:6px 7px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:12.5px;font-weight:700;cursor:pointer;">' + k[0] + '</button>').join('')
+      + '</div>'
+      + '<div style="font-size:10.5px;color:var(--text4);margin:-4px 0 8px;line-height:1.45;">칸을 누르고 버튼을 누르면 커서 자리에 들어가요. <b>□</b>가 선택된 채로 바로 입력하면 돼요. 글자를 골라놓고 누르면 그 글자가 안에 들어가요.</div>';
+  }
+
+  const _veAttr = t => _figEsc(t == null ? '' : t).replace(/"/g, '&quot;');
+  const _veInput = 'width:100%;box-sizing:border-box;padding:9px 10px;border-radius:9px;border:1px solid var(--border2);background:var(--bg4, #2c2c2e);color:var(--text1);font-size:13.5px;line-height:1.55;font-family:inherit;';
+  const _veLab = t => '<div style="font-size:12px;font-weight:800;color:var(--text2);margin:14px 0 6px;">' + t + '</div>';
+  const _vePrev = id => '<div id="' + id + '" style="margin-top:6px;padding:8px 10px;border-radius:9px;background:var(--bg3);border:1px dashed var(--border2);font-size:13px;color:var(--text1);line-height:1.6;white-space:pre-wrap;overflow-x:auto;min-height:22px;"></div>';
+
+  async function veOpen(id) {
+    let v;
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=*`, { headers: sbHeaders() }).then(r => r.json());
+      v = rows && rows[0];
+    } catch (e) {}
+    if (!v) { showToast('문제를 불러오지 못했어요', 'error'); return; }
+    let ch = solChoices(v) || [];
+    ch = ch.slice(0, 5);
+    while (ch.length < 5) ch.push('');
+    let fig = v.figure;
+    if (typeof fig === 'string') { try { fig = JSON.parse(fig); } catch (e) { fig = null; } }
+    _ve = { id, v, type: (v.qtype === 'mc' && solChoices(v)) ? 'mc' : 'short', dropFig: false, hasFig: !!fig };
+    const ans = parseInt(v.answer, 10);
+
+    document.getElementById('ve-sheet')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 've-sheet';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;';
+    wrap.innerHTML = `
+      <div style="background:var(--bg2);width:100%;max-width:640px;max-height:94vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:14px 14px 90px;box-sizing:border-box;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+          <div style="flex:1;font-size:15px;font-weight:900;color:var(--text1);">✏️ 변형문제 수정</div>
+          <button onclick="veClose()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text3);font-size:13px;cursor:pointer;">닫기</button>
+        </div>
+        ${veBar()}
+        ${_veLab('문제')}
+        <textarea id="ve-prob" rows="6" style="${_veInput}" oninput="vePreview()" onfocus="_veFocus=this">${_figEsc(v.problem_text || '')}</textarea>
+        ${_vePrev('ve-prob-pv')}
+
+        ${_veLab('형식')}
+        <div style="display:flex;gap:6px;">
+          <button id="ve-t-mc" onclick="veType('mc')" style="flex:1;padding:9px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;"></button>
+          <button id="ve-t-short" onclick="veType('short')" style="flex:1;padding:9px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;"></button>
+        </div>
+
+        <div id="ve-mc-box">
+          ${_veLab('선지 <span style="font-weight:600;color:var(--text4);">— 왼쪽 동그라미가 정답</span>')}
+          ${ch.map((c, i) => `
+            <div style="display:flex;gap:6px;align-items:flex-start;margin-bottom:6px;">
+              <label style="display:flex;align-items:center;gap:4px;padding-top:9px;font-size:13px;font-weight:800;color:var(--text2);flex-shrink:0;cursor:pointer;">
+                <input type="radio" name="ve-ans" value="${i + 1}" ${ans === i + 1 ? 'checked' : ''} style="width:18px;height:18px;accent-color:#10B981;margin:0;" onchange="vePreview()">${CNUM[i]}
+              </label>
+              <div style="flex:1;min-width:0;">
+                <input id="ve-ch-${i}" value="${_veAttr(c)}" style="${_veInput}" oninput="vePreview()" onfocus="_veFocus=this">
+                <div id="ve-ch-pv-${i}" style="font-size:13px;color:var(--text1);padding:3px 2px 0;min-height:18px;overflow-x:auto;"></div>
+              </div>
+            </div>`).join('')}
+          <button onclick="veRebuildChoices()" style="margin-top:2px;padding:7px 11px;border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11.5px;font-weight:700;cursor:pointer;">🎲 정답만 두고 오답 선지 새로 만들기</button>
+        </div>
+
+        <div id="ve-short-box">
+          ${_veLab('정답 <span style="font-weight:600;color:var(--text4);">— 학생이 2√3, 3/4, 3π 처럼 입력해도 값이 같으면 정답 처리</span>')}
+          <input id="ve-ans-short" value="${_veAttr(v.qtype === 'mc' ? '' : (v.answer ?? ''))}" style="${_veInput}" oninput="vePreview()" onfocus="_veFocus=this">
+          ${_vePrev('ve-ans-pv')}
+        </div>
+
+        ${_veLab('해설')}
+        <textarea id="ve-sol" rows="8" style="${_veInput}" oninput="vePreview()" onfocus="_veFocus=this">${_figEsc(v.solution || '')}</textarea>
+        ${_vePrev('ve-sol-pv')}
+
+        ${_ve.hasFig ? `${_veLab('AI 그래프')}
+          <div id="ve-fig-pv" style="background:#1a1a2a;border-radius:10px;padding:8px;">${renderFigure(fig, v.problem_text)}</div>
+          <button id="ve-fig-btn" onclick="veToggleFig()" style="margin-top:6px;width:100%;padding:9px;border-radius:9px;border:1px solid #F87171;background:none;color:#F87171;font-size:12.5px;font-weight:800;cursor:pointer;">🚫 이 그래프 빼기</button>` : ''}
+
+        ${_veLab('제한시간')}
+        <div style="display:flex;align-items:center;gap:6px;"><input id="ve-min" type="number" min="1" max="60" value="${Math.round((v.time_limit_sec || 300) / 60)}" style="${_veInput}width:80px;text-align:center;"><span style="color:var(--text3);font-size:13px;">분</span></div>
+        <div id="ve-warn" style="margin-top:12px;"></div>
+      </div>
+      <div style="position:fixed;left:0;right:0;bottom:0;z-index:9601;display:flex;justify-content:center;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75) 30%);">
+        <button onclick="veSave()" style="max-width:612px;width:100%;padding:13px;border-radius:11px;border:none;background:linear-gradient(135deg,#34D399,#059669);color:#fff;font-size:14px;font-weight:900;cursor:pointer;">💾 저장</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    veType(_ve.type, true);
+    vePreview(true);
+  }
+
+  function veClose() {
+    const el = document.getElementById('ve-sheet');
+    if (el && window.MathJax?.typesetClear) { try { MathJax.typesetClear([el]); } catch (e) {} }
+    el?.remove();
+    _ve = null; _veFocus = null;
+  }
+
+  function veType(t, silent) {
+    if (!_ve) return;
+    // 객관식 → 주관식: 정답 선지의 값을 정답칸으로 옮겨준다
+    if (t === 'short' && _ve.type === 'mc' && !silent) {
+      const pick = document.querySelector('input[name="ve-ans"]:checked');
+      const src = pick ? document.getElementById('ve-ch-' + (pick.value - 1)).value.trim() : '';
+      const box = document.getElementById('ve-ans-short');
+      if (box && !box.value.trim() && src) box.value = src;
+    }
+    _ve.type = t;
+    const base = 'flex:1;padding:9px;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;';
+    const on = base + 'border:2px solid #10B981;background:rgba(16,185,129,.15);color:#10B981;';
+    const off = base + 'border:1px solid var(--border2);background:none;color:var(--text3);';
+    const bm = document.getElementById('ve-t-mc'), bs = document.getElementById('ve-t-short');
+    bm.style.cssText = t === 'mc' ? on : off; bm.textContent = '\u2460 객관식';
+    bs.style.cssText = t === 'short' ? on : off; bs.textContent = '\u270d\ufe0f 주관식';
+    document.getElementById('ve-mc-box').style.display = t === 'mc' ? '' : 'none';
+    document.getElementById('ve-short-box').style.display = t === 'short' ? '' : 'none';
+    if (!silent) vePreview();
+  }
+
+  function veToggleFig() {
+    if (!_ve) return;
+    _ve.dropFig = !_ve.dropFig;
+    const pv = document.getElementById('ve-fig-pv'), b = document.getElementById('ve-fig-btn');
+    if (pv) pv.style.opacity = _ve.dropFig ? '.15' : '1';
+    if (b) { b.textContent = _ve.dropFig ? '↩ 그래프 다시 넣기 (저장하면 빠져요)' : '🚫 이 그래프 빼기'; b.style.color = b.style.borderColor = _ve.dropFig ? '#9CA3AF' : '#F87171'; }
+  }
+
+  function veRebuildChoices() {
+    const pick = document.querySelector('input[name="ve-ans"]:checked');
+    if (!pick) { showToast('정답 선지를 먼저 골라주세요', 'warn'); return; }
+    const src = document.getElementById('ve-ch-' + (pick.value - 1)).value;
+    const x = mxVal(src);
+    const f = x === null ? null : mxForm(x);
+    const nc = f && mxChoices(f, _ve.id + '|' + Date.now());
+    if (!nc) { showToast('이 정답은 자동으로 선지를 만들 수 없는 꼴이에요. 직접 적어주세요', 'warn'); return; }
+    nc.choices.forEach((c, i) => { document.getElementById('ve-ch-' + i).value = c; });
+    document.querySelectorAll('input[name="ve-ans"]').forEach(r => { r.checked = r.value === nc.answer; });
+    vePreview();
+  }
+
+  let _vePvT = null;
+  function vePreview(now) {
+    clearTimeout(_vePvT);
+    _vePvT = setTimeout(_vePreviewNow, now ? 0 : 250);
+  }
+  function _vePreviewNow() {
+    if (!_ve) return;
+    const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; return el; };
+    const els = [];
+    const sheet = document.getElementById('ve-sheet');
+    if (sheet && window.MathJax?.typesetClear) { try { MathJax.typesetClear([sheet]); } catch (e) {} }
+    els.push(set('ve-prob-pv', renderProblemHtml(document.getElementById('ve-prob').value)));
+    els.push(set('ve-sol-pv', renderProblemHtml(document.getElementById('ve-sol').value)));
+    els.push(set('ve-ans-pv', renderProblemHtml(document.getElementById('ve-ans-short').value)));
+    for (let i = 0; i < 5; i++) els.push(set('ve-ch-pv-' + i, renderProblemHtml(document.getElementById('ve-ch-' + i).value)));
+
+    // $ 짝이 안 맞으면 수식이 통째로 깨진다 — 저장 전에 알려준다
+    const warn = [];
+    const odd = (t) => ((String(t).replace(/\\\$/g, '').match(/\$/g) || []).length % 2) === 1;
+    if (odd(document.getElementById('ve-prob').value)) warn.push('문제의 $ 개수가 홀수예요 (수식 칸이 안 닫힘)');
+    if (odd(document.getElementById('ve-sol').value)) warn.push('해설의 $ 개수가 홀수예요');
+    if (/\$\$/.test(document.getElementById('ve-prob').value + document.getElementById('ve-sol').value)) warn.push('$$ 는 쓰면 안 돼요 ($ 하나씩)');
+    if (_ve.type === 'mc') {
+      const filled = [0, 1, 2, 3, 4].map(i => document.getElementById('ve-ch-' + i).value.trim()).filter(Boolean);
+      if (filled.length < 5) warn.push('선지가 ' + filled.length + '개예요');
+      const vals = [0, 1, 2, 3, 4].map(i => mxVal(document.getElementById('ve-ch-' + i).value));
+      const dup = vals.some((x, i) => x !== null && vals.some((y, j) => j !== i && y !== null && _near(x, y)));
+      if (dup) warn.push('값이 같은 선지가 있어요');
+      if (!document.querySelector('input[name="ve-ans"]:checked')) warn.push('정답 선지를 골라주세요');
+    } else if (!document.getElementById('ve-ans-short').value.trim()) warn.push('정답을 적어주세요');
+    const w = document.getElementById('ve-warn');
+    if (w) w.innerHTML = warn.length ? '<div style="padding:8px 10px;border-radius:9px;background:#FFFBEB;border:1px solid #FCD34D;color:#92400E;font-size:11.5px;font-weight:800;line-height:1.55;">⚠️ ' + warn.join('<br>⚠️ ') + '</div>' : '';
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise(els.filter(Boolean)).catch(() => {});
+  }
+
+  // 문제 속 숫자가 바뀌었는지 (바뀌었으면 AI 검산 코드는 옛 숫자로 계산하므로 버린다)
+  const _veNums = t => (String(t || '').replace(/\\[a-zA-Z]+/g, ' ').match(/\d+(?:\.\d+)?/g) || []).join(',');
+
+  async function veSave() {
+    if (!_ve) return;
+    const v = _ve.v;
+    const prob = document.getElementById('ve-prob').value.trim();
+    const sol = document.getElementById('ve-sol').value.trim();
+    const mins = parseInt(document.getElementById('ve-min').value, 10) || 5;
+    if (!prob) { showToast('문제가 비었어요', 'warn'); return; }
+    const body = { problem_text: prob, solution: sol || null, time_limit_sec: Math.max(1, mins) * 60 };
+    if (_ve.type === 'mc') {
+      const ch = [0, 1, 2, 3, 4].map(i => document.getElementById('ve-ch-' + i).value.trim()).filter(Boolean);
+      const pick = document.querySelector('input[name="ve-ans"]:checked');
+      if (ch.length < 2) { showToast('선지를 2개 이상 적어주세요', 'warn'); return; }
+      if (!pick) { showToast('정답 선지를 골라주세요', 'warn'); return; }
+      if (parseInt(pick.value, 10) > ch.length) { showToast('정답으로 고른 선지 칸이 비어 있어요', 'warn'); return; }
+      body.qtype = 'mc'; body.choices = ch; body.answer = pick.value;
+    } else {
+      const a = document.getElementById('ve-ans-short').value.trim();
+      if (!a) { showToast('정답을 적어주세요', 'warn'); return; }
+      body.qtype = 'short'; body.choices = null; body.answer = a;
+    }
+    if (_ve.dropFig) body.figure = null;
+    if (_veNums(prob) !== _veNums(v.problem_text)) {
+      Object.assign(body, { check_code: null, check_code2: null, check_code3: null, check_desc: null });
+    }
+    body.prev = snapOf(v, 'edit');
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${_ve.id}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 120));
+      showToast('✅ 저장했어요' + (body.check_code === null ? '\n(문제 숫자가 바뀌어 AI 검산은 껐어요)' : '') + '\n↩ 되돌리기로 이전 상태로 돌아갈 수 있어요', 'ok');
+      veClose();
+      _varRefresh();
+    } catch (e) {
+      console.error('veSave:', e);
+      showToast('❌ 저장 실패\n' + String(e.message || e).slice(0, 120), 'error');
+    }
+  }
+
+  function _varRefresh() {
+    loadVariationReviews();
+    if (document.getElementById('main-tab-vmanage')?.classList.contains('active')) loadVManage(true);
+  }
+
+  // ── 카드 버튼: 그래프 빼기 / 주관식으로 ──
+  async function _varPatch(id, make, okMsg) {
+    try {
+      const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=*`, { headers: sbHeaders() }).then(r => r.json());
+      const v = rows && rows[0];
+      if (!v) throw new Error('문제를 못 찾음');
+      const patch = make(v);
+      if (!patch) return;
+      patch.prev = snapOf(v, 'edit');
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}`, {
+        method: 'PATCH', headers: sbHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(patch)
+      });
+      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 100));
+      showToast(typeof okMsg === 'function' ? okMsg(patch) : okMsg, 'ok');
+      _varRefresh();
+    } catch (e) {
+      console.error('_varPatch:', e);
+      showToast('❌ 저장 실패\n' + String(e.message || e).slice(0, 100), 'error');
+    }
+  }
+  function varDropFigure(id) {
+    _varPatch(id, v => v.figure ? { figure: null } : (showToast('뺄 그래프가 없어요', 'warn'), null),
+      '🚫 그래프를 뺐어요 — ↩ 되돌리기로 다시 넣을 수 있어요');
+  }
+  function varToShort(id) {
+    _varPatch(id, v => {
+      const ch = solChoices(v);
+      if (v.qtype !== 'mc' || !ch) { showToast('이미 주관식이에요', 'warn'); return null; }
+      // 검산이 확정한 답이 있으면 그걸 쓴다 (정답칸 번호가 틀린 문제도 있으니까)
+      const ck = _vChk.get(v.id);
+      let ans = null;
+      if (ck && ck.votes >= 2 && ck.exact) ans = '$' + ck.exact + '$';
+      if (!ans) {
+        const k = parseInt(v.answer, 10);
+        if (!(k >= 1 && k <= ch.length)) { showToast('정답 번호가 이상해서 못 바꿔요. ✏️ 수정에서 바꿔주세요', 'warn'); return null; }
+        ans = String(ch[k - 1]).trim();
+      }
+      return { qtype: 'short', choices: null, answer: ans };
+    }, p => '✍️ 주관식으로 바꿨어요 (정답 ' + p.answer.replace(/\$/g, '') + ')\n↩ 되돌리기로 객관식으로 돌아갈 수 있어요');
+  }
+  // 카드마다 붙는 편집 버튼 줄
+  function varEditBar(v, small) {
+    let fig = v.figure;
+    if (typeof fig === 'string') { try { fig = JSON.parse(fig); } catch (e) { fig = null; } }
+    const isMc = v.qtype === 'mc' && !!solChoices(v);
+    const st = 'flex:1;min-width:0;padding:' + (small ? '5px 8px' : '8px 4px') + ';border-radius:8px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:' + (small ? '11px' : '11.5px') + ';font-weight:700;cursor:pointer;white-space:nowrap;';
+    return '<div style="display:flex;gap:5px;margin-bottom:' + (small ? '5px' : '6px') + ';">'
+      + '<button onclick="veOpen(\'' + v.id + '\')" style="' + st + 'border-color:#60A5FA;color:#60A5FA;">✏️ 수정(수식)</button>'
+      + (fig ? '<button onclick="varDropFigure(\'' + v.id + '\')" style="' + st + '">🚫 그래프 빼기</button>' : '')
+      + (isMc ? '<button onclick="varToShort(\'' + v.id + '\')" style="' + st + '">✍️ 주관식으로</button>' : '')
+      + '</div>';
   }
 
   // 「정답칸을 ○○로 고치기」 — 입력칸만 바꾼다. 승인 눌러야 저장된다.
   function chkApplyFix(id, val) {
     const el = document.getElementById('var-answer-' + id);
-    if (!el) return;
+    if (!el) { showToast('✏️ 수정에서 정답을 ' + String(val).replace(/\$/g, '') + ' 로 바꿔주세요', 'warn'); return; }
     el.value = val;
     el.style.background = '#ECFDF5';
     const r = _vChk.get(id);
@@ -4716,7 +5519,15 @@
   }
 
   function chkSlot(v) {
-    return (v && v.check_code) ? '<div id="chk-' + v.id + '" style="margin-bottom:7px;"></div>' : '';
+    return ((v && v.check_code) ? '<div id="chk-' + v.id + '" style="margin-bottom:7px;"></div>' : '')
+      + '<div id="heal-' + (v && v.id) + '"></div>' + healBadge(v);
+  }
+  // 자동 수리한 문제 표시 (되돌리기 가능)
+  function healBadge(v) {
+    const p = _prevOf(v);
+    if (!p || p.why !== 'autofix') return '';
+    return '<div style="margin-bottom:7px;padding:6px 9px;border-radius:8px;background:#EEF2FF;border:1px solid #A5B4FC;color:#3730A3;font-size:11px;font-weight:800;line-height:1.5;">'
+      + '\ud83d\udee0 앱이 자동으로 고친 문제예요 (선지·정답·해설 뒷부분). 마음에 안 들면 \u21a9 되돌리기</div>';
   }
   function _chkPaint(id, r) {
     const el = document.getElementById('chk-' + id);
@@ -4736,22 +5547,24 @@
         + '\ud83e\uddee 계산한 내용: ' + escapeHtml(r.desc) + '</div>';
     }
     if (r.fix) {
-      h += '<button onclick="chkApplyFix(\'' + id + '\',\'' + String(r.fix).replace(/'/g, "") + '\')" '
+      h += '<button data-v="' + escapeHtml(r.fix) + '" onclick="chkApplyFix(\'' + id + '\', this.dataset.v)" '
         + 'style="margin-top:7px;padding:6px 12px;border-radius:7px;border:none;background:' + C[2]
         + ';color:#fff;font-size:11.5px;font-weight:800;">정답칸을 ' + r.fix + ' 로 고치기</button>';
     }
     el.innerHTML = h + '</div>';
-    if (r.desc && window.MathJax?.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise([el]).catch(() => {});
   }
-  async function runAllChecks(rows) {
+  async function runAllChecks(rows, heal) {
+    // 해설 헛소리는 검산 코드가 없어도 표시만은 한다
     const list = (rows || []).filter(v => v && v.check_code && document.getElementById('chk-' + v.id));
     for (const v of list) {
       const el = document.getElementById('chk-' + v.id);
       if (el) el.innerHTML = '<span style="font-size:10.5px;color:var(--text4);font-weight:700;">\ud83d\udd0d 코드로 검산 중...</span>';
       let r;
-      try { r = await verifyVariation(v); } catch (e) { r = { state: 'skip', msg: '' }; }
+      try { r = await verifyVariation(v); } catch (e) { console.error('verify:', e); r = { state: 'skip', msg: '' }; }
       _vChk.set(v.id, r);
-      _chkPaint(v.id, r);
+      try { _chkPaint(v.id, r); } catch (e) { console.error('chkPaint:', e); }
+      if (heal) { try { await autoHeal(v, r); } catch (e) { console.error('autoHeal:', e); } }
     }
   }
 
@@ -4784,7 +5597,7 @@
     if (!v.prev) return '';
     const pad = big ? '10px 6px' : '5px 9px';
     const fs = big ? '12px' : '11px';
-    return `<button onclick="undoRegen('${v.id}')" title="재생성 직전 문제로 되돌립니다" style="${big ? 'flex:1;min-width:0;' : ''}padding:${pad};border-radius:${big ? 9 : 7}px;border:1px solid #F59E0B;background:none;color:#F59E0B;font-size:${fs};font-weight:700;cursor:pointer;white-space:nowrap;">\u21a9 되돌리기</button>`;
+    return `<button onclick="undoRegen('${v.id}')" title="재생성·수정·자동수리 직전 상태로 되돌립니다" style="${big ? 'flex:1;min-width:0;' : ''}padding:${pad};border-radius:${big ? 9 : 7}px;border:1px solid #F59E0B;background:none;color:#F59E0B;font-size:${fs};font-weight:700;cursor:pointer;white-space:nowrap;">\u21a9 되돌리기</button>`;
   }
 
   if (!document.getElementById('genspin-css')) {
@@ -5159,7 +5972,7 @@
 
   // 재생성 직전 문제로 되돌리기
   async function undoRegen(id) {
-    if (!confirm('재생성 직전 문제로 되돌릴까요?\n\n지금 보이는 문제는 사라집니다.')) return;
+    if (!confirm('직전 상태로 되돌릴까요?\n(재생성·수정·그래프 빼기·주관식 전환·자동 수리 전)\n\n지금 보이는 문제는 사라집니다.')) return;
     try {
       const rows = await fetch(`${SUPABASE_URL}/rest/v1/variations?id=eq.${id}&select=prev`, { headers: sbHeaders() }).then(r => r.json());
       let p = rows[0]?.prev;
@@ -5179,9 +5992,13 @@
           figure: p.figure ?? null,
           is_original: !!p.is_original,
           image_url: p.image_url ?? null,
+          // 검산 코드도 같이 되돌린다 (안 그러면 옛 문제를 새 문제의 코드로 검산하게 된다)
+          ...('check_code' in p ? { check_code: p.check_code ?? null, check_code2: p.check_code2 ?? null,
+                                    check_code3: p.check_code3 ?? null, check_desc: p.check_desc ?? null } : {}),
           prev: null
         })
       });
+      if (p.why === 'autofix') { try { localStorage.setItem('healundo_' + id, '1'); } catch (e) {} }
       if (!r.ok) throw new Error((await r.text()).slice(0, 120));
       showToast('\u21a9 이전 문제로 되돌렸어요', 'ok');
       if (document.getElementById("main-tab-vmanage")?.classList.contains("active")) loadVManage();
@@ -5405,15 +6222,17 @@
       return;
     }
 
-    const offset = (currentPageT - 1) * PAGE_SIZE_T;
+    // ★ 예전에는 5개씩 잘라 불러와서 폴더(과목>대단원>중단원)에 그 5개만 들어갔다.
+    //   폴더 숫자도 5개 기준이라 "전체"를 눌러도 다 안 보였다. → 한 번에 전부 불러온다.
+    //   (사진은 폴더를 펼칠 때만 받도록 loading=lazy)
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.${sortAscT ? 'asc' : 'desc'}&limit=${PAGE_SIZE_T}&offset=${offset}`,
-        { headers: sbHeaders({ 'Prefer': 'count=exact' }) }
+        `${SUPABASE_URL}/rest/v1/wrong_notes?${filterQ}&select=*&order=created_at.${sortAscT ? 'asc' : 'desc'}&limit=2000`,
+        { headers: sbHeaders() }
       );
-      const cr = res.headers.get('content-range');
-      totalCountT = cr ? parseInt(cr.split('/')[1]) : 0;
       currentEntries = await res.json();
+      if (!Array.isArray(currentEntries)) currentEntries = [];
+      totalCountT = currentEntries.length;
       renderNoteList();
     } catch { totalCountT = 0; currentEntries = []; renderNoteList(); }
   }
@@ -5982,7 +6801,7 @@
 
     const thumbsHtml = thumbs.map(t =>
       `<div style="flex:1;min-width:0;">
-        <img style="width:100%;height:110px;border-radius:10px;object-fit:cover;cursor:pointer;background:#eee;display:block;" src="${t.src}" onclick="openModal('${t.src}')" alt="${t.alt}" title="${t.alt}" />
+        <img loading="lazy" style="width:100%;height:110px;border-radius:10px;object-fit:cover;cursor:pointer;background:#eee;display:block;" src="${t.src}" onclick="openModal('${t.src}')" alt="${t.alt}" title="${t.alt}" />
         <div style="font-size:10px;color:#999;text-align:center;margin-top:3px;">${t.alt}</div>
       </div>`
     ).join('');
@@ -6635,12 +7454,11 @@
       const cnt = {};
       list.forEach(e => { const u = unitOf(e); cnt[u] = (cnt[u] || 0) + 1; });
 
-      const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE_T));
-      if (currentPageT > totalPages) currentPageT = totalPages;
-      const from = (currentPageT - 1) * PAGE_SIZE_T;
-      const page = list.slice(from, from + PAGE_SIZE_T);
+      // 대단원별도 전부 한 화면에 (단원이 바뀌면 머리말)
+      const from = 0;
+      const page = list;
 
-      let html = '', prev = from > 0 ? unitOf(list[from - 1]) : null;
+      let html = '', prev = null;
       page.forEach(e => {
         const u = unitOf(e);
         if (u !== prev) {
@@ -6653,10 +7471,13 @@
       });
       container.innerHTML = html;
 
-      if (info) info.textContent = `전체 ${list.length}개 중 ${from + 1}–${Math.min(from + PAGE_SIZE_T, list.length)}번째`;
-      if (pag) pag.innerHTML = pagerHtml(totalPages);
+      if (info) info.textContent = `전체 ${list.length}개`;
+      if (pag) pag.innerHTML = '';
       return;
     }
+
+    if (pag) pag.innerHTML = '';
+    if (info) info.textContent = list.length ? `전체 ${list.length}개` : '';
 
     if (currentFilter === 'unsorted' || currentFilter === 'reviewing') {
       // 미분류/검수대기는 폴더 없이 그냥 리스트로
@@ -6822,10 +7643,9 @@
     const pag = document.getElementById('pagination');
     const info = document.getElementById('page-info');
     if (!pag) return;
-    const totalPages = Math.ceil(totalCountT / PAGE_SIZE_T);
-    if (totalPages <= 1) { pag.innerHTML = ''; if(info) info.textContent = ''; return; }
-    if (info) info.textContent = `전체 ${totalCountT}개 중 ${(currentPageT-1)*PAGE_SIZE_T+1}–${Math.min(currentPageT*PAGE_SIZE_T, totalCountT)}번째`;
-    pag.innerHTML = pagerHtml(totalPages);
+    // 전부 불러오므로 쪽 나누기는 없다
+    pag.innerHTML = '';
+    if (info) info.textContent = totalCountT ? `전체 ${totalCountT}개` : '';
   }
 
   // 페이지 버튼 묶음 (목록/대단원별 공용)
@@ -7041,10 +7861,10 @@
         ${solBox(v)}
         ${chkSlot(v)}
         ${svg ? `<div style="background:#1a1a2a;border-radius:9px;padding:6px;margin-bottom:6px;">${svg}</div>` : ''}
+        ${varEditBar(v, true)}
         ${v.image_url ? `<img src="${v.image_url}" onclick="openModal('${v.image_url}')" style="max-width:150px;border-radius:8px;background:#fff;cursor:pointer;margin-bottom:6px;display:block;" />` : ''}
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           <button onclick="vmToggle('${v.id}',${!!v.approved})" title="${v.approved ? '학생 미션에서 잠시 내립니다(문제는 남아요)' : '학생 미션에 내보냅니다'}" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">${v.approved ? '🙈 숨기기' : '✅ 내보내기'}</button>
-          <button onclick="vmEdit('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">✏️ 수정</button>
           <button onclick="regenVariation('${v.id}')" style="padding:5px 9px;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">🔄 재생성</button>
           <button onclick="regenVariation('${v.id}',true)" title="그림이 꼭 들어가도록 다시 만듭니다" style="padding:5px 9px;border-radius:7px;border:1px solid #7C3AED;background:none;color:#7C3AED;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">📐 그림 추가</button>
           ${undoBtn(v)}
@@ -7149,6 +7969,7 @@
   }
 
   async function vmEdit(id) {
+    return veOpen(id);      // 예전 prompt 창 대신 수식 편집기
     const v = _vmData.find(x => x.id === id);
     if (!v) return;
     const t = prompt('문제 내용을 수정하세요', v.problem_text || '');
