@@ -7637,7 +7637,16 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const j = Math.floor(Math.random() * (i + 1));
       [idx[i], idx[j]] = [idx[j], idx[i]];
     }
-    return { q: q.q, why: q.why, o: idx.map(i => q.o[i]), a: idx.indexOf(q.a == null ? 0 : q.a) };
+    // fb(선택지별 피드백)와 원본 번호(src)도 같이 따라가야 한다.
+    // 안 그러면 섞은 뒤에 엉뚱한 오개념 설명이 붙는다.
+    const fb = Array.isArray(q.fb) ? q.fb : [];
+    return {
+      q: q.q, why: q.why,
+      o: idx.map(i => q.o[i]),
+      fb: idx.map(i => fb[i] || ''),
+      src: idx.slice(),
+      a: idx.indexOf(q.a == null ? 0 : q.a)
+    };
   }
 
   // ---------- 데이터 ----------
@@ -7795,6 +7804,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
       const r = await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${id}&select=*`, { headers: sbHeaders() }).then(r => r.json());
       if (!r || !r[0]) { box.innerHTML = '<div style="text-align:center;color:#EF4444;padding:30px;font-size:13px;">개념을 찾지 못했어요.</div>'; return; }
       _lrn.cur = r[0];
+      if (!_lrn.sid) _lrn.sid = sid();
       renderCard();
       markRead(id);
     } catch (e) {
@@ -7829,6 +7839,8 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     const examples = Array.isArray(c.examples) ? c.examples : [];
     const mistakes = Array.isArray(c.mistakes) ? c.mistakes : [];
     const checks   = Array.isArray(c.checks)   ? c.checks   : [];
+    const st = c.steps && typeof c.steps === 'object' ? c.steps : null;
+    const hasSteps = !!(st && (st.worked || (Array.isArray(st.faded) && st.faded.length) || st.solo));
     const p = _lrn.prog[c.id];
 
     box.innerHTML = `
@@ -7859,7 +7871,18 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
           </div>`).join('')}
       </div>` : ''}
 
-      ${examples.length ? `<div class="lrn-sec">
+      ${hasSteps ? `<div class="lrn-sec" style="border-color:#93C5FD;">
+        <div class="lrn-h">✏️ 손으로 익히기</div>
+        <div style="font-size:12.5px;color:var(--text3);line-height:1.7;margin-bottom:10px;">읽기만 하면 다음 날 사라져요. 세 단계로 직접 해봐요.</div>
+        <div style="display:flex;gap:6px;margin-bottom:11px;">
+          ${[['① 보기', '풀이를 왜 그렇게 했는지'], ['② 따라하기', '숫자만 바꿔서 같이'], ['③ 혼자하기', '도움 없이']].map(([t, d]) => `
+            <div style="flex:1;background:var(--bg4);border-radius:10px;padding:9px 7px;text-align:center;">
+              <div style="font-size:11.5px;font-weight:800;color:var(--text1);">${t}</div>
+              <div style="font-size:10px;color:var(--text4);margin-top:3px;line-height:1.4;">${d}</div>
+            </div>`).join('')}
+        </div>
+        <button onclick="lrnWorked()" style="width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;font-size:13.5px;font-weight:800;cursor:pointer;">▶ 시작하기</button>
+      </div>` : (examples.length ? `<div class="lrn-sec">
         <div class="lrn-h">✏️ 대표 예제</div>
         ${examples.map((ex, i) => `
           <div style="border:1px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:8px;">
@@ -7867,7 +7890,7 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
             <button onclick="lrnSol(${i})" id="lrn-sol-btn-${i}" style="margin-top:8px;background:none;border:1px solid var(--border2);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;">💡 풀이 보기</button>
             <div id="lrn-sol-${i}" style="display:none;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border2);font-size:12.5px;color:var(--text2);line-height:1.75;">${nl2br(ex.sol)}</div>
           </div>`).join('')}
-      </div>` : ''}
+      </div>` : '')}
 
       ${mistakes.length ? `<div class="lrn-sec" style="border-color:#FCA5A5;">
         <div class="lrn-h" style="color:#DC2626;">⚠️ 이런 실수 조심!</div>
@@ -7890,6 +7913,150 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     d.style.display = on ? 'block' : 'none';
     if (b) b.textContent = on ? '🙈 풀이 접기' : '💡 풀이 보기';
     if (on) typeset(d);
+  }
+
+  // ───────── 3단계 연습: 보기 → 따라하기 → 혼자하기 ─────────
+  // 완성된 풀이를 보여준 다음 곧장 "혼자 풀어봐"로 넘어가면 대부분 못 따라온다.
+  // 중간에 '도움이 점점 줄어드는' 단계를 끼워 넣는다.
+  function lrnSteps() {
+    const s = _lrn.cur && _lrn.cur.steps;
+    if (!s || typeof s !== 'object') return null;
+    return s;
+  }
+
+  function lrnStageBar(now) {
+    const st = [['worked', '① 보기'], ['faded', '② 따라하기'], ['solo', '③ 혼자하기']];
+    return `<div style="display:flex;gap:6px;margin-bottom:12px;">
+      ${st.map(([k, t]) => `<div style="flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:11.5px;font-weight:800;
+        background:${k === now ? 'linear-gradient(135deg,#0EA5E9,#2563EB)' : 'var(--bg3)'};
+        color:${k === now ? '#fff' : 'var(--text4)'};">${t}</div>`).join('')}
+    </div>`;
+  }
+
+  // ① 보기 — 단계마다 '무엇을' 옆에 '왜'를 붙인다. 왜가 없으면 그냥 베끼게 된다.
+  function lrnWorked() {
+    const s = lrnSteps(); if (!s || !s.worked) { lrnFaded(0); return; }
+    const w = s.worked;
+    const lines = Array.isArray(w.lines) ? w.lines : [];
+    const box = document.getElementById('learn-body');
+    box.innerHTML = `
+      <button onclick="lrnReview()" style="background:none;border:none;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;padding:2px 0 10px;">‹ 개념으로</button>
+      ${lrnStageBar('worked')}
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.2rem;margin-bottom:12px;">
+        <div style="font-size:11.5px;font-weight:800;color:#2563EB;margin-bottom:6px;">선생님이 푸는 걸 먼저 봐요</div>
+        <div style="font-size:14.5px;font-weight:700;color:var(--text1);line-height:1.7;background:var(--bg4);border-radius:10px;padding:11px 12px;">${nl2br(w.q)}</div>
+        <div style="margin-top:12px;">
+          ${lines.map((l, i) => `
+            <div style="display:flex;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);">
+              <div style="flex-shrink:0;width:19px;height:19px;border-radius:50%;background:#2563EB;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;">${i + 1}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13.5px;color:var(--text1);font-weight:700;line-height:1.7;">${nl2br(l.do)}</div>
+                ${l.why ? `<div style="font-size:12px;color:#2563EB;line-height:1.65;margin-top:3px;">↳ 왜? ${nl2br(l.why)}</div>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+        ${w.answer ? `<div style="margin-top:10px;font-size:13.5px;font-weight:800;color:#16A34A;">답: ${nl2br(w.answer)}</div>` : ''}
+      </div>
+      <button onclick="lrnFaded(0)" style="width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer;margin-bottom:20px;">
+        이제 같이 풀어볼까요? →
+      </button>`;
+    typeset(box);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ② 따라하기 — 숫자만 다른 쌍둥이 문제. 각 단계를 고르면서 채운다.
+  //    두 번째 문제는 줄이 더 적어서 한 번에 건너뛰는 폭이 커진다.
+  function lrnFaded(n) {
+    const s = lrnSteps();
+    const list = (s && Array.isArray(s.faded)) ? s.faded : [];
+    if (!list[n]) { lrnSolo(); return; }
+    _lrn.fi = n; _lrn.fl = 0; _lrn.fpick = [];
+    _lrn.fshuf = (list[n].lines || []).map(l => shuffle({ q: l.text, o: l.o || [], a: l.a == null ? 0 : l.a, fb: l.fb || [] }));
+    lrnFadedDraw();
+  }
+
+  function lrnFadedDraw() {
+    const s = lrnSteps();
+    const item = s.faded[_lrn.fi];
+    const lines = _lrn.fshuf;
+    const box = document.getElementById('learn-body');
+    box.innerHTML = `
+      <button onclick="lrnReview()" style="background:none;border:none;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;padding:2px 0 10px;">‹ 개념으로</button>
+      ${lrnStageBar('faded')}
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.2rem;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:11.5px;font-weight:800;color:#2563EB;">같이 풀기 ${_lrn.fi + 1} / ${s.faded.length}</div>
+          <div style="font-size:11px;color:var(--text4);">${_lrn.fl} / ${lines.length} 단계</div>
+        </div>
+        <div style="font-size:14.5px;font-weight:700;color:var(--text1);line-height:1.7;background:var(--bg4);border-radius:10px;padding:11px 12px;">${nl2br(item.q)}</div>
+        <div id="lrn-fd-lines" style="margin-top:12px;">
+          ${lines.map((l, i) => {
+            if (i > _lrn.fl) return '';
+            const picked = _lrn.fpick[i];
+            const done = picked != null;
+            return `
+            <div style="padding:10px 0;border-bottom:1px solid var(--border);">
+              <div style="font-size:13px;color:var(--text2);font-weight:700;line-height:1.7;margin-bottom:7px;">${i + 1}. ${nl2br(l.q)}</div>
+              ${done ? `
+                <div style="font-size:13.5px;font-weight:800;color:${picked === l.a ? '#16A34A' : '#DC2626'};line-height:1.7;">
+                  ${picked === l.a ? '⭕' : '❌'} ${nl2br(l.o[picked])}
+                </div>
+                ${picked !== l.a ? `<div style="font-size:13px;color:#16A34A;font-weight:700;margin-top:3px;">정답: ${nl2br(l.o[l.a])}</div>` : ''}
+                ${l.fb && l.fb[picked] ? `<div style="font-size:12px;color:var(--text3);line-height:1.65;margin-top:5px;background:var(--bg4);border-radius:8px;padding:8px 10px;">${nl2br(l.fb[picked])}</div>` : ''}
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                  ${l.o.map((o, j) => `<button onclick="lrnFadedPick(${i},${j})" style="text-align:left;padding:11px 12px;border-radius:11px;border:1.5px solid var(--border2);background:var(--bg3);color:var(--text1);font-size:13px;line-height:1.6;cursor:pointer;">${nl2br(o)}</button>`).join('')}
+                </div>`}
+            </div>`;
+          }).join('')}
+        </div>
+        ${_lrn.fl >= lines.length ? `
+          <button onclick="${_lrn.fi + 1 < s.faded.length ? `lrnFaded(${_lrn.fi + 1})` : 'lrnSolo()'}" style="width:100%;margin-top:12px;padding:13px;border-radius:12px;border:none;background:var(--text1);color:var(--bg2);font-size:13.5px;font-weight:800;cursor:pointer;">
+            ${_lrn.fi + 1 < s.faded.length ? '다음 문제 →' : '이제 혼자 풀어보기 →'}
+          </button>` : ''}
+      </div>`;
+    typeset(box);
+  }
+
+  function lrnFadedPick(i, j) {
+    if (_lrn.fpick[i] != null) return;
+    _lrn.fpick[i] = j;
+    if (j === _lrn.fshuf[i].a) _lrn.fl = i + 1;   // 맞아야 다음 단계가 열린다
+    else _lrn.fl = i + 1;                          // 틀려도 정답을 보여주고 넘어간다
+    lrnFadedDraw();
+  }
+
+  // ③ 혼자하기 — 도움 없이. 답을 떠올린 뒤에 풀이를 편다.
+  function lrnSolo() {
+    const s = lrnSteps();
+    const so = s && s.solo;
+    if (!so || !so.q) { lrnStartCheck(); return; }
+    const box = document.getElementById('learn-body');
+    box.innerHTML = `
+      <button onclick="lrnReview()" style="background:none;border:none;color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;padding:2px 0 10px;">‹ 개념으로</button>
+      ${lrnStageBar('solo')}
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:1.2rem;margin-bottom:12px;">
+        <div style="font-size:11.5px;font-weight:800;color:#2563EB;margin-bottom:6px;">이번엔 도움 없이</div>
+        <div style="font-size:14.5px;font-weight:700;color:var(--text1);line-height:1.7;background:var(--bg4);border-radius:10px;padding:11px 12px;">${nl2br(so.q)}</div>
+        <div style="font-size:11.5px;color:var(--text4);margin-top:8px;line-height:1.6;">공책에 직접 풀어본 뒤에 눌러요. 눈으로만 보고 넘기면 남는 게 없어요.</div>
+        <button onclick="lrnSoloShow()" id="lrn-solo-btn" style="width:100%;margin-top:10px;padding:12px;border-radius:11px;border:1px solid var(--border2);background:var(--bg2);color:var(--text1);font-size:13px;font-weight:700;cursor:pointer;">✋ 다 풀었어요 — 답 확인</button>
+        <div id="lrn-solo-ans" style="display:none;margin-top:11px;padding-top:11px;border-top:1px dashed var(--border2);">
+          ${so.answer ? `<div style="font-size:14px;font-weight:800;color:#16A34A;line-height:1.7;">답: ${nl2br(so.answer)}</div>` : ''}
+          ${so.solution ? `<div style="font-size:12.5px;color:var(--text2);line-height:1.75;margin-top:7px;">${nl2br(so.solution)}</div>` : ''}
+        </div>
+      </div>
+      <button onclick="lrnStartCheck()" style="width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#0EA5E9,#2563EB);color:#fff;font-size:14.5px;font-weight:800;cursor:pointer;margin-bottom:20px;">🧠 확인문제로 마무리 →</button>`;
+    typeset(box);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function lrnSoloShow() {
+    const d = document.getElementById('lrn-solo-ans');
+    const b = document.getElementById('lrn-solo-btn');
+    if (!d) return;
+    d.style.display = 'block';
+    if (b) b.style.display = 'none';
+    typeset(d);
   }
 
   function lrnBack() { renderHome(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -7943,11 +8110,37 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
     fb.style.display = 'block';
     fb.style.background = ok ? '#DCFCE7' : '#FEF3C7';
     fb.style.color = ok ? '#14532D' : '#78350F';
-    fb.innerHTML = `<b>${ok ? '⭕ 정답!' : '❌ 아쉬워요'}</b><br>${nl2br(q.why)}`;
+    // 고른 선택지에 맞는 설명을 보여준다. 없으면 예전 방식(why)으로.
+    const msg = (q.fb && q.fb[i]) ? q.fb[i] : q.why;
+    fb.innerHTML = `<b>${ok ? '⭕ 정답!' : '❌ 아쉬워요'}</b><br>${nl2br(msg)}`;
+    if (!ok && q.fb && q.fb[q.a]) {
+      fb.innerHTML += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed rgba(0,0,0,.15);"><b>정답인 이유</b><br>${nl2br(q.fb[q.a])}</div>`;
+    }
+    if (!ok) lrnLogMiss(q, i);
     const nx = document.getElementById('lrn-next');
     nx.style.display = 'block';
     nx.textContent = _lrn.qi === _lrn.qs.length - 1 ? '결과 보기' : '다음 문제 →';
     typeset(fb);
+  }
+
+  // 어떤 오개념을 골랐는지 남긴다. 실패해도 학습은 계속되게 조용히 처리.
+  function lrnLogMiss(q, picked) {
+    // 목록을 안 거치고 카드로 바로 들어오면 _lrn.sid 가 비어 있다. 그때는 직접 읽는다.
+    if (!_lrn.sid) _lrn.sid = sid();
+    if (!_lrn.sid || !_lrn.cur) return;
+    try {
+      const me = _lrn.sid;
+      fetch(`${SUPABASE_URL}/rest/v1/concept_misses`, {
+        method: 'POST',
+        headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({
+          student_id: me, concept_id: _lrn.cur.id,
+          q_index: _lrn.qi,
+          picked: (q.src && q.src[picked] != null) ? q.src[picked] : picked,
+          label: String((q.fb && q.fb[picked]) || '').slice(0, 200)
+        })
+      }).catch(() => {});
+    } catch (e) {}
   }
 
   function lrnNext() {
@@ -8041,6 +8234,11 @@ MathJax = { tex: { inlineMath: [['$','$']] }, options: { enableMenu: false } };
   window.lrnSetSubject = lrnSetSubject;
   window.lrnToggle     = lrnToggle;
   window.lrnStartCheck = lrnStartCheck;
+  window.lrnWorked     = lrnWorked;
+  window.lrnFaded      = lrnFaded;
+  window.lrnFadedPick  = lrnFadedPick;
+  window.lrnSolo       = lrnSolo;
+  window.lrnSoloShow   = lrnSoloShow;
   window.lrnPick       = lrnPick;
   window.lrnNext       = lrnNext;
   window.lrnReview     = lrnReview;

@@ -9453,11 +9453,53 @@
         ${A('mistakes').length ? `<div style="font-size:12.5px;font-weight:800;color:#DC2626;margin:14px 0 6px;">⚠️ 자주 하는 실수</div>` +
           A('mistakes').map(m => `<div style="font-size:12px;color:var(--text2);line-height:1.7;padding:3px 0 3px 12px;">· ${nl2br(m)}</div>`).join('') : ''}
 
+        ${(() => {
+          const st = c.steps && typeof c.steps === 'object' ? c.steps : null;
+          if (!st || (!st.worked && !(st.faded || []).length && !st.solo)) {
+            return '<div style="font-size:11.5px;color:#DC2626;font-weight:700;margin:14px 0 6px;">⚠️ 3단계 연습이 없어요 — 🔄 AI 재생성을 누르면 만들어집니다</div>';
+          }
+          let h = '<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:14px 0 6px;">✏️ 3단계 연습</div>';
+          if (st.worked) {
+            h += `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:800;color:#2563EB;">① 보기</div>
+              <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${nl2br(st.worked.q)}</div>
+              ${(st.worked.lines || []).map((l, i) => `<div style="margin-top:5px;">
+                <div style="font-size:12px;color:var(--text2);line-height:1.7;">${i + 1}. ${nl2br(l.do)}</div>
+                ${l.why ? `<div style="font-size:11px;color:#2563EB;line-height:1.55;margin-left:11px;">↳ 왜? ${nl2br(l.why)}</div>`
+                        : '<div style="font-size:11px;color:#DC2626;margin-left:11px;">↳ 이유 없음</div>'}</div>`).join('')}
+              ${st.worked.answer ? `<div style="font-size:12px;font-weight:800;color:#16A34A;margin-top:5px;">답: ${nl2br(st.worked.answer)}</div>` : ''}</div>`;
+          }
+          (st.faded || []).forEach((f, n) => {
+            h += `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:800;color:#2563EB;">② 따라하기 ${n + 1} · ${(f.lines || []).length}단계</div>
+              <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${nl2br(f.q)}</div>
+              ${(f.lines || []).map(l => `<div style="margin-top:5px;">
+                <div style="font-size:12px;color:var(--text2);line-height:1.7;">${nl2br(l.text)}</div>
+                ${(l.o || []).map((o, j) => `<div style="font-size:11.5px;margin-left:11px;color:${j === (l.a || 0) ? '#16A34A' : 'var(--text3)'};font-weight:${j === (l.a || 0) ? '800' : '400'};">${j === (l.a || 0) ? '✔' : '·'} ${nl2br(o)}</div>`).join('')}
+              </div>`).join('')}</div>`;
+          });
+          if (st.solo) {
+            h += `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
+              <div style="font-size:11px;font-weight:800;color:#2563EB;">③ 혼자하기</div>
+              <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${nl2br(st.solo.q)}</div>
+              ${st.solo.answer ? `<div style="font-size:12px;font-weight:800;color:#16A34A;margin-top:4px;">답: ${nl2br(st.solo.answer)}</div>` : ''}
+              ${st.solo.solution ? `<div style="font-size:11.5px;color:var(--text2);line-height:1.7;margin-top:4px;">${nl2br(st.solo.solution)}</div>` : ''}</div>`;
+          }
+          return h;
+        })()}
+
         ${A('checks').length ? `<div style="font-size:12.5px;font-weight:800;color:var(--text1);margin:14px 0 6px;">🧠 확인문제 (학생 화면에선 보기 순서가 섞임)</div>` +
           A('checks').map((q, i) => `<div style="border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:6px;">
             <div style="font-size:12.5px;color:var(--text1);font-weight:700;line-height:1.7;">${i + 1}. ${nl2br(q.q)}</div>
-            ${(q.o || []).map((o, j) => `<div style="font-size:12px;line-height:1.7;color:${j === (q.a || 0) ? '#16A34A' : 'var(--text2)'};font-weight:${j === (q.a || 0) ? '800' : '400'};">${j === (q.a || 0) ? '✔' : '·'} ${nl2br(o)}</div>`).join('')}
-            <div style="font-size:11.5px;color:var(--text3);margin-top:5px;line-height:1.6;">해설 · ${nl2br(q.why)}</div></div>`).join('') : ''}
+            ${(q.o || []).map((o, j) => {
+              const ok = j === (q.a || 0);
+              const fbj = Array.isArray(q.fb) ? q.fb[j] : '';
+              return `<div style="margin-top:4px;">
+                <div style="font-size:12px;line-height:1.7;color:${ok ? '#16A34A' : 'var(--text2)'};font-weight:${ok ? '800' : '400'};">${ok ? '✔' : '·'} ${nl2br(o)}</div>
+                ${fbj ? `<div style="font-size:11px;color:${ok ? '#16A34A' : '#B45309'};line-height:1.55;margin-left:11px;">↳ ${nl2br(fbj)}</div>`
+                      : `<div style="font-size:11px;color:#DC2626;margin-left:11px;">↳ 설명 없음</div>`}</div>`;
+            }).join('')}
+            ${(!Array.isArray(q.fb) || !q.fb.some(Boolean)) && q.why ? `<div style="font-size:11.5px;color:var(--text3);margin-top:5px;line-height:1.6;">해설 · ${nl2br(q.why)}</div>` : ''}</div>`).join('') : ''}
       </div>`;
     typeset(box);
   }
@@ -9468,12 +9510,43 @@
   const joinPoints   = a => (a || []).map(p => `${p.title} | ${p.body}`).join('\n');
   const joinFormulas = a => (a || []).map(f => `${f.name} | ${f.tex}`).join('\n');
   const joinExamples = a => (a || []).map(e => `${e.q} ||| ${String(e.sol || '').replace(/\n/g, '\\n')}`).join('\n');
-  const joinChecks   = a => (a || []).map(q => {
+  // 확인문제 한 줄 = 문제 | 정답 | 오답1 | 오답2 | 오답3 || 정답이유 | 오답1설명 | 오답2설명 | 오답3설명
+  // '||' 앞은 선택지, 뒤는 선택지별 피드백. 순서가 서로 맞아야 한다.
+  const joinChecks = a => (a || []).map(q => {
     const o = (q.o || []).slice();
+    const fb = Array.isArray(q.fb) ? q.fb.slice() : [];
     const ai = q.a || 0;
-    const ordered = [o[ai]].concat(o.filter((_, i) => i !== ai));
-    return [q.q].concat(ordered).concat([q.why]).join(' | ');
+    const ord = [ai].concat(o.map((_, i) => i).filter(i => i !== ai));
+    const opts = ord.map(i => o[i]);
+    const fbs  = ord.map(i => fb[i] || '');
+    const tail = fbs.some(Boolean) ? fbs : [q.why || ''];
+    return [q.q].concat(opts).join(' | ') + ' || ' + tail.join(' | ');
   }).join('\n');
+
+  const joinSteps = st => {
+    if (!st || typeof st !== 'object') return '';
+    const L = [];
+    if (st.worked) {
+      L.push('[보기] ' + (st.worked.q || ''));
+      (st.worked.lines || []).forEach(l => L.push('  ' + (l.do || '') + ' | ' + (l.why || '')));
+      if (st.worked.answer) L.push('  답: ' + st.worked.answer);
+    }
+    (st.faded || []).forEach((f, n) => {
+      L.push('[따라하기' + (n + 1) + '] ' + (f.q || ''));
+      (f.lines || []).forEach(l => {
+        const o = l.o || [], fb = l.fb || [], ai = l.a || 0;
+        const ord = [ai].concat(o.map((_, i) => i).filter(i => i !== ai));
+        L.push('  ' + (l.text || '') + ' | ' + ord.map(i => o[i]).join(' | ')
+               + (fb.some(Boolean) ? ' || ' + ord.map(i => fb[i] || '').join(' | ') : ''));
+      });
+    });
+    if (st.solo) {
+      L.push('[혼자] ' + (st.solo.q || ''));
+      if (st.solo.answer) L.push('  답: ' + st.solo.answer);
+      if (st.solo.solution) L.push('  풀이: ' + String(st.solo.solution).replace(/\n/g, '\\n'));
+    }
+    return L.join('\n');
+  };
 
   function ccEdit() {
     const c = _cc.cur, box = document.getElementById('cc-list');
@@ -9503,14 +9576,52 @@
         ${lab('⚠️ 자주 하는 실수')}${hint('한 줄에 하나')}
         ${ta('cc-e-mis', (c.mistakes || []).join('\n'), 4, '판별식 부호를 반대로 씀')}
 
-        ${lab('🧠 확인문제')}${hint('한 줄에 하나 · <b>문제 | 정답 | 오답1 | 오답2 | 오답3 | 해설</b><br>정답을 항상 두 번째 칸에 두세요. 학생 화면에선 자동으로 섞입니다.')}
-        ${ta('cc-e-chk', joinChecks(c.checks), 8, '$x^2=9$ 의 해는? | $x=\\pm3$ | $x=3$ | $x=9$ | 없다 | 제곱근은 두 개예요.')}
+        ${lab('✏️ 3단계 연습')}${hint('AI가 만든 걸 손보는 칸이에요. 형식을 지켜주세요.<br><b>[보기] 문제</b> → 아랫줄에 두 칸 띄고 <b>단계 | 왜 그렇게 했는지</b><br><b>[따라하기1] 문제</b> → <b>질문 | 정답 | 오답 | 오답 || 정답이유 | 오답설명 | 오답설명</b><br><b>[혼자] 문제</b> → <b>답:</b> / <b>풀이:</b>')}
+        ${ta('cc-e-steps', joinSteps(c.steps), 12, '[보기] $x^2-5x+6=0$ 을 풀어라.\n  곱해서 6, 더해서 $-5$ 인 두 수를 찾는다 | 인수분해하려면 곱과 합을 동시에 맞춰야 해요\n  답: $x=2$ 또는 $x=3$')}
+
+        ${lab('🧠 확인문제')}${hint('한 줄에 하나 · <b>문제 | 정답 | 오답1 | 오답2 | 오답3 || 정답이유 | 오답1설명 | 오답2설명 | 오답3설명</b><br>정답을 항상 두 번째 칸에. 학생 화면에선 섞이고, <b>설명은 선택지를 따라 같이 움직여요.</b><br>오답 설명은 "왜 틀렸다"가 아니라 <b>"무엇을 착각했는지"</b>를 적어주세요.')}
+        ${ta('cc-e-chk', joinChecks(c.checks), 9, '$x^2=9$ 의 해는? | $x=\\pm3$ | $x=3$ | $x=9$ | 없다 || 제곱근은 두 개예요. | $-3$ 도 제곱하면 9예요. | 제곱근을 구해야 하는데 제곱했어요. | 해가 없다고 본 이유를 다시 생각해봐요.')}
 
         <div style="display:flex;gap:8px;margin-top:16px;">
           <button onclick="ccDetail()" style="flex:1;padding:12px;border-radius:11px;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;">취소</button>
           <button onclick="ccSave()" style="flex:2;padding:12px;border-radius:11px;border:none;background:#2563EB;color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;">💾 저장</button>
         </div>
       </div>`;
+  }
+
+  // 편집창의 줄글을 steps 구조로 되돌린다
+  function parseSteps(txt) {
+    const out = { worked: null, faded: [], solo: null };
+    let mode = null, cur = null;
+    String(txt).split('\n').forEach(raw => {
+      const t = raw.trim();
+      if (!t) return;
+      let m;
+      if ((m = t.match(/^\[보기\]\s*(.*)$/))) { mode = 'w'; out.worked = { q: m[1], lines: [], answer: '' }; return; }
+      if ((m = t.match(/^\[따라하기\d*\]\s*(.*)$/))) { mode = 'f'; cur = { q: m[1], lines: [] }; out.faded.push(cur); return; }
+      if ((m = t.match(/^\[혼자\]\s*(.*)$/))) { mode = 's'; out.solo = { q: m[1], answer: '', solution: '' }; return; }
+      if ((m = t.match(/^답\s*:\s*(.*)$/))) {
+        if (mode === 'w' && out.worked) out.worked.answer = m[1];
+        if (mode === 's' && out.solo) out.solo.answer = m[1];
+        return;
+      }
+      if ((m = t.match(/^풀이\s*:\s*(.*)$/))) { if (out.solo) out.solo.solution = m[1].replace(/\\n/g, '\n'); return; }
+      if (mode === 'w' && out.worked) {
+        const i = t.indexOf('|');
+        out.worked.lines.push(i < 0 ? { do: t, why: '' } : { do: t.slice(0, i).trim(), why: t.slice(i + 1).trim() });
+      } else if (mode === 'f' && cur) {
+        const [head, fbPart] = t.split('||');
+        const p = head.split('|').map(x => x.trim());
+        const o = p.slice(1).filter(Boolean);
+        const fb = fbPart ? fbPart.split('|').map(x => x.trim()) : [];
+        while (fb.length < o.length) fb.push('');
+        if (p[0] && o.length >= 2) cur.lines.push({ text: p[0], o, a: 0, fb: fb.slice(0, o.length) });
+      }
+    });
+    if (!out.worked) delete out.worked;
+    if (!out.faded.length) delete out.faded;
+    if (!out.solo) delete out.solo;
+    return out;
   }
 
   const lines = id => (document.getElementById(id).value || '')
@@ -9533,9 +9644,14 @@
       }),
       mistakes: lines('cc-e-mis'),
       checks: lines('cc-e-chk').map(l => {
-        const p = l.split('|').map(s => s.trim());
-        return { q: p[0] || '', o: p.slice(1, 5), a: 0, why: p[5] || '' };
-      }).filter(q => q.q && q.o.length >= 2)
+        const [head, fbPart] = l.split('||');
+        const p = head.split('|').map(s => s.trim());
+        const fb = fbPart ? fbPart.split('|').map(s => s.trim()) : [];
+        const o = p.slice(1, 5).filter(Boolean);
+        while (fb.length < o.length) fb.push('');
+        return { q: p[0] || '', o, a: 0, fb: fb.slice(0, o.length), why: fb[0] || '' };
+      }).filter(q => q.q && q.o.length >= 2),
+      steps: parseSteps(document.getElementById('cc-e-steps').value || '')
     };
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/concepts?id=eq.${_cc.cur.id}`, {
